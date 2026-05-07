@@ -597,7 +597,6 @@ async function openManual(filename, title) {
   document.getElementById('pdfPagesInner').innerHTML   = '';
   document.getElementById('pdfBg').style.display       = 'flex';
   _pdfZoom = 1;
-  document.getElementById('pdfPagesInner').style.zoom  = '1';
 
   try {
     const lib = window.pdfjsLib;
@@ -623,13 +622,16 @@ async function _renderAllPdfPages() {
     const baseVp   = page.getViewport({ scale: 1 });
     const scale    = (cw / baseVp.width) * dpr;
     const viewport = page.getViewport({ scale });
+    const origH    = Math.round(viewport.height / dpr);
     const cv         = document.createElement('canvas');
     cv.width         = Math.round(viewport.width);
     cv.height        = Math.round(viewport.height);
-    cv.style.width   = cw + 'px';
-    cv.style.height  = Math.round(viewport.height / dpr) + 'px';
+    cv.style.width   = Math.round(cw * _pdfZoom) + 'px';
+    cv.style.height  = Math.round(origH * _pdfZoom) + 'px';
     cv.style.display = 'block';
     cv.dataset.page  = i;
+    cv.dataset.origW = cw;
+    cv.dataset.origH = origH;
     inner.appendChild(cv);
     await page.render({ canvasContext: cv.getContext('2d'), viewport }).promise;
   }
@@ -660,6 +662,15 @@ function _pdfScrollTick() {
   document.getElementById('pdfPageInfo').textContent = `${cur} / ${_pdfTotal}`;
 }
 
+// 모든 캔버스의 CSS 크기를 zoom 배율에 맞게 직접 재조정 (CSS zoom 미사용)
+function _applyZoom(z) {
+  _pdfZoom = Math.min(4, Math.max(0.5, z));
+  document.querySelectorAll('#pdfPagesInner canvas').forEach(cv => {
+    cv.style.width  = Math.round(+cv.dataset.origW * _pdfZoom) + 'px';
+    cv.style.height = Math.round(+cv.dataset.origH * _pdfZoom) + 'px';
+  });
+}
+
 function closePdfModal() {
   document.getElementById('pdfBg').style.display     = 'none';
   document.getElementById('pdfPagesInner').innerHTML = '';
@@ -687,8 +698,7 @@ function closePdfModal() {
     e.preventDefault();
     const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                          e.touches[0].clientY - e.touches[1].clientY);
-    _pdfZoom = Math.min(4, Math.max(0.5, _pinchStart.zoom * (d / _pinchStart.dist)));
-    document.getElementById('pdfPagesInner').style.zoom = _pdfZoom;
+    _applyZoom(_pinchStart.zoom * (d / _pinchStart.dist));
   }, { passive: false });
 
   outer.addEventListener('touchend', () => { _pinchStart = null; }, { passive: true });
@@ -697,8 +707,7 @@ function closePdfModal() {
   outer.addEventListener('wheel', e => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    _pdfZoom = Math.min(4, Math.max(0.5, _pdfZoom * (e.deltaY < 0 ? 1.1 : 0.909)));
-    document.getElementById('pdfPagesInner').style.zoom = _pdfZoom;
+    _applyZoom(_pdfZoom * (e.deltaY < 0 ? 1.1 : 0.909));
   }, { passive: false });
 })();
 

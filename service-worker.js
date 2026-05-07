@@ -4,7 +4,7 @@
 //  버전 업데이트 시 CACHE_VERSION 숫자를 올리면 구 캐시가 자동 삭제됨
 // ════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 const PDF_CACHE     = `led-calc-pdf-${CACHE_VERSION}`;
 
