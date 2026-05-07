@@ -117,7 +117,7 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .equip-section:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
 
 /* 메뉴얼 링크 */
-.manual-link{display:inline-flex;align-items:center;gap:4px;margin-top:10px;padding:7px 14px;background:#E1F5EE;border-radius:8px;font-size:13px;font-weight:500;color:#0F6E56;text-decoration:none;}
+.manual-link{display:inline-flex;align-items:center;gap:4px;margin-top:10px;padding:7px 14px;background:#E1F5EE;border:none;border-radius:8px;font-size:13px;font-weight:500;color:#0F6E56;text-decoration:none;cursor:pointer;}
 .manual-link:hover{background:#c6eddf;}
 
 /* 체크리스트 삭제 버튼 */

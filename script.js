@@ -160,8 +160,8 @@ function selConsole(el) {
   document.getElementById('cableType').textContent     = s.cable;
   document.getElementById('repeaterType').textContent  = s.rep;
   const lnk = document.getElementById('consoleManual');
-  lnk.href    = 'javascript:void(0)';
   lnk.onclick = () => openManual(s.manual, el.dataset.v + ' 메뉴얼');
+  lnk.style.display = 'inline-flex';
   document.getElementById('consoleInfo').style.display = 'block';
 }
 function selSending(el) {
@@ -170,8 +170,8 @@ function selSending(el) {
   curSending = el.dataset.v;
   const s = SSPEC[curSending];
   const lnk = document.getElementById('sendingManual');
-  lnk.href    = 'javascript:void(0)';
   lnk.onclick = () => openManual(s.manual, s.label + ' 메뉴얼');
+  lnk.style.display = 'inline-flex';
   document.getElementById('sendingInfo').style.display = 'block';
   if (isReady()) renderRes();
 }
@@ -612,19 +612,17 @@ async function openManual(filename, title) {
   }
 }
 
-// 모든 페이지를 고해상도로 순서대로 렌더링
+// 모든 페이지를 고해상도로 렌더링 — 1페이지를 먼저 그려 빠르게 표시
 async function _renderAllPdfPages() {
   const inner = document.getElementById('pdfPagesInner');
   const dpr   = window.devicePixelRatio || 1;
-  const cw    = document.getElementById('pdfScrollOuter').clientWidth - 16; // padding 8px×2
+  const cw    = document.getElementById('pdfScrollOuter').clientWidth - 16;
 
-  for (let i = 1; i <= _pdfTotal; i++) {
-    document.getElementById('pdfPageInfo').textContent = `${i} / ${_pdfTotal} 로딩중...`;
+  async function _renderOne(i) {
     const page     = await _pdfDoc.getPage(i);
     const baseVp   = page.getViewport({ scale: 1 });
     const scale    = (cw / baseVp.width) * dpr;
     const viewport = page.getViewport({ scale });
-
     const cv         = document.createElement('canvas');
     cv.width         = Math.round(viewport.width);
     cv.height        = Math.round(viewport.height);
@@ -633,11 +631,21 @@ async function _renderAllPdfPages() {
     cv.style.display = 'block';
     cv.dataset.page  = i;
     inner.appendChild(cv);
-
     await page.render({ canvasContext: cv.getContext('2d'), viewport }).promise;
   }
+
+  // 1페이지 먼저 렌더링 → 사용자가 즉시 내용 확인 가능
+  await _renderOne(1);
   document.getElementById('pdfPageInfo').textContent = `1 / ${_pdfTotal}`;
   document.getElementById('pdfScrollOuter').scrollTop = 0;
+
+  // 나머지 페이지 백그라운드 렌더링
+  for (let i = 2; i <= _pdfTotal; i++) {
+    if (!_pdfDoc) return; // 뷰어가 닫혔으면 중단
+    document.getElementById('pdfPageInfo').textContent = `로딩중 ${i}/${_pdfTotal}...`;
+    await _renderOne(i);
+  }
+  if (_pdfDoc) document.getElementById('pdfPageInfo').textContent = `1 / ${_pdfTotal}`;
 }
 
 // 스크롤 위치로 현재 페이지 번호 업데이트
