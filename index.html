@@ -16,7 +16,6 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -72,7 +71,7 @@
             <span class="iv" id="repeaterType"></span>
           </div>
         </div>
-        <button id="consoleManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
+        <a id="consoleManual" class="manual-link" href="#" target="_blank" style="display:none;">사용 메뉴얼 보기 →</a>
       </div>
     </div>
     <div class="equip-section">
@@ -82,7 +81,7 @@
         <button class="chip" data-v="4k" onclick="selSending(this)">4K</button>
       </div>
       <div id="sendingInfo" style="display:none;margin-top:10px;">
-        <button id="sendingManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
+        <a id="sendingManual" class="manual-link" href="#" target="_blank" style="display:none;">사용 메뉴얼 보기 →</a>
       </div>
     </div>
     <div class="equip-section" style="margin-bottom:0">
@@ -253,19 +252,6 @@
   </div>
 </div>
 
-<!-- PDF 뷰어 (전체화면) -->
-<div id="pdfBg" class="pdf-fs-bg" style="display:none;">
-  <div class="pdf-fs">
-    <div class="pdf-topbar">
-      <span class="pdf-tb-title" id="pdfModalTitle">메뉴얼</span>
-      <span class="pdf-tb-info" id="pdfPageInfo">-</span>
-      <button class="pdf-tb-close" onclick="closePdfModal()">✕</button>
-    </div>
-    <div class="pdf-scroll-outer" id="pdfScrollOuter">
-      <div class="pdf-pages-inner" id="pdfPagesInner"></div>
-    </div>
-  </div>
-</div>
 
 <script src="script.js"></script>
 
