@@ -263,6 +263,10 @@
     <div class="easter-sub">
       기획: DJ &nbsp;·&nbsp; 개발: Claude + DJ (반반)<br>버그 수정: DJ의 근성 💪
     </div>
+    <div class="easter-meta">
+      <span class="easter-sw-ver" id="easterSwVer"></span>
+    </div>
+    <div class="easter-changelog" id="easterLog"></div>
     <button class="modal-close" onclick="closeEaster()">닫기</button>
   </div>
 </div>
@@ -270,12 +274,21 @@
 
 <script src="script.js"></script>
 
+<!-- 업데이트 배너 -->
+<div id="updateBanner" class="update-banner" style="display:none;">
+  <span>새 버전으로 업데이트되었습니다</span>
+  <button onclick="location.reload()">새로고침</button>
+</div>
+
 <!-- Service Worker 등록 -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./service-worker.js')
         .catch(err => console.warn('SW 등록 실패:', err));
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      document.getElementById('updateBanner').style.display = 'flex';
     });
   }
 </script>

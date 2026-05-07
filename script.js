@@ -19,7 +19,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION    = '1.0.1';
+const APP_SW_VERSION = 'v11';
+
+const CHANGELOG = [
+  { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정'] },
+  { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
+];
 
 // LED 피치별 패널 해상도 (px) — px500: 500×500mm 패널, px1000: 500×1000mm 패널
 const SPECS = {
@@ -161,6 +167,11 @@ function _onVersionTap() {
   clearTimeout(_verTimer);
   if (_verTaps >= 5) {
     _verTaps = 0;
+    document.getElementById('easterSwVer').textContent = 'SW ' + APP_SW_VERSION;
+    const log = document.getElementById('easterLog');
+    log.innerHTML = CHANGELOG.map(c =>
+      `<div class="e-log-row"><span class="e-log-v">v${c.v}</span><ul>${c.items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`
+    ).join('');
     document.getElementById('easterBg').style.display = 'flex';
   } else {
     _verTimer = setTimeout(() => { _verTaps = 0; }, 1800);
