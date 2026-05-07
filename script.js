@@ -600,7 +600,7 @@ async function openManual(filename, title) {
   document.getElementById('pdfPagesInner').style.zoom  = '1';
 
   try {
-    const lib = window['pdfjs-dist/build/pdf'];
+    const lib = window.pdfjsLib;
     lib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     _pdfDoc   = await lib.getDocument(filename).promise;
