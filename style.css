@@ -181,6 +181,6 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .pdf-tb-title{flex:1;font-size:15px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pdf-tb-info{font-size:13px;color:#aaa;white-space:nowrap;}
 .pdf-tb-close{background:none;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:2px 6px;}
-.pdf-scroll-outer{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain;}
-.pdf-pages-inner{padding:8px;}
-.pdf-pages-inner canvas{display:block;margin-bottom:8px;}
+.pdf-scroll-outer{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.pdf-pages-inner{padding:8px;width:max-content;min-width:100%;touch-action:pan-x pan-y;}
+.pdf-pages-inner canvas{display:block;margin-bottom:8px;touch-action:pan-x pan-y;}

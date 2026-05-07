@@ -695,11 +695,10 @@ function closePdfModal() {
 
   outer.addEventListener('touchmove', e => {
     if (e.touches.length !== 2 || !_pinchStart) return;
-    e.preventDefault();
     const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                          e.touches[0].clientY - e.touches[1].clientY);
     _applyZoom(_pinchStart.zoom * (d / _pinchStart.dist));
-  }, { passive: false });
+  }, { passive: true });
 
   outer.addEventListener('touchend', () => { _pinchStart = null; }, { passive: true });
 
