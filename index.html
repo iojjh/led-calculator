@@ -24,6 +24,7 @@
 <div class="tab-nav">
   <button class="tab-btn on" onclick="swTab('calc',this)">계산기</button>
   <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
+  <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
 </div>
 
 <!-- 탭1: 계산기 -->
@@ -233,6 +234,22 @@
       <button class="confirm-dl-btn" style="background:#378ADD;" onclick="shareImage()">공유</button>
       <button class="confirm-dl-btn" onclick="confirmDownload()">다운로드</button>
     </div>
+  </div>
+</div>
+
+<!-- 이스터에그 -->
+<div class="easter-bg" id="easterBg" style="display:none;" onclick="closeEasterBg(event)">
+  <div class="easter-modal">
+    <div class="easter-icon">🤖</div>
+    <div class="easter-title">비밀 해제!</div>
+    <div class="easter-body">
+      <b>made by DJ</b><br>
+      with ☁️ <b>Claude Code</b>
+    </div>
+    <div class="easter-sub">
+      기획: DJ &nbsp;·&nbsp; 개발: Claude + DJ (반반)<br>버그 수정: DJ의 근성 💪
+    </div>
+    <button class="modal-close" onclick="closeEaster()">닫기</button>
   </div>
 </div>
 

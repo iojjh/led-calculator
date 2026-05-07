@@ -19,6 +19,8 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
+const APP_VERSION = '1.0.0';
+
 // LED 피치별 패널 해상도 (px) — px500: 500×500mm 패널, px1000: 500×1000mm 패널
 const SPECS = {
   '2mm': { px500: { w: 192, h: 192 }, px1000: { w: 192, h: 384 } },
@@ -141,7 +143,7 @@ function addMemo() {
 function delMemo(i) { memoList.splice(i, 1); renderMemo(); }
 
 
-// ── §4  탭 전환 ───────────────────────────────────────────
+// ── §4  탭 전환 & 버전 표시 ──────────────────────────────
 
 function swTab(id, btn) {
   document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('on'));
@@ -149,6 +151,23 @@ function swTab(id, btn) {
   document.getElementById('tab-' + id).classList.add('on');
   btn.classList.add('on');
 }
+
+document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
+
+// 버전 5번 탭 → 이스터에그
+let _verTaps = 0, _verTimer = null;
+function _onVersionTap() {
+  _verTaps++;
+  clearTimeout(_verTimer);
+  if (_verTaps >= 5) {
+    _verTaps = 0;
+    document.getElementById('easterBg').style.display = 'flex';
+  } else {
+    _verTimer = setTimeout(() => { _verTaps = 0; }, 1800);
+  }
+}
+function closeEaster()    { document.getElementById('easterBg').style.display = 'none'; }
+function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')) closeEaster(); }
 
 
 // ── §5  콘솔 & 샌딩카드 ──────────────────────────────────
@@ -662,10 +681,15 @@ function _pdfScrollTick() {
   document.getElementById('pdfPageInfo').textContent = `${cur} / ${_pdfTotal}`;
 }
 
-// 모든 캔버스의 CSS 크기를 zoom 배율에 맞게 직접 재조정 (CSS zoom 미사용)
+// 모든 캔버스의 CSS 크기를 zoom 배율에 맞게 직접 재조정
+// minZoom: 캔버스 가로가 뷰어 너비를 꽉 채우는 배율 이하로는 축소 불가
 function _applyZoom(z) {
-  _pdfZoom = Math.min(4, Math.max(0.5, z));
-  document.querySelectorAll('#pdfPagesInner canvas').forEach(cv => {
+  const canvases = document.querySelectorAll('#pdfPagesInner canvas');
+  if (!canvases.length) return;
+  const outer   = document.getElementById('pdfScrollOuter');
+  const minZoom = outer ? outer.clientWidth / (+canvases[0].dataset.origW) : 1;
+  _pdfZoom = Math.min(4, Math.max(minZoom, z));
+  canvases.forEach(cv => {
     cv.style.width  = Math.round(+cv.dataset.origW * _pdfZoom) + 'px';
     cv.style.height = Math.round(+cv.dataset.origH * _pdfZoom) + 'px';
   });

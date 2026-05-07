@@ -8,6 +8,13 @@ input[type=number]:focus{outline:none;border-color:#0F6E56;}
 .tab-nav{display:flex;background:#fff;border-bottom:1.5px solid #e5e5e5;position:sticky;top:0;z-index:50;overflow-x:auto;}
 .tab-btn{padding:13px 16px;font-size:13px;font-weight:500;cursor:pointer;background:none;border:none;color:#888;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;white-space:nowrap;}
 .tab-btn.on{color:#0F6E56;border-bottom-color:#0F6E56;}
+.app-version{margin-left:auto;padding:0 14px;font-size:10px;color:#ccc;align-self:center;white-space:nowrap;user-select:none;cursor:default;}
+.easter-bg{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:24px;}
+.easter-modal{background:#fff;border-radius:24px;padding:36px 28px 28px;width:100%;max-width:300px;text-align:center;}
+.easter-icon{font-size:52px;margin-bottom:10px;}
+.easter-title{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:14px;}
+.easter-body{font-size:15px;color:#333;line-height:1.7;margin-bottom:10px;}
+.easter-sub{font-size:12px;color:#999;line-height:1.8;margin-bottom:22px;}
 .tab-page{display:none;padding:12px 12px 0;}.tab-page.on{display:block;}
 
 /* 카드 */
