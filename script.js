@@ -20,7 +20,7 @@
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
 const APP_VERSION    = '1.0.1';
-const APP_SW_VERSION = 'v11';
+const APP_SW_VERSION = 'v12';
 
 const CHANGELOG = [
   { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정'] },
