@@ -236,19 +236,17 @@
   </div>
 </div>
 
-<!-- PDF 뷰어 모달 -->
-<div class="modal-bg" id="pdfBg" style="display:none;" onclick="closePdfBg(event)">
-  <div class="modal pdf-modal">
-    <div class="modal-title" id="pdfModalTitle">메뉴얼</div>
-    <div class="pdf-scroll">
-      <canvas id="pdfCanvas"></canvas>
+<!-- PDF 뷰어 (전체화면) -->
+<div id="pdfBg" class="pdf-fs-bg" style="display:none;">
+  <div class="pdf-fs">
+    <div class="pdf-topbar">
+      <span class="pdf-tb-title" id="pdfModalTitle">메뉴얼</span>
+      <span class="pdf-tb-info" id="pdfPageInfo">-</span>
+      <button class="pdf-tb-close" onclick="closePdfModal()">✕</button>
     </div>
-    <div class="pdf-nav">
-      <button class="pdf-nav-btn" id="pdfPrev" onclick="pdfPrevPage()" disabled>◀ 이전</button>
-      <span class="pdf-page-info" id="pdfPageInfo">-</span>
-      <button class="pdf-nav-btn" id="pdfNext" onclick="pdfNextPage()" disabled>다음 ▶</button>
+    <div class="pdf-scroll-outer" id="pdfScrollOuter">
+      <div class="pdf-pages-inner" id="pdfPagesInner"></div>
     </div>
-    <button class="modal-close" onclick="closePdfModal()">닫기</button>
   </div>
 </div>
 
