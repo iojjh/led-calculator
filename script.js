@@ -628,6 +628,7 @@ async function openManual(filename, title) {
   document.getElementById('pdfPageInfo').textContent   = '로딩 중...';
   document.getElementById('pdfPagesInner').innerHTML   = '';
   document.getElementById('pdfBg').style.display       = 'flex';
+  history.pushState({ modal: 'pdf' }, '');
   _pdfZoom = 1;
 
   try {
@@ -712,7 +713,16 @@ function closePdfModal() {
   document.getElementById('pdfBg').style.display     = 'none';
   document.getElementById('pdfPagesInner').innerHTML = '';
   _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
+  if (history.state && history.state.modal === 'pdf') history.back();
 }
+
+window.addEventListener('popstate', e => {
+  if (document.getElementById('pdfBg').style.display !== 'none') {
+    document.getElementById('pdfBg').style.display     = 'none';
+    document.getElementById('pdfPagesInner').innerHTML = '';
+    _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
+  }
+});
 
 // 스크롤 · 핀치줌 · Ctrl+휠 이벤트 — 페이지 로드 시 1회 등록
 (function _attachPdfEvents() {
