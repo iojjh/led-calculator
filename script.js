@@ -20,10 +20,10 @@
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
 const APP_VERSION    = '1.0.1';
-const APP_SW_VERSION = 'v12';
+const APP_SW_VERSION = 'v13';
 
 const CHANGELOG = [
-  { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정'] },
+  { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정'] },
   { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
 ];
 
@@ -635,7 +635,7 @@ async function openManual(filename, title) {
     const lib = window.pdfjsLib;
     lib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    _pdfDoc   = await lib.getDocument(filename).promise;
+    _pdfDoc   = await lib.getDocument(encodeURI(filename)).promise;
     _pdfTotal = _pdfDoc.numPages;
     await _renderAllPdfPages();
   } catch (err) {
