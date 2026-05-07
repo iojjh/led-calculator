@@ -16,6 +16,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -232,6 +233,22 @@
       <button class="confirm-dl-btn" style="background:#378ADD;" onclick="shareImage()">공유</button>
       <button class="confirm-dl-btn" onclick="confirmDownload()">다운로드</button>
     </div>
+  </div>
+</div>
+
+<!-- PDF 뷰어 모달 -->
+<div class="modal-bg" id="pdfBg" style="display:none;" onclick="closePdfBg(event)">
+  <div class="modal pdf-modal">
+    <div class="modal-title" id="pdfModalTitle">메뉴얼</div>
+    <div class="pdf-scroll">
+      <canvas id="pdfCanvas"></canvas>
+    </div>
+    <div class="pdf-nav">
+      <button class="pdf-nav-btn" id="pdfPrev" onclick="pdfPrevPage()" disabled>◀ 이전</button>
+      <span class="pdf-page-info" id="pdfPageInfo">-</span>
+      <button class="pdf-nav-btn" id="pdfNext" onclick="pdfNextPage()" disabled>다음 ▶</button>
+    </div>
+    <button class="modal-close" onclick="closePdfModal()">닫기</button>
   </div>
 </div>
 

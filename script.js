@@ -11,6 +11,7 @@
 //  §7  확인 다이얼로그 & 전체 초기화
 //  §8  저장 / 불러오기 (localStorage)
 //  §9  소형 계산기 위젯
+//  §9.5 PDF 뷰어 (PDF.js 기반 인앱 뷰어)
 //  §10 계산기 핵심 (면적·패널 계산 & 결과 렌더링)
 //  §11 랜선 시뮬레이터 (캔버스, 포트 할당, 이벤트)
 // ════════════════════════════════════════════════════════════
@@ -158,7 +159,9 @@ function selConsole(el) {
   const s = CSPEC[el.dataset.v];
   document.getElementById('cableType').textContent     = s.cable;
   document.getElementById('repeaterType').textContent  = s.rep;
-  document.getElementById('consoleManual').href        = s.manual;
+  const lnk = document.getElementById('consoleManual');
+  lnk.href    = 'javascript:void(0)';
+  lnk.onclick = () => openManual(s.manual, el.dataset.v + ' 메뉴얼');
   document.getElementById('consoleInfo').style.display = 'block';
 }
 function selSending(el) {
@@ -166,7 +169,9 @@ function selSending(el) {
   el.classList.add('on');
   curSending = el.dataset.v;
   const s = SSPEC[curSending];
-  document.getElementById('sendingManual').href        = s.manual;
+  const lnk = document.getElementById('sendingManual');
+  lnk.href    = 'javascript:void(0)';
+  lnk.onclick = () => openManual(s.manual, s.label + ' 메뉴얼');
   document.getElementById('sendingInfo').style.display = 'block';
   if (isReady()) renderRes();
 }
@@ -573,6 +578,66 @@ function calcDel() {
 function toggleCalc() {
   const p = document.getElementById('calcPanel');
   p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  §9.5  PDF 뷰어 (PDF.js 기반 인앱 뷰어)
+// ════════════════════════════════════════════════════════════
+
+let _pdfDoc = null, _pdfPage = 1, _pdfTotal = 0;
+
+// PDF 모달 열기 — 파일명(url)과 제목을 받아 PDF.js로 렌더링
+async function openManual(filename, title) {
+  document.getElementById('pdfModalTitle').textContent = title || '메뉴얼';
+  document.getElementById('pdfBg').style.display       = 'flex';
+  document.getElementById('pdfCanvas').getContext('2d').clearRect(0, 0, 1, 1);
+  document.getElementById('pdfPageInfo').textContent   = '로딩 중...';
+  document.getElementById('pdfPrev').disabled          = true;
+  document.getElementById('pdfNext').disabled          = true;
+
+  try {
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    _pdfDoc   = await pdfjsLib.getDocument(filename).promise;
+    _pdfTotal = _pdfDoc.numPages;
+    _pdfPage  = 1;
+    await _renderPdfPage(_pdfPage);
+  } catch (err) {
+    document.getElementById('pdfPageInfo').textContent = '파일을 불러올 수 없습니다.';
+    console.warn('PDF 로드 오류:', err);
+  }
+}
+
+// 지정 페이지를 canvas에 렌더링
+async function _renderPdfPage(num) {
+  const page     = await _pdfDoc.getPage(num);
+  const cv       = document.getElementById('pdfCanvas');
+  const viewport = page.getViewport({ scale: cv.parentElement.clientWidth / page.getViewport({ scale: 1 }).width });
+  cv.width  = viewport.width;
+  cv.height = viewport.height;
+  await page.render({ canvasContext: cv.getContext('2d'), viewport }).promise;
+
+  document.getElementById('pdfPageInfo').textContent = `${num} / ${_pdfTotal}`;
+  document.getElementById('pdfPrev').disabled = num <= 1;
+  document.getElementById('pdfNext').disabled = num >= _pdfTotal;
+}
+
+async function pdfPrevPage() {
+  if (_pdfPage > 1) { _pdfPage--; await _renderPdfPage(_pdfPage); }
+}
+async function pdfNextPage() {
+  if (_pdfPage < _pdfTotal) { _pdfPage++; await _renderPdfPage(_pdfPage); }
+}
+
+function closePdfModal() {
+  document.getElementById('pdfBg').style.display = 'none';
+  _pdfDoc = null; _pdfPage = 1; _pdfTotal = 0;
+}
+function closePdfBg(e) {
+  if (e.target === document.getElementById('pdfBg')) closePdfModal();
 }
 
 
