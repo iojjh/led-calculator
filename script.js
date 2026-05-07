@@ -11,6 +11,7 @@
 //  §7  확인 다이얼로그 & 전체 초기화
 //  §8  저장 / 불러오기 (localStorage)
 //  §9  소형 계산기 위젯
+//  §9.5 PDF 뷰어 (PDF.js, 페이지 단위 이동)
 //  §10 계산기 핵심 (면적·패널 계산 & 결과 렌더링)
 //  §11 랜선 시뮬레이터 (캔버스, 포트 할당, 이벤트)
 // ════════════════════════════════════════════════════════════
@@ -178,7 +179,7 @@ function selConsole(el) {
   document.getElementById('cableType').textContent     = s.cable;
   document.getElementById('repeaterType').textContent  = s.rep;
   const lnk = document.getElementById('consoleManual');
-  lnk.href         = s.manual;
+  lnk.onclick       = () => openManual(s.manual, el.dataset.v + ' 메뉴얼');
   lnk.style.display = 'inline-flex';
   document.getElementById('consoleInfo').style.display = 'block';
 }
@@ -188,7 +189,7 @@ function selSending(el) {
   curSending = el.dataset.v;
   const s = SSPEC[curSending];
   const lnk = document.getElementById('sendingManual');
-  lnk.href         = s.manual;
+  lnk.onclick       = () => openManual(s.manual, s.label + ' 메뉴얼');
   lnk.style.display = 'inline-flex';
   document.getElementById('sendingInfo').style.display = 'block';
   if (isReady()) renderRes();
@@ -599,6 +600,50 @@ function toggleCalc() {
 }
 
 
+
+
+// ── §9.5  PDF 뷰어 ────────────────────────────────────────
+
+let _pdfDoc = null, _pdfPage = 1, _pdfTotal = 0;
+
+async function openManual(url, title) {
+  document.getElementById('pdfTitle').textContent = title || '메뉴얼';
+  document.getElementById('pdfInfo').textContent  = '로딩 중...';
+  document.getElementById('pdfPrev').disabled     = true;
+  document.getElementById('pdfNext').disabled     = true;
+  document.getElementById('pdfBg').style.display  = 'flex';
+  try {
+    const lib = window.pdfjsLib;
+    lib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    _pdfDoc   = await lib.getDocument(url).promise;
+    _pdfTotal = _pdfDoc.numPages;
+    _pdfPage  = 1;
+    await _renderPdfPage();
+  } catch {
+    document.getElementById('pdfInfo').textContent = '파일을 불러올 수 없습니다.';
+  }
+}
+
+async function _renderPdfPage() {
+  const page = await _pdfDoc.getPage(_pdfPage);
+  const cv   = document.getElementById('pdfCanvas');
+  const cw   = document.getElementById('pdfBody').clientWidth - 16;
+  const vp   = page.getViewport({ scale: cw / page.getViewport({ scale: 1 }).width });
+  cv.width   = Math.round(vp.width);
+  cv.height  = Math.round(vp.height);
+  cv.style.width = '100%';
+  document.getElementById('pdfBody').scrollTop = 0;
+  await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  document.getElementById('pdfInfo').textContent  = `${_pdfPage} / ${_pdfTotal}`;
+  document.getElementById('pdfPrev').disabled     = _pdfPage <= 1;
+  document.getElementById('pdfNext').disabled     = _pdfPage >= _pdfTotal;
+}
+
+async function pdfPrev() { if (_pdfPage > 1)         { _pdfPage--; await _renderPdfPage(); } }
+async function pdfNext() { if (_pdfPage < _pdfTotal) { _pdfPage++; await _renderPdfPage(); } }
+function closePdf()    { document.getElementById('pdfBg').style.display = 'none'; _pdfDoc = null; _pdfPage = 1; _pdfTotal = 0; }
+function closePdfBg(e) { if (e.target === document.getElementById('pdfBg')) closePdf(); }
 
 
 // ════════════════════════════════════════════════════════════
