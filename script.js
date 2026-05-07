@@ -602,48 +602,139 @@ function toggleCalc() {
 
 
 
-// ── §9.5  PDF 뷰어 ────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  §9.5  PDF 뷰어 (PDF.js 기반 인앱 전체화면 뷰어)
+// ════════════════════════════════════════════════════════════
 
-let _pdfDoc = null, _pdfPage = 1, _pdfTotal = 0;
+let _pdfDoc     = null;
+let _pdfTotal   = 0;
+let _pdfZoom    = 1;
+let _pinchStart = null;
 
-async function openManual(url, title) {
-  document.getElementById('pdfTitle').textContent = title || '메뉴얼';
-  document.getElementById('pdfInfo').textContent  = '로딩 중...';
-  document.getElementById('pdfPrev').disabled     = true;
-  document.getElementById('pdfNext').disabled     = true;
-  document.getElementById('pdfBg').style.display  = 'flex';
+// PDF 전체화면 뷰어 열기
+async function openManual(filename, title) {
+  document.getElementById('pdfModalTitle').textContent = title || '메뉴얼';
+  document.getElementById('pdfPageInfo').textContent   = '로딩 중...';
+  document.getElementById('pdfPagesInner').innerHTML   = '';
+  document.getElementById('pdfBg').style.display       = 'flex';
+  _pdfZoom = 1;
+
   try {
     const lib = window.pdfjsLib;
     lib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    _pdfDoc   = await lib.getDocument(url).promise;
+    _pdfDoc   = await lib.getDocument(filename).promise;
     _pdfTotal = _pdfDoc.numPages;
-    _pdfPage  = 1;
-    await _renderPdfPage();
-  } catch {
-    document.getElementById('pdfInfo').textContent = '파일을 불러올 수 없습니다.';
+    await _renderAllPdfPages();
+  } catch (err) {
+    document.getElementById('pdfPageInfo').textContent = '파일을 불러올 수 없습니다.';
+    console.warn('PDF 로드 오류:', err);
   }
 }
 
-async function _renderPdfPage() {
-  const page = await _pdfDoc.getPage(_pdfPage);
-  const cv   = document.getElementById('pdfCanvas');
-  const cw   = document.getElementById('pdfBody').clientWidth - 16;
-  const vp   = page.getViewport({ scale: cw / page.getViewport({ scale: 1 }).width });
-  cv.width   = Math.round(vp.width);
-  cv.height  = Math.round(vp.height);
-  cv.style.width = '100%';
-  document.getElementById('pdfBody').scrollTop = 0;
-  await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-  document.getElementById('pdfInfo').textContent  = `${_pdfPage} / ${_pdfTotal}`;
-  document.getElementById('pdfPrev').disabled     = _pdfPage <= 1;
-  document.getElementById('pdfNext').disabled     = _pdfPage >= _pdfTotal;
+// 모든 페이지를 고해상도로 렌더링 — 1페이지를 먼저 그려 빠르게 표시
+async function _renderAllPdfPages() {
+  const inner = document.getElementById('pdfPagesInner');
+  const dpr   = window.devicePixelRatio || 1;
+  const cw    = document.getElementById('pdfScrollOuter').clientWidth - 16;
+
+  async function _renderOne(i) {
+    const page     = await _pdfDoc.getPage(i);
+    const baseVp   = page.getViewport({ scale: 1 });
+    const scale    = (cw / baseVp.width) * dpr;
+    const viewport = page.getViewport({ scale });
+    const origH    = Math.round(viewport.height / dpr);
+    const cv         = document.createElement('canvas');
+    cv.width         = Math.round(viewport.width);
+    cv.height        = Math.round(viewport.height);
+    cv.style.width   = Math.round(cw * _pdfZoom) + 'px';
+    cv.style.height  = Math.round(origH * _pdfZoom) + 'px';
+    cv.style.display = 'block';
+    cv.dataset.page  = i;
+    cv.dataset.origW = cw;
+    cv.dataset.origH = origH;
+    inner.appendChild(cv);
+    await page.render({ canvasContext: cv.getContext('2d'), viewport }).promise;
+  }
+
+  // 1페이지 먼저 렌더링 → 사용자가 즉시 내용 확인 가능
+  await _renderOne(1);
+  document.getElementById('pdfPageInfo').textContent = `1 / ${_pdfTotal}`;
+  document.getElementById('pdfScrollOuter').scrollTop = 0;
+
+  // 나머지 페이지 백그라운드 렌더링
+  for (let i = 2; i <= _pdfTotal; i++) {
+    if (!_pdfDoc) return; // 뷰어가 닫혔으면 중단
+    document.getElementById('pdfPageInfo').textContent = `로딩중 ${i}/${_pdfTotal}...`;
+    await _renderOne(i);
+  }
+  if (_pdfDoc) document.getElementById('pdfPageInfo').textContent = `1 / ${_pdfTotal}`;
 }
 
-async function pdfPrev() { if (_pdfPage > 1)         { _pdfPage--; await _renderPdfPage(); } }
-async function pdfNext() { if (_pdfPage < _pdfTotal) { _pdfPage++; await _renderPdfPage(); } }
-function closePdf()    { document.getElementById('pdfBg').style.display = 'none'; _pdfDoc = null; _pdfPage = 1; _pdfTotal = 0; }
-function closePdfBg(e) { if (e.target === document.getElementById('pdfBg')) closePdf(); }
+// 스크롤 위치로 현재 페이지 번호 업데이트
+function _pdfScrollTick() {
+  if (!_pdfTotal) return;
+  const outer = document.getElementById('pdfScrollOuter');
+  const mid   = outer.scrollTop + outer.clientHeight / 2;
+  let cur = 1;
+  document.querySelectorAll('#pdfPagesInner canvas').forEach(cv => {
+    if (cv.offsetTop <= mid) cur = +cv.dataset.page;
+  });
+  document.getElementById('pdfPageInfo').textContent = `${cur} / ${_pdfTotal}`;
+}
+
+// 모든 캔버스의 CSS 크기를 zoom 배율에 맞게 직접 재조정
+// minZoom: 캔버스 가로가 뷰어 너비를 꽉 채우는 배율 이하로는 축소 불가
+function _applyZoom(z) {
+  const canvases = document.querySelectorAll('#pdfPagesInner canvas');
+  if (!canvases.length) return;
+  const outer   = document.getElementById('pdfScrollOuter');
+  const minZoom = outer ? outer.clientWidth / (+canvases[0].dataset.origW) : 1;
+  _pdfZoom = Math.min(4, Math.max(minZoom, z));
+  canvases.forEach(cv => {
+    cv.style.width  = Math.round(+cv.dataset.origW * _pdfZoom) + 'px';
+    cv.style.height = Math.round(+cv.dataset.origH * _pdfZoom) + 'px';
+  });
+}
+
+function closePdfModal() {
+  document.getElementById('pdfBg').style.display     = 'none';
+  document.getElementById('pdfPagesInner').innerHTML = '';
+  _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
+}
+
+// 스크롤 · 핀치줌 · Ctrl+휠 이벤트 — 페이지 로드 시 1회 등록
+(function _attachPdfEvents() {
+  const outer = document.getElementById('pdfScrollOuter');
+  if (!outer) return;
+
+  outer.addEventListener('scroll', _pdfScrollTick, { passive: true });
+
+  outer.addEventListener('touchstart', e => {
+    if (e.touches.length !== 2) return;
+    _pinchStart = {
+      dist: Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                       e.touches[0].clientY - e.touches[1].clientY),
+      zoom: _pdfZoom,
+    };
+  }, { passive: true });
+
+  outer.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2 || !_pinchStart) return;
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+    _applyZoom(_pinchStart.zoom * (d / _pinchStart.dist));
+  }, { passive: true });
+
+  outer.addEventListener('touchend', () => { _pinchStart = null; }, { passive: true });
+
+  // PC: Ctrl+휠 확대/축소
+  outer.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    _applyZoom(_pdfZoom * (e.deltaY < 0 ? 1.1 : 0.909));
+  }, { passive: false });
+})();
 
 
 // ════════════════════════════════════════════════════════════
