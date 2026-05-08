@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.6';
-const APP_SW_VERSION = 'v20';
+const APP_VERSION    = '1.0.7';
+const APP_SW_VERSION = 'v21';
 
 const CHANGELOG = [
+  { v: '1.0.7', items: ['자동할당 4규칙 적용 (65만px·바닥시작·바닥끝허용·포트최소화)', '해상도 이미지 생성 기능 추가 (패널 격자 점선·중앙 해상도 표시)'] },
   { v: '1.0.6', items: ['자동할당 포트당 65만px 초과 방지 (열 수 정확 제한)', '자동할당 뱀 경로 시작·끝 항상 바닥행 보장 (짝수 열 단위)', '1번랜 메인·백업 카운트 폰트 가시성 개선', '여유분 입력필드 너비 축소 (여유 텍스트 옆 배치)'] },
   { v: '1.0.5', items: ['비활성 포트 레이블 시인성 개선 (아웃라인 강도 동일화)', '순서 번호를 배선 경로 위에 렌더링 (3-pass 구조)', '순서 번호 흰 원형 배지 디자인', 'cc-qty-row 13px / 여유분 입력 필드 20px 소형화'] },
   { v: '1.0.4', items: ['포트 레이블 다크 아웃라인으로 시인성 개선', '케이블 수량 카드 컴팩트 재설계 (필요·여유 한 줄 표시, 인라인 입력 필드)'] },
@@ -270,6 +271,71 @@ async function shareImage() {
   } catch (err) {
     if (err.name !== 'AbortError') console.warn(err); // 사용자 취소는 무시
   }
+}
+
+// ── 해상도 이미지 생성 ────────────────────────────────────
+
+function genResImage() {
+  if (!isReady()) return;
+  const sp = SPECS[curLed];
+  const tW = cols * sp.px500.w;
+  let tH = 0;
+  layout.forEach(r => { tH += ppx(r.type).h; });
+
+  const cv  = document.createElement('canvas');
+  cv.width  = tW;
+  cv.height = tH;
+  const ctx = cv.getContext('2d');
+
+  // 배경
+  ctx.fillStyle = '#141414';
+  ctx.fillRect(0, 0, tW, tH);
+
+  // 점선 격자 — 패널 경계선
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth   = Math.max(1, Math.round(tW / 1200));
+  ctx.setLineDash([Math.round(tW / 400), Math.round(tW / 400)]);
+
+  // 세로선 (열 경계)
+  const pw = sp.px500.w;
+  for (let x = pw; x < tW; x += pw) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
+  }
+
+  // 가로선 (행 경계, 혼합 패널 대응)
+  let y = 0;
+  layout.forEach(r => {
+    y += ppx(r.type).h;
+    if (y < tH) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tW, y); ctx.stroke();
+    }
+  });
+
+  ctx.setLineDash([]);
+
+  // 중앙 해상도 텍스트
+  const fs = Math.max(28, Math.min(Math.round(tH * 0.13), 120));
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  // 라벨
+  ctx.font      = `400 ${Math.round(fs * 0.32)}px sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fillText('LED 최종 해상도', tW / 2, tH / 2 - fs * 0.72);
+
+  // 메인 숫자
+  ctx.font      = `300 ${fs}px sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.fillText(`${tW} × ${tH}`, tW / 2, tH / 2);
+
+  // 단위
+  ctx.font      = `400 ${Math.round(fs * 0.28)}px sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('px', tW / 2, tH / 2 + fs * 0.72);
+
+  const dataUrl  = cv.toDataURL('image/png');
+  const filename = `LED_${tW}x${tH}_${dateStr()}.png`;
+  showPreview(dataUrl, filename);
 }
 
 // ── PNG 스냅샷 생성 ──────────────────────────────────────
@@ -900,7 +966,7 @@ function renderRes() {
   h += `<div class="metric"><div class="ml">500×500 패널</div><div class="mv">${c5}<span class="mu"> ea</span></div></div>`;
   h += `<div class="metric"><div class="ml">500×1000 패널</div><div class="mv">${c10}<span class="mu"> ea</span></div></div>`;
   h += '</div>';
-  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px</div></div>`;
+  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px</div><button class="res-img-btn" onclick="genResImage()">이미지 생성 →</button></div>`;
   h += coverHtml;
   h += `<div style="font-size:12px;color:#999;margin-bottom:8px;">패널 해상도 — 500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px</div>`;
   document.getElementById('resultBody').innerHTML = h;
@@ -1419,28 +1485,23 @@ function autoAssign() {
     const p = ppx(r.type); return s + p.w * p.h;
   }, 0);
 
-  // 규칙 1: 포트당 최대 열 수 — 65만px 초과 방지
-  const maxCols = Math.max(1, Math.floor(MAX_PX / colPx));
+  // 규칙 1+4: 포트당 허용 최대 열 수로 최소 포트 수 계산
+  const maxCols  = Math.max(1, Math.floor(MAX_PX / colPx));
+  const numPorts = Math.min(8, Math.ceil(cols / maxCols));
 
-  // 규칙 2: 뱀 경로의 시작·끝이 항상 바닥행 → 포트 크기는 짝수 열
-  // maxCols≥2 이면 2의 배수로 내림, 1이면 그대로 1 (단일 열 포트)
-  const portSize = maxCols >= 2 ? 2 * Math.floor(maxCols / 2) : 1;
-
-  const numPorts = Math.min(8, Math.ceil(cols / portSize));
+  // 열 균등 배분 (규칙 4)
+  const base  = Math.floor(cols / numPorts);
+  const extra = cols % numPorts;
 
   rst();
   let colStart = 0;
   for (let pi = 0; pi < numPorts; pi++) {
-    // 마지막 포트는 남은 열 전부 (portSize 초과 시 짝수로 올림)
-    const remaining = cols - colStart;
-    const isLast = pi === numPorts - 1;
-    let nCols = isLast ? remaining : Math.min(portSize, remaining);
-    // 짝수 열 보장: 남은 게 홀수면 올림 (단 마지막 포트는 그대로)
-    if (!isLast && nCols % 2 !== 0 && nCols < remaining) nCols++;
-
+    const nCols = base + (pi < extra ? 1 : 0);
     for (let ci = 0; ci < nCols; ci++) {
       const col = colStart + ci;
-      // ci 짝수 → 바닥→위 시작 (첫/끝 열이 바닥행)
+      // 첫 열(ci=0)은 항상 바닥→위 시작 (규칙 2)
+      // 짝수 nCols → 마지막 열도 바닥 끝 (규칙 2 완전 충족)
+      // 홀수 nCols → 마지막 열은 위에서 끝 (규칙 3 허용)
       for (let ri = 0; ri < layout.length; ri++) {
         const row = ci % 2 === 0 ? layout.length - 1 - ri : ri;
         assign(pi, `${row},${col}`);
