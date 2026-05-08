@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.2';
-const APP_SW_VERSION = 'v16';
+const APP_VERSION    = '1.0.3';
+const APP_SW_VERSION = 'v17';
 
 const CHANGELOG = [
+  { v: '1.0.3', items: ['랜선 시뮬레이터 배선 경로 베지어 곡선으로 매끄럽게 개선', '셀에 포트 내 연결 순서 번호 표시', '케이블 여유분 직접 수정 가능 (필요 개수·여유분 분리 표시)'] },
   { v: '1.0.2', items: ['콘솔 칩 순서 변경 (EC90 → J6 우선)', '케이블 수량 표시 UI 전면 개선 (카드형 컴팩트 레이아웃)', '1번 랜 계산 메인+백업 2배 적용', '전 케이블 여유분 자동 포함 및 표시', '숏랜 20개/숏파워 10개 묶음 수 표시', '뱀경로 화살표 시인성 개선 (흰 외곽선 추가)'] },
   { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정', 'manifest id 추가 — Google Play Protect 경고 해소', '랜선 시뮬레이터 자동 포트 할당 기능 추가'] },
   { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
@@ -448,7 +449,7 @@ function doFullReset() {
   // 면적 입력 초기화
   document.getElementById('iW').value = '';
   document.getElementById('iH').value = '';
-  cableAdj = { l1: null, sl: null, c1: null, sp: null };
+  spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 };
   // 칩 선택 초기화
   document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
   curLed = null; basePH = null; curSending = null;
@@ -482,7 +483,7 @@ function getAppState(name) {
     mainLen:  document.getElementById('mainLen').value,
     pA:  pA.map(s => [...s]),          // Set → Array (JSON 직렬화)
     pH2: pH2.map(a => [...a]),
-    cableAdj: { ...cableAdj },
+    spareAdj: { ...spareAdj },
     memoList: [...memoList],
     chkState: { ...chkState },
     COM:  [...COM],
@@ -494,7 +495,7 @@ function getAppState(name) {
 function loadAppState(st) {
   document.getElementById('iW').value = st.W ?? '';
   document.getElementById('iH').value = st.H ?? '';
-  cableAdj = st.cableAdj ? { ...st.cableAdj } : { l1: null, sl: null, c1: null, sp: null };
+  spareAdj = st.spareAdj ? { ...st.spareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
 
   // 칩 상태 복원
   document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
@@ -813,8 +814,8 @@ function calcPW() {
   let spNet = 0;
   for (let i = 0; i < pc; i++) spNet += (rows * 2) - 1;
   if (odd) spNet += (rows - 1);
-  const c1Net = Math.ceil(cols / 2), c1Spare = 2, c1 = c1Net + c1Spare;
-  const spSpare = 20, sp = spNet + spSpare, spBundle = Math.ceil(sp / 10);
+  const c1Net = Math.ceil(cols / 2), c1Spare = spareAdj.c1, c1 = c1Net + c1Spare;
+  const spSpare = spareAdj.sp, sp = spNet + spSpare, spBundle = Math.ceil(sp / 10);
   return { c1, c1Net, c1Spare, spNet, sp, spSpare, spBundle };
 }
 
@@ -914,14 +915,14 @@ let fCell = null;                // 키보드 방향키 포커스 셀 { r, c }
 let cellW = 40, rH = [];         // 셀 너비(px) / 행별 픽셀 높이 배열
 let lpT   = null, drag = false;  // 롱프레스 타이머 / 드래그 진행 여부
 let dStk  = [], dHov  = null;    // 드래그 히스토리 스택 / 현재 호버 셀 키
-let cableAdj = { l1: null, sl: null, c1: null, sp: null }; // 케이블 수량 수동 조정값 (null = 자동계산)
+let spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 }; // 여유분 수량 (사용자 수정 가능)
 
 // ── 상태 초기화 ───────────────────────────────────────────
 
 function rst() {
   pA       = Array.from({ length: 8 }, () => new Set());
   pH2      = Array.from({ length: 8 }, () => []);
-  cableAdj = { l1: null, sl: null, c1: null, sp: null };
+  spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 };
   fCell = null; drag = false; dStk = []; dHov = null; aPort = 0;
 }
 function rstPort(pi) {
@@ -1037,33 +1038,74 @@ function assign(pi, k) {
 }
 function deassign(pi, k) { pA[pi].delete(k); pH2[pi] = pH2[pi].filter(x => x !== k); }
 
-// 두 점 사이에 방향 화살표 그리기 (흰 외곽선으로 시인성 확보)
-function arrow(ctx, x1, y1, x2, y2, col) {
-  const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx + dy*dy);
-  if (len < 4) return;
-  const ux = dx/len, uy = dy/len, g = cellW * 0.28;
-  const ax = x1+ux*g, ay = y1+uy*g, bx = x2-ux*g, by = y2-uy*g;
-  const hw = 5, hl = 9, px = -uy, py = ux;
-  // 흰 외곽선 (선 + 화살촉)
-  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 4.5; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(bx, by);
-  ctx.lineTo(bx - ux*hl + px*hw, by - uy*hl + py*hw);
-  ctx.lineTo(bx - ux*hl - px*hw, by - uy*hl - py*hw);
-  ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill();
-  // 컬러 화살표 (선 + 화살촉)
-  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(bx, by);
-  ctx.lineTo(bx - ux*hl + px*hw, by - uy*hl + py*hw);
-  ctx.lineTo(bx - ux*hl - px*hw, by - uy*hl - py*hw);
-  ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+// 포트별 배선 경로를 연속 베지어 곡선으로 그리기
+// 같은 열 이동: 직선, 열 전환(뱀 꺾임): 2차 베지어 곡선 (위/아래 호)
+function drawPortPaths(ctx) {
+  const rows = layout.length;
+  pA.forEach((s, pi) => {
+    if (s.size < 2) return;
+    const h = pH2[pi].filter(k => s.has(k));
+    if (h.length < 2) return;
+    const col = PC[pi];
+    const pts = h.map(k => {
+      const [r, c] = k.split(',').map(Number);
+      return { x: cxOf(c), y: cyOf(r), r, c };
+    });
+
+    // 마지막 세그먼트 방향 사전 계산 (화살촉 각도용)
+    const pL0 = pts[pts.length - 2], pL1 = pts[pts.length - 1];
+    let ldx, ldy;
+    if (pL0.c !== pL1.c && pL0.r === pL1.r) {
+      const isTop = pL0.r < rows / 2;
+      const ctY = isTop ? pL0.y - rH[pL0.r] * 0.7 : pL0.y + rH[pL0.r] * 0.7;
+      ldx = pL1.x - (pL0.x + pL1.x) / 2; ldy = pL1.y - ctY;
+    } else {
+      ldx = pL1.x - pL0.x; ldy = pL1.y - pL0.y;
+    }
+
+    const strokePath = (style, lw) => {
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i-1], b = pts[i];
+        if (a.c !== b.c && a.r === b.r) {
+          const isTop = a.r < rows / 2;
+          const ctY = isTop ? a.y - rH[a.r] * 0.7 : a.y + rH[a.r] * 0.7;
+          ctx.quadraticCurveTo((a.x + b.x) / 2, ctY, b.x, b.y);
+        } else { ctx.lineTo(b.x, b.y); }
+      }
+      ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
+    };
+
+    const fillArrow = (style) => {
+      const len = Math.sqrt(ldx*ldx + ldy*ldy); if (len < 1) return;
+      const ux = ldx/len, uy = ldy/len, hw = 6, hl = 12, nx = -uy, ny = ux;
+      const bx = pL1.x - ux*5, by = pL1.y - uy*5;
+      ctx.beginPath(); ctx.moveTo(bx, by);
+      ctx.lineTo(bx - ux*hl + nx*hw, by - uy*hl + ny*hw);
+      ctx.lineTo(bx - ux*hl - nx*hw, by - uy*hl - ny*hw);
+      ctx.closePath(); ctx.fillStyle = style; ctx.fill();
+    };
+
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    strokePath('rgba(255,255,255,0.85)', 6);
+    strokePath(col, 3.5);
+    fillArrow('rgba(255,255,255,0.85)');
+    fillArrow(col);
+    ctx.restore();
+  });
 }
 
 function drawCv() {
   const cv = document.getElementById('simCanvas'); if (!cv) return;
   const ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // 셀별 포트 내 연결 순서 번호 사전 계산
+  const stepOf = new Map();
+  pA.forEach((s, pi) => {
+    pH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
+  });
+
   let y = 0;
   layout.forEach((row, ri) => {
     const ch = rH[ri];
@@ -1106,12 +1148,22 @@ function drawCv() {
         }
         ctx.restore();
       }
-      // 포트 번호 텍스트
+      // 포트 내 연결 순서 번호 + 포트 레이블 (좌상단 소형)
       if (ow >= 0 && cellW >= 20) {
-        ctx.fillStyle    = lk ? 'rgba(255,255,255,0.45)' : 'white';
-        ctx.font         = `500 ${Math.min(11, cellW - 8)}px sans-serif`;
-        ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('P' + (ow + 1), c*cellW + cellW/2, y + ch/2);
+        const step = stepOf.get(k);
+        const alpha = lk ? 0.35 : 0.92;
+        // 순서 번호 (중앙 대형)
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.font      = `700 ${Math.min(14, cellW - 4)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(step ? String(step) : '', c*cellW + cellW/2, y + ch/2);
+        // 포트 레이블 (좌상단 소형)
+        if (cellW >= 32) {
+          ctx.fillStyle = `rgba(255,255,255,${alpha * 0.75})`;
+          ctx.font      = `500 9px sans-serif`;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+          ctx.fillText('P' + (ow + 1), c*cellW + 4, y + 4);
+        }
       }
       // 키보드 포커스 셀 하이라이트
       if (fCell && fCell.r === ri && fCell.c === c) {
@@ -1122,17 +1174,8 @@ function drawCv() {
     y += ch;
   });
 
-  // 포트 연결 순서 화살표 그리기
-  pA.forEach((s, pi) => {
-    if (s.size < 2) return;
-    const h = pH2[pi].filter(k => s.has(k));
-    if (h.length < 2) return;
-    for (let i = 0; i < h.length - 1; i++) {
-      const [r1, c1] = h[i].split(',').map(Number);
-      const [r2, c2] = h[i+1].split(',').map(Number);
-      arrow(ctx, cxOf(c1), cyOf(r1), cxOf(c2), cyOf(r2), PC[pi]);
-    }
-  });
+  // 포트 배선 경로 그리기 (베지어 곡선)
+  drawPortPaths(ctx);
 }
 
 // ── 범례 & 케이블 수량 요약 ───────────────────────────────
@@ -1152,10 +1195,10 @@ function renderLeg() {
 // 숏랜: 패널 간 연결 + 여유 20개, 20개 단위 묶음 수
 function _calcLan() {
   const ports = pA.filter(s => s.size > 0).length;
-  const l1Main = ports, l1Back = ports, l1Spare = 2;
+  const l1Main = ports, l1Back = ports, l1Spare = spareAdj.l1;
   const l1 = l1Main + l1Back + l1Spare;
   let slNet = 0; pA.forEach(s => { if (s.size > 0) slNet += (s.size - 1); });
-  const slSpare = 20, sl = slNet + slSpare, slBundle = Math.ceil(sl / 20);
+  const slSpare = spareAdj.sl, sl = slNet + slSpare, slBundle = Math.ceil(sl / 20);
   return { l1, l1Main, l1Back, l1Spare, slNet, sl, slSpare, slBundle };
 }
 
@@ -1166,21 +1209,25 @@ function renderSum() {
   const lan  = _calcLan(), pw = calcPW();
   const ov   = pA.filter((_, i) => pxOf(i) > MAX_PX).length;
 
+  const si = (k, v, cls) =>
+    `<input class="spare-inp${cls ? ' ' + cls : ''}" type="number" min="0" value="${v}" oninput="setSpare('${k}',this.value)">`;
+
   el.innerHTML = `<div class="cc-grid">
     <div class="cc-section lan">
       <div class="cc-sec-title">랜선</div>
       <div class="cc-cards">
         <div class="cc-card">
           <div class="cc-lbl">1번 랜</div>
-          <div class="cc-total lan">${lan.l1} 개</div>
-          <div class="cc-detail">메인 ${lan.l1Main} + 백업 ${lan.l1Back}</div>
-          <div class="cc-detail spare">여유 +${lan.l1Spare}</div>
+          <div class="cc-total lan" id="cc-l1-total">${lan.l1} 개</div>
+          <div class="cc-net">필요 메인 ${lan.l1Main} + 백업 ${lan.l1Back}</div>
+          <div class="cc-spare-row">여유 ${si('l1', spareAdj.l1)} 개</div>
         </div>
         <div class="cc-card">
           <div class="cc-lbl">숏랜</div>
-          <div class="cc-total lan">${lan.sl} 개</div>
-          <div class="cc-bundle">${lan.slBundle}묶음 (×20)</div>
-          <div class="cc-detail spare">여유 +${lan.slSpare} 포함</div>
+          <div class="cc-total lan" id="cc-sl-total">${lan.sl} 개</div>
+          <div class="cc-bundle" id="cc-sl-bundle">${lan.slBundle}묶음 (×20)</div>
+          <div class="cc-net">필요 ${lan.slNet}개</div>
+          <div class="cc-spare-row">여유 ${si('sl', spareAdj.sl)} 개</div>
         </div>
       </div>
     </div>
@@ -1189,21 +1236,36 @@ function renderSum() {
       <div class="cc-cards">
         <div class="cc-card">
           <div class="cc-lbl">1번 파워</div>
-          <div class="cc-total pwr">${pw.c1} 개</div>
-          <div class="cc-detail">실 ${pw.c1Net}개</div>
-          <div class="cc-detail spare">여유 +${pw.c1Spare}</div>
+          <div class="cc-total pwr" id="cc-c1-total">${pw.c1} 개</div>
+          <div class="cc-net">필요 ${pw.c1Net}개</div>
+          <div class="cc-spare-row">여유 ${si('c1', spareAdj.c1, 'pwr')} 개</div>
         </div>
         <div class="cc-card">
           <div class="cc-lbl">숏 파워</div>
-          <div class="cc-total pwr">${pw.sp} 개</div>
-          <div class="cc-bundle">${pw.spBundle}묶음 (×10)</div>
-          <div class="cc-detail spare">여유 +${pw.spSpare} 포함</div>
+          <div class="cc-total pwr" id="cc-sp-total">${pw.sp} 개</div>
+          <div class="cc-bundle" id="cc-sp-bundle">${pw.spBundle}묶음 (×10)</div>
+          <div class="cc-net">필요 ${pw.spNet}개</div>
+          <div class="cc-spare-row">여유 ${si('sp', spareAdj.sp, 'pwr')} 개</div>
         </div>
       </div>
     </div>
     ${una > 0 ? `<div class="cc-warn">미할당 ${una} / ${tot} 패널</div>` : ''}
     ${ov > 0 ? `<div class="cc-error">픽셀 초과 포트 ${ov}개 — 연결 패널 수를 줄여주세요</div>` : ''}
   </div>`;
+}
+
+// 여유분 수정 시 합계만 업데이트 (입력 포커스 유지)
+function setSpare(k, v) {
+  const n = parseInt(v);
+  spareAdj[k] = (v === '' || isNaN(n) || n < 0) ? 0 : n;
+  const lan = _calcLan(), pw = calcPW();
+  const s = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  s('cc-l1-total', lan.l1 + ' 개');
+  s('cc-sl-total', lan.sl + ' 개');
+  s('cc-sl-bundle', lan.slBundle + '묶음 (×20)');
+  s('cc-c1-total', pw.c1 + ' 개');
+  s('cc-sp-total', pw.sp + ' 개');
+  s('cc-sp-bundle', pw.spBundle + '묶음 (×10)');
 }
 
 // ── 이벤트 처리 (마우스 & 터치 & 키보드) ─────────────────
