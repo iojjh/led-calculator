@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.3';
-const APP_SW_VERSION = 'v17';
+const APP_VERSION    = '1.0.4';
+const APP_SW_VERSION = 'v18';
 
 const CHANGELOG = [
+  { v: '1.0.4', items: ['포트 레이블 다크 아웃라인으로 시인성 개선', '케이블 수량 카드 컴팩트 재설계 (필요·여유 한 줄 표시, 인라인 입력 필드)'] },
   { v: '1.0.3', items: ['랜선 시뮬레이터 배선 경로 베지어 곡선으로 매끄럽게 개선', '셀에 포트 내 연결 순서 번호 표시', '케이블 여유분 직접 수정 가능 (필요 개수·여유분 분리 표시)'] },
   { v: '1.0.2', items: ['콘솔 칩 순서 변경 (EC90 → J6 우선)', '케이블 수량 표시 UI 전면 개선 (카드형 컴팩트 레이아웃)', '1번 랜 계산 메인+백업 2배 적용', '전 케이블 여유분 자동 포함 및 표시', '숏랜 20개/숏파워 10개 묶음 수 표시', '뱀경로 화살표 시인성 개선 (흰 외곽선 추가)'] },
   { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정', 'manifest id 추가 — Google Play Protect 경고 해소', '랜선 시뮬레이터 자동 포트 할당 기능 추가'] },
@@ -1157,12 +1158,16 @@ function drawCv() {
         ctx.font      = `700 ${Math.min(14, cellW - 4)}px sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(step ? String(step) : '', c*cellW + cellW/2, y + ch/2);
-        // 포트 레이블 (좌상단 소형)
+        // 포트 레이블 (좌상단 소형 — 다크 아웃라인으로 시인성 확보)
         if (cellW >= 32) {
-          ctx.fillStyle = `rgba(255,255,255,${alpha * 0.75})`;
-          ctx.font      = `500 9px sans-serif`;
+          const label = 'P' + (ow + 1);
+          ctx.font = '700 9px sans-serif';
           ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-          ctx.fillText('P' + (ow + 1), c*cellW + 4, y + 4);
+          ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
+          ctx.strokeStyle = lk ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.5)';
+          ctx.strokeText(label, c*cellW + 4, y + 4);
+          ctx.fillStyle = lk ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.95)';
+          ctx.fillText(label, c*cellW + 4, y + 4);
         }
       }
       // 키보드 포커스 셀 하이라이트
@@ -1209,8 +1214,8 @@ function renderSum() {
   const lan  = _calcLan(), pw = calcPW();
   const ov   = pA.filter((_, i) => pxOf(i) > MAX_PX).length;
 
-  const si = (k, v, cls) =>
-    `<input class="spare-inp${cls ? ' ' + cls : ''}" type="number" min="0" value="${v}" oninput="setSpare('${k}',this.value)">`;
+  const si = (k, v) =>
+    `<input class="spare-inp" type="number" min="0" value="${v}" oninput="setSpare('${k}',this.value)">`;
 
   el.innerHTML = `<div class="cc-grid">
     <div class="cc-section lan">
@@ -1219,15 +1224,14 @@ function renderSum() {
         <div class="cc-card">
           <div class="cc-lbl">1번 랜</div>
           <div class="cc-total lan" id="cc-l1-total">${lan.l1} 개</div>
-          <div class="cc-net">필요 메인 ${lan.l1Main} + 백업 ${lan.l1Back}</div>
-          <div class="cc-spare-row">여유 ${si('l1', spareAdj.l1)} 개</div>
+          <div class="cc-note">메인 ${lan.l1Main} · 백업 ${lan.l1Back}</div>
+          <div class="cc-qty-row">필요 <b>${lan.l1Main + lan.l1Back}</b> · 여유 ${si('l1', spareAdj.l1)}</div>
         </div>
         <div class="cc-card">
           <div class="cc-lbl">숏랜</div>
           <div class="cc-total lan" id="cc-sl-total">${lan.sl} 개</div>
           <div class="cc-bundle" id="cc-sl-bundle">${lan.slBundle}묶음 (×20)</div>
-          <div class="cc-net">필요 ${lan.slNet}개</div>
-          <div class="cc-spare-row">여유 ${si('sl', spareAdj.sl)} 개</div>
+          <div class="cc-qty-row">필요 <b>${lan.slNet}</b> · 여유 ${si('sl', spareAdj.sl)}</div>
         </div>
       </div>
     </div>
@@ -1237,15 +1241,13 @@ function renderSum() {
         <div class="cc-card">
           <div class="cc-lbl">1번 파워</div>
           <div class="cc-total pwr" id="cc-c1-total">${pw.c1} 개</div>
-          <div class="cc-net">필요 ${pw.c1Net}개</div>
-          <div class="cc-spare-row">여유 ${si('c1', spareAdj.c1, 'pwr')} 개</div>
+          <div class="cc-qty-row">필요 <b>${pw.c1Net}</b> · 여유 ${si('c1', spareAdj.c1)}</div>
         </div>
         <div class="cc-card">
           <div class="cc-lbl">숏 파워</div>
           <div class="cc-total pwr" id="cc-sp-total">${pw.sp} 개</div>
           <div class="cc-bundle" id="cc-sp-bundle">${pw.spBundle}묶음 (×10)</div>
-          <div class="cc-net">필요 ${pw.spNet}개</div>
-          <div class="cc-spare-row">여유 ${si('sp', spareAdj.sp, 'pwr')} 개</div>
+          <div class="cc-qty-row">필요 <b>${pw.spNet}</b> · 여유 ${si('sp', spareAdj.sp)}</div>
         </div>
       </div>
     </div>
