@@ -88,6 +88,8 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .reset-btn{border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;background:#f5f5f5;color:#666;}
 .reset-btn:hover{color:#E24B4A;border-color:#E24B4A;}
 .reset-btn.all{color:#E24B4A;border-color:#E24B4A;}
+.reset-btn.auto-assign{background:#0F6E56;color:#fff;border-color:#0F6E56;font-weight:500;}
+.reset-btn.auto-assign:hover{background:#085041;border-color:#085041;color:#fff;}
 .drag-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;color:white;margin-left:6px;}
 
 /* 콘솔 탭 */

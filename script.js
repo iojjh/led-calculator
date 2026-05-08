@@ -20,10 +20,10 @@
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
 const APP_VERSION    = '1.0.1';
-const APP_SW_VERSION = 'v14';
+const APP_SW_VERSION = 'v15';
 
 const CHANGELOG = [
-  { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정', 'manifest id 추가 — Google Play Protect 경고 해소'] },
+  { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정', 'manifest id 추가 — Google Play Protect 경고 해소', '랜선 시뮬레이터 자동 포트 할당 기능 추가'] },
   { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
 ];
 
@@ -923,6 +923,7 @@ function buildSim() {
     <div class="port-strip" id="portStrip"></div>
     <div class="port-info-bar" id="portInfo"></div>
     <div class="reset-row">
+      <button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>
       <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
       <button class="reset-btn" id="rstPBtn"   onclick="doRstPort()">포트 초기화</button>
     </div>
@@ -1288,6 +1289,53 @@ function attachEv() {
     fCell = {r:nr,c:nc}; assign(aPort, nk);
     drawCv(); renderPorts(); renderLeg(); renderSum();
   });
+}
+
+// ── 자동 포트 할당 ────────────────────────────────────────
+
+function autoAssign() {
+  if (!isReady() || !cols || !layout.length) return;
+
+  // 열당 픽셀 수 (모든 열 동일)
+  const colPx = layout.reduce((s, r) => {
+    const p = ppx(r.type); return s + p.w * p.h;
+  }, 0);
+  const totalPx = colPx * cols;
+
+  // 필요 포트 수 (최대 8)
+  const numPorts = Math.min(8, Math.ceil(totalPx / MAX_PX));
+
+  // 열 균등 배분 — 픽셀 균형 유지
+  // 짝수 열 배정 시 뱀 경로의 시작·끝이 모두 바닥행이 됨 (규칙 2)
+  const base  = Math.floor(cols / numPorts);
+  const extra = cols % numPorts;
+
+  rst();
+  let colStart = 0;
+  for (let pi = 0; pi < numPorts; pi++) {
+    const nCols = base + (pi < extra ? 1 : 0);
+    for (let ci = 0; ci < nCols; ci++) {
+      const col = colStart + ci;
+      // ci 짝수 → 바닥→위, ci 홀수 → 위→바닥 (뱀 경로)
+      for (let ri = 0; ri < layout.length; ri++) {
+        const row = ci % 2 === 0 ? layout.length - 1 - ri : ri;
+        assign(pi, `${row},${col}`);
+      }
+    }
+    colStart += nCols;
+  }
+
+  aPort = 0;
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
+
+function doAutoAssign() {
+  if (!isReady() || !cols || !layout.length) return;
+  if (pA.some(s => s.size > 0)) {
+    openConfirm('자동 포트 할당', '기존 할당을 초기화하고 자동으로 포트를 할당할까요?', autoAssign);
+  } else {
+    autoAssign();
+  }
 }
 
 // ── 초기 실행 ────────────────────────────────────────────
