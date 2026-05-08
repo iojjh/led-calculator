@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.5';
-const APP_SW_VERSION = 'v19';
+const APP_VERSION    = '1.0.6';
+const APP_SW_VERSION = 'v20';
 
 const CHANGELOG = [
+  { v: '1.0.6', items: ['자동할당 포트당 65만px 초과 방지 (열 수 정확 제한)', '자동할당 뱀 경로 시작·끝 항상 바닥행 보장 (짝수 열 단위)', '1번랜 메인·백업 카운트 폰트 가시성 개선', '여유분 입력필드 너비 축소 (여유 텍스트 옆 배치)'] },
   { v: '1.0.5', items: ['비활성 포트 레이블 시인성 개선 (아웃라인 강도 동일화)', '순서 번호를 배선 경로 위에 렌더링 (3-pass 구조)', '순서 번호 흰 원형 배지 디자인', 'cc-qty-row 13px / 여유분 입력 필드 20px 소형화'] },
   { v: '1.0.4', items: ['포트 레이블 다크 아웃라인으로 시인성 개선', '케이블 수량 카드 컴팩트 재설계 (필요·여유 한 줄 표시, 인라인 입력 필드)'] },
   { v: '1.0.3', items: ['랜선 시뮬레이터 배선 경로 베지어 곡선으로 매끄럽게 개선', '셀에 포트 내 연결 순서 번호 표시', '케이블 여유분 직접 수정 가능 (필요 개수·여유분 분리 표시)'] },
@@ -1417,23 +1418,29 @@ function autoAssign() {
   const colPx = layout.reduce((s, r) => {
     const p = ppx(r.type); return s + p.w * p.h;
   }, 0);
-  const totalPx = colPx * cols;
 
-  // 필요 포트 수 (최대 8)
-  const numPorts = Math.min(8, Math.ceil(totalPx / MAX_PX));
+  // 규칙 1: 포트당 최대 열 수 — 65만px 초과 방지
+  const maxCols = Math.max(1, Math.floor(MAX_PX / colPx));
 
-  // 열 균등 배분 — 픽셀 균형 유지
-  // 짝수 열 배정 시 뱀 경로의 시작·끝이 모두 바닥행이 됨 (규칙 2)
-  const base  = Math.floor(cols / numPorts);
-  const extra = cols % numPorts;
+  // 규칙 2: 뱀 경로의 시작·끝이 항상 바닥행 → 포트 크기는 짝수 열
+  // maxCols≥2 이면 2의 배수로 내림, 1이면 그대로 1 (단일 열 포트)
+  const portSize = maxCols >= 2 ? 2 * Math.floor(maxCols / 2) : 1;
+
+  const numPorts = Math.min(8, Math.ceil(cols / portSize));
 
   rst();
   let colStart = 0;
   for (let pi = 0; pi < numPorts; pi++) {
-    const nCols = base + (pi < extra ? 1 : 0);
+    // 마지막 포트는 남은 열 전부 (portSize 초과 시 짝수로 올림)
+    const remaining = cols - colStart;
+    const isLast = pi === numPorts - 1;
+    let nCols = isLast ? remaining : Math.min(portSize, remaining);
+    // 짝수 열 보장: 남은 게 홀수면 올림 (단 마지막 포트는 그대로)
+    if (!isLast && nCols % 2 !== 0 && nCols < remaining) nCols++;
+
     for (let ci = 0; ci < nCols; ci++) {
       const col = colStart + ci;
-      // ci 짝수 → 바닥→위, ci 홀수 → 위→바닥 (뱀 경로)
+      // ci 짝수 → 바닥→위 시작 (첫/끝 열이 바닥행)
       for (let ri = 0; ri < layout.length; ri++) {
         const row = ci % 2 === 0 ? layout.length - 1 - ri : ri;
         assign(pi, `${row},${col}`);
