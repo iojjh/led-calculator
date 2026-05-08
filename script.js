@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.9';
-const APP_SW_VERSION = 'v23';
+const APP_VERSION    = '1.0.10';
+const APP_SW_VERSION = 'v24';
 
 const CHANGELOG = [
+  { v: '1.0.10', items: ['자동할당 배분 방식 변경 — 앞 포트부터 최대 열 수 채우기 (Greedy, 균등 배분 후순위)'] },
   { v: '1.0.9', items: ['여유분 입력 필드 전역 CSS 충돌 해소 (width:100% 덮어쓰기 방지, 여유 텍스트 옆 인라인 배치)'] },
   { v: '1.0.8', items: ['여유분 입력 필드 줄바꿈 방지 (여유 텍스트와 동일 줄 배치, 세 자리 수 표시 너비)'] },
   { v: '1.0.7', items: ['자동할당 4규칙 적용 (65만px·바닥시작·바닥끝허용·포트최소화)', '해상도 이미지 생성 기능 추가 (패널 격자 점선·중앙 해상도 표시)'] },
@@ -1487,18 +1488,23 @@ function autoAssign() {
     const p = ppx(r.type); return s + p.w * p.h;
   }, 0);
 
-  // 규칙 1+4: 포트당 허용 최대 열 수로 최소 포트 수 계산
+  // 규칙 1: 포트당 허용 최대 열 수로 최소 포트 수 계산
   const maxCols  = Math.max(1, Math.floor(MAX_PX / colPx));
   const numPorts = Math.min(8, Math.ceil(cols / maxCols));
 
-  // 열 균등 배분 (규칙 4)
-  const base  = Math.floor(cols / numPorts);
-  const extra = cols % numPorts;
+  // 규칙 4 (후순위): 앞 포트부터 maxCols씩 채우고 나머지를 마지막 포트에 배치
+  const portCols = [];
+  let rem = cols;
+  for (let pi = 0; pi < numPorts; pi++) {
+    const n = pi < numPorts - 1 ? Math.min(maxCols, rem) : rem;
+    portCols.push(n);
+    rem -= n;
+  }
 
   rst();
   let colStart = 0;
   for (let pi = 0; pi < numPorts; pi++) {
-    const nCols = base + (pi < extra ? 1 : 0);
+    const nCols = portCols[pi];
     for (let ci = 0; ci < nCols; ci++) {
       const col = colStart + ci;
       // 첫 열(ci=0)은 항상 바닥→위 시작 (규칙 2)
