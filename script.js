@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.4';
-const APP_SW_VERSION = 'v18';
+const APP_VERSION    = '1.0.5';
+const APP_SW_VERSION = 'v19';
 
 const CHANGELOG = [
+  { v: '1.0.5', items: ['비활성 포트 레이블 시인성 개선 (아웃라인 강도 동일화)', '순서 번호를 배선 경로 위에 렌더링 (3-pass 구조)', '순서 번호 흰 원형 배지 디자인', 'cc-qty-row 13px / 여유분 입력 필드 20px 소형화'] },
   { v: '1.0.4', items: ['포트 레이블 다크 아웃라인으로 시인성 개선', '케이블 수량 카드 컴팩트 재설계 (필요·여유 한 줄 표시, 인라인 입력 필드)'] },
   { v: '1.0.3', items: ['랜선 시뮬레이터 배선 경로 베지어 곡선으로 매끄럽게 개선', '셀에 포트 내 연결 순서 번호 표시', '케이블 여유분 직접 수정 가능 (필요 개수·여유분 분리 표시)'] },
   { v: '1.0.2', items: ['콘솔 칩 순서 변경 (EC90 → J6 우선)', '케이블 수량 표시 UI 전면 개선 (카드형 컴팩트 레이아웃)', '1번 랜 계산 메인+백업 2배 적용', '전 케이블 여유분 자동 포함 및 표시', '숏랜 20개/숏파워 10개 묶음 수 표시', '뱀경로 화살표 시인성 개선 (흰 외곽선 추가)'] },
@@ -1107,17 +1108,17 @@ function drawCv() {
     pH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
   });
 
+  // ── 패스 1: 셀 배경 · 테두리 · 패턴 ──────────────────────
   let y = 0;
   layout.forEach((row, ri) => {
     const ch = rH[ri];
     for (let c = 0; c < cols; c++) {
       const k   = `${ri},${c}`;
       const ow  = owner(k);
-      const lk  = ow >= 0 && ow !== aPort;                           // 다른 포트에 잠긴 셀
-      const hov  = drag && k === dHov && ow < 0;                    // 드래그 호버 셀
-      const last = drag && dStk.length > 0 && dStk[dStk.length-1].key === k; // 드래그 끝 셀
+      const lk  = ow >= 0 && ow !== aPort;
+      const hov  = drag && k === dHov && ow < 0;
+      const last = drag && dStk.length > 0 && dStk[dStk.length-1].key === k;
 
-      // 셀 배경색
       ctx.fillStyle = ow >= 0
         ? PC[ow] + (lk ? '55' : '99')
         : row.type === 'half' ? '#C0DD97' : '#9FE1CB';
@@ -1125,22 +1126,18 @@ function drawCv() {
 
       if (hov) { ctx.fillStyle = PC[aPort] + '44'; ctx.fillRect(c * cellW + 1, y + 1, cellW - 2, ch - 2); }
 
-      // 셀 테두리
       ctx.strokeStyle = ow >= 0 ? PC[ow] : (row.type === 'half' ? '#639922' : '#1D9E75');
       ctx.lineWidth   = ow >= 0 ? 1.5 : 0.5;
       ctx.strokeRect(c * cellW + 1, y + 1, cellW - 2, ch - 2);
 
-      // 드래그 끝 셀 강조 테두리
       if (last) {
         ctx.strokeStyle = 'white';   ctx.lineWidth = 2.5; ctx.strokeRect(c*cellW+3, y+3, cellW-6, ch-6);
         ctx.strokeStyle = PC[aPort]; ctx.lineWidth = 2;   ctx.strokeRect(c*cellW+3, y+3, cellW-6, ch-6);
       }
-      // 호버 점선 테두리
       if (hov) {
         ctx.setLineDash([3, 3]); ctx.strokeStyle = PC[aPort]; ctx.lineWidth = 1.5;
         ctx.strokeRect(c*cellW+2, y+2, cellW-4, ch-4); ctx.setLineDash([]);
       }
-      // 잠긴 셀 빗금 패턴
       if (lk) {
         ctx.save(); ctx.beginPath(); ctx.rect(c*cellW+1, y+1, cellW-2, ch-2); ctx.clip();
         ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
@@ -1149,28 +1146,6 @@ function drawCv() {
         }
         ctx.restore();
       }
-      // 포트 내 연결 순서 번호 + 포트 레이블 (좌상단 소형)
-      if (ow >= 0 && cellW >= 20) {
-        const step = stepOf.get(k);
-        const alpha = lk ? 0.35 : 0.92;
-        // 순서 번호 (중앙 대형)
-        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-        ctx.font      = `700 ${Math.min(14, cellW - 4)}px sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(step ? String(step) : '', c*cellW + cellW/2, y + ch/2);
-        // 포트 레이블 (좌상단 소형 — 다크 아웃라인으로 시인성 확보)
-        if (cellW >= 32) {
-          const label = 'P' + (ow + 1);
-          ctx.font = '700 9px sans-serif';
-          ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-          ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
-          ctx.strokeStyle = lk ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.5)';
-          ctx.strokeText(label, c*cellW + 4, y + 4);
-          ctx.fillStyle = lk ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.95)';
-          ctx.fillText(label, c*cellW + 4, y + 4);
-        }
-      }
-      // 키보드 포커스 셀 하이라이트
       if (fCell && fCell.r === ri && fCell.c === c) {
         ctx.strokeStyle = 'white';   ctx.lineWidth = 3; ctx.strokeRect(c*cellW+4, y+4, cellW-8, ch-8);
         ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(c*cellW+4, y+4, cellW-8, ch-8);
@@ -1179,8 +1154,48 @@ function drawCv() {
     y += ch;
   });
 
-  // 포트 배선 경로 그리기 (베지어 곡선)
+  // ── 패스 2: 포트 배선 경로 (배경 · 텍스트 위에, 순서번호 아래) ──
   drawPortPaths(ctx);
+
+  // ── 패스 3: 순서 번호 & 포트 레이블 (배선 경로 위에 그림) ─────
+  y = 0;
+  layout.forEach((row, ri) => {
+    const ch = rH[ri];
+    for (let c = 0; c < cols; c++) {
+      const k  = `${ri},${c}`;
+      const ow = owner(k);
+      if (ow < 0 || cellW < 20) continue;
+      const lk   = ow !== aPort;
+      const step = stepOf.get(k);
+      const cx2  = c*cellW + cellW/2, cy2 = y + ch/2;
+
+      // 순서 번호 — 흰 원형 배지 + 포트색 텍스트 (배선 위에 떠 있는 효과)
+      if (step) {
+        const fs = Math.min(12, cellW - 8);
+        const r  = Math.max(8, fs * 0.72);
+        ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
+        ctx.fillStyle = lk ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.9)';
+        ctx.fill();
+        ctx.font = `700 ${fs}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : PC[ow];
+        ctx.fillText(String(step), cx2, cy2);
+      }
+
+      // 포트 레이블 (좌상단 소형 — 아웃라인 강도 동일하게 유지)
+      if (cellW >= 32) {
+        const label = 'P' + (ow + 1);
+        ctx.font = '700 9px sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.strokeText(label, c*cellW + 4, y + 4);
+        ctx.fillStyle = lk ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.97)';
+        ctx.fillText(label, c*cellW + 4, y + 4);
+      }
+    }
+    y += ch;
+  });
 }
 
 // ── 범례 & 케이블 수량 요약 ───────────────────────────────
