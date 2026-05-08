@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.10';
+const APP_VERSION    = '1.0.11';
 const APP_SW_VERSION = 'v24';
 
 const CHANGELOG = [
+  { v: '1.0.11', items: ['해상도 이미지 리디자인 — 라벨·px 단위 제거, 폰트 60% 축소, × 주황 강조, 비네팅·장식선 추가'] },
   { v: '1.0.10', items: ['자동할당 배분 방식 변경 — 앞 포트부터 최대 열 수 채우기 (Greedy, 균등 배분 후순위)'] },
   { v: '1.0.9', items: ['여유분 입력 필드 전역 CSS 충돌 해소 (width:100% 덮어쓰기 방지, 여유 텍스트 옆 인라인 배치)'] },
   { v: '1.0.8', items: ['여유분 입력 필드 줄바꿈 방지 (여유 텍스트와 동일 줄 배치, 세 자리 수 표시 너비)'] },
@@ -294,8 +295,13 @@ function genResImage() {
   ctx.fillStyle = '#141414';
   ctx.fillRect(0, 0, tW, tH);
 
+  // 중앙 비네팅 — 텍스트 대비 강조
+  const vg = ctx.createRadialGradient(tW/2, tH/2, 0, tW/2, tH/2, Math.hypot(tW, tH) / 2);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
+
   // 점선 격자 — 패널 경계선
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.lineWidth   = Math.max(1, Math.round(tW / 1200));
   ctx.setLineDash([Math.round(tW / 400), Math.round(tW / 400)]);
 
@@ -316,25 +322,34 @@ function genResImage() {
 
   ctx.setLineDash([]);
 
-  // 중앙 해상도 텍스트
-  const fs = Math.max(28, Math.min(Math.round(tH * 0.13), 120));
-  ctx.textAlign    = 'center';
+  // 중앙 해상도 텍스트 (기존 대비 60%)
+  const fs   = Math.round(Math.max(28, Math.min(Math.round(tH * 0.13), 120)) * 0.6);
+  const font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
   ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'left';
+  ctx.font = font;
 
-  // 라벨
-  ctx.font      = `400 ${Math.round(fs * 0.32)}px sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  ctx.fillText('LED 최종 해상도', tW / 2, tH / 2 - fs * 0.72);
+  // W × H — × 만 주황색
+  const wStr = `${tW}`, sepStr = '  ×  ', hStr = `${tH}`;
+  const wW   = ctx.measureText(wStr).width;
+  const sepW = ctx.measureText(sepStr).width;
+  const hW   = ctx.measureText(hStr).width;
+  const sx   = tW / 2 - (wW + sepW + hW) / 2;
 
-  // 메인 숫자
-  ctx.font      = `300 ${fs}px sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.fillText(`${tW} × ${tH}`, tW / 2, tH / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.fillText(wStr, sx, tH / 2);
+  ctx.fillStyle = '#FF7A2A';
+  ctx.fillText(sepStr, sx + wW, tH / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.fillText(hStr, sx + wW + sepW, tH / 2);
 
-  // 단위
-  ctx.font      = `400 ${Math.round(fs * 0.28)}px sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.fillText('px', tW / 2, tH / 2 + fs * 0.72);
+  // 주황 장식선 (텍스트 폭 기준 위아래)
+  const lineLen = (wW + sepW + hW) * 1.2;
+  const gap     = fs * 0.72;
+  ctx.strokeStyle = 'rgba(255,122,42,0.28)';
+  ctx.lineWidth   = Math.max(1, Math.round(tW / 1600));
+  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
 
   const dataUrl  = cv.toDataURL('image/png');
   const filename = `LED_${tW}x${tH}_${dateStr()}.png`;
