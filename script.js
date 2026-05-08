@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.1';
-const APP_SW_VERSION = 'v15';
+const APP_VERSION    = '1.0.2';
+const APP_SW_VERSION = 'v16';
 
 const CHANGELOG = [
+  { v: '1.0.2', items: ['콘솔 칩 순서 변경 (EC90 → J6 우선)', '케이블 수량 표시 UI 전면 개선 (카드형 컴팩트 레이아웃)', '1번 랜 계산 메인+백업 2배 적용', '전 케이블 여유분 자동 포함 및 표시', '숏랜 20개/숏파워 10개 묶음 수 표시', '뱀경로 화살표 시인성 개선 (흰 외곽선 추가)'] },
   { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정', 'manifest id 추가 — Google Play Protect 경고 해소', '랜선 시뮬레이터 자동 포트 할당 기능 추가'] },
   { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
 ];
@@ -284,13 +285,10 @@ async function saveCalcPng() {
     else                           c5  += cols;
   });
 
-  // 케이블 수량 (수동 조정값 우선 적용)
+  // 케이블 수량
   const asgn = new Set(); pA.forEach(s => s.forEach(k => asgn.add(k)));
   const tot  = layout.length * cols, una = tot - asgn.size;
   const _lan = _calcLan(), _pw = calcPW();
-  const l1   = cableAdj.l1 ?? _lan.l1;
-  const sl   = cableAdj.sl ?? _lan.sl;
-  const pw   = { c1: cableAdj.c1 ?? _pw.c1, sp: cableAdj.sp ?? _pw.sp };
 
   // 입력 필드 값 수집
   const W         = document.getElementById('iW').value;
@@ -354,17 +352,39 @@ async function saveCalcPng() {
     ${simImgHtml ? SEC('랜선 시뮬레이터') + simImgHtml : ''}
     ${SEC('케이블')}
     <div style="background:#E6F1FB;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;">
-      <div style="font-weight:600;color:#0C447C;margin-bottom:4px;">랜선</div>
-      ${S('1번 랜 (포트→첫 패널)', l1 + ' 개')}
-      ${S('숏랜 (패널 간)', sl + ' 개')}
-      <div style="display:flex;justify-content:space-between;font-weight:600;font-size:13px;padding:5px 0;margin-top:2px;color:#042C53;"><span>합계</span><span>${l1+sl} 개</span></div>
-      ${una > 0 ? `<div style="font-size:11px;color:#BA7517;margin-top:2px;">미할당 ${una}/${tot} 패널</div>` : ''}
+      <div style="font-weight:600;color:#0C447C;margin-bottom:8px;">랜선</div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:#666;margin-bottom:2px;">1번 랜</div>
+          <div style="font-size:18px;font-weight:700;color:#0C447C;line-height:1.2;">${_lan.l1} 개</div>
+          <div style="font-size:10px;color:#888;margin-top:3px;">메인 ${_lan.l1Main} + 백업 ${_lan.l1Back}</div>
+          <div style="font-size:10px;color:#BA7517;">여유 +${_lan.l1Spare}</div>
+        </div>
+        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:#666;margin-bottom:2px;">숏랜</div>
+          <div style="font-size:18px;font-weight:700;color:#0C447C;line-height:1.2;">${_lan.sl} 개</div>
+          <div style="font-size:10px;color:#1D9E75;font-weight:600;margin-top:3px;">${_lan.slBundle}묶음 (×20)</div>
+          <div style="font-size:10px;color:#BA7517;">여유 +${_lan.slSpare} 포함</div>
+        </div>
+      </div>
+      ${una > 0 ? `<div style="font-size:11px;color:#BA7517;margin-top:6px;">미할당 ${una}/${tot} 패널</div>` : ''}
     </div>
     <div style="background:#FAEEDA;border-radius:8px;padding:10px 12px;font-size:13px;">
-      <div style="font-weight:600;color:#633806;margin-bottom:4px;">파워콘</div>
-      ${S('1번 파워 (세로 2열당 1개)', pw.c1 + ' 개')}
-      ${S('숏 파워 (패널 간)', pw.sp + ' 개')}
-      <div style="display:flex;justify-content:space-between;font-weight:600;font-size:13px;padding:5px 0;margin-top:2px;color:#412402;"><span>합계</span><span>${pw.c1+pw.sp} 개</span></div>
+      <div style="font-weight:600;color:#633806;margin-bottom:8px;">파워콘</div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:#666;margin-bottom:2px;">1번 파워</div>
+          <div style="font-size:18px;font-weight:700;color:#633806;line-height:1.2;">${_pw.c1} 개</div>
+          <div style="font-size:10px;color:#888;margin-top:3px;">실 ${_pw.c1Net}개</div>
+          <div style="font-size:10px;color:#BA7517;">여유 +${_pw.c1Spare}</div>
+        </div>
+        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:#666;margin-bottom:2px;">숏 파워</div>
+          <div style="font-size:18px;font-weight:700;color:#633806;line-height:1.2;">${_pw.sp} 개</div>
+          <div style="font-size:10px;color:#1D9E75;font-weight:600;margin-top:3px;">${_pw.spBundle}묶음 (×10)</div>
+          <div style="font-size:10px;color:#BA7517;">여유 +${_pw.spSpare} 포함</div>
+        </div>
+      </div>
     </div>
     ${portRows ? SEC('포트 할당') + `<div style="font-size:13px;color:#555;line-height:1.8;">${portRows}</div>` : ''}
     ${memoHtml}
@@ -786,14 +806,16 @@ function ppx(rowType) {
 
 // 파워콘 수량 계산
 // 규칙: 열 2개당 1번 파워, 홀수 열이면 단독 열도 1개
-// 숏파워: 각 열(2개 묶음)에서 패널 간 연결선 수
+// 숏파워: 각 열(2개 묶음)에서 패널 간 연결선 수 + 여유 20개
 function calcPW() {
   const rows = layout.length;
   const pc   = Math.floor(cols / 2), odd = cols % 2 === 1;
-  let sp = 0;
-  for (let i = 0; i < pc; i++) sp += (rows * 2) - 1; // 2열 묶음의 패널 간 연결
-  if (odd) sp += (rows - 1);                          // 홀수 단독 열
-  return { c1: Math.ceil(cols / 2), sp };
+  let spNet = 0;
+  for (let i = 0; i < pc; i++) spNet += (rows * 2) - 1;
+  if (odd) spNet += (rows - 1);
+  const c1Net = Math.ceil(cols / 2), c1Spare = 2, c1 = c1Net + c1Spare;
+  const spSpare = 20, sp = spNet + spSpare, spBundle = Math.ceil(sp / 10);
+  return { c1, c1Net, c1Spare, spNet, sp, spSpare, spBundle };
 }
 
 function calc() {
@@ -1015,15 +1037,23 @@ function assign(pi, k) {
 }
 function deassign(pi, k) { pA[pi].delete(k); pH2[pi] = pH2[pi].filter(x => x !== k); }
 
-// 두 점 사이에 방향 화살표 그리기
+// 두 점 사이에 방향 화살표 그리기 (흰 외곽선으로 시인성 확보)
 function arrow(ctx, x1, y1, x2, y2, col) {
   const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx + dy*dy);
   if (len < 4) return;
   const ux = dx/len, uy = dy/len, g = cellW * 0.28;
   const ax = x1+ux*g, ay = y1+uy*g, bx = x2-ux*g, by = y2-uy*g;
+  const hw = 5, hl = 9, px = -uy, py = ux;
+  // 흰 외곽선 (선 + 화살촉)
   ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
-  const hw = 4, hl = 7, px = -uy, py = ux; // 화살촉
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 4.5; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx, by);
+  ctx.lineTo(bx - ux*hl + px*hw, by - uy*hl + py*hw);
+  ctx.lineTo(bx - ux*hl - px*hw, by - uy*hl - py*hw);
+  ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill();
+  // 컬러 화살표 (선 + 화살촉)
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke();
   ctx.beginPath(); ctx.moveTo(bx, by);
   ctx.lineTo(bx - ux*hl + px*hw, by - uy*hl + py*hw);
   ctx.lineTo(bx - ux*hl - px*hw, by - uy*hl - py*hw);
@@ -1117,23 +1147,16 @@ function renderLeg() {
   l.innerHTML = h;
 }
 
-// 계산된 랜선 수량 반환 (adjCable & saveCalcPng 공통 사용)
+// 계산된 랜선 수량 반환
+// 1번 랜: 포트당 메인+백업 각 1개씩 2배, 여유 2개 추가
+// 숏랜: 패널 간 연결 + 여유 20개, 20개 단위 묶음 수
 function _calcLan() {
-  const l1 = pA.filter(s => s.size > 0).length;
-  let sl = 0; pA.forEach(s => { if (s.size > 0) sl += (s.size - 1); });
-  return { l1, sl };
-}
-
-// 수량 입력 변경 시 합계만 업데이트 (전체 재렌더 없이 효율적으로 처리)
-function adjCable(k, v) {
-  const n = parseInt(v);
-  cableAdj[k] = (v === '' || isNaN(n)) ? null : Math.max(0, n);
-  const lan = _calcLan(), pw = calcPW();
-  const l1v = cableAdj.l1 ?? lan.l1, slv = cableAdj.sl ?? lan.sl;
-  const c1v = cableAdj.c1 ?? pw.c1,  spv = cableAdj.sp ?? pw.sp;
-  const lt = document.getElementById('lanTotal'), pt = document.getElementById('pwrTotal');
-  if (lt) lt.textContent = (l1v + slv) + ' 개';
-  if (pt) pt.textContent = (c1v + spv) + ' 개';
+  const ports = pA.filter(s => s.size > 0).length;
+  const l1Main = ports, l1Back = ports, l1Spare = 2;
+  const l1 = l1Main + l1Back + l1Spare;
+  let slNet = 0; pA.forEach(s => { if (s.size > 0) slNet += (s.size - 1); });
+  const slSpare = 20, sl = slNet + slSpare, slBundle = Math.ceil(sl / 20);
+  return { l1, l1Main, l1Back, l1Spare, slNet, sl, slSpare, slBundle };
 }
 
 function renderSum() {
@@ -1141,30 +1164,45 @@ function renderSum() {
   const asgn = new Set(); pA.forEach(s => s.forEach(k => asgn.add(k)));
   const tot  = layout.length * cols, una = tot - asgn.size;
   const lan  = _calcLan(), pw = calcPW();
-  // cableAdj가 null이면 자동계산값, 아니면 수동 조정값 사용
-  const l1v  = cableAdj.l1 ?? lan.l1, slv = cableAdj.sl ?? lan.sl;
-  const c1v  = cableAdj.c1 ?? pw.c1,  spv = cableAdj.sp ?? pw.sp;
   const ov   = pA.filter((_, i) => pxOf(i) > MAX_PX).length;
 
-  const inp = (id, k, v, cls) =>
-    `<input id="${id}" type="number" class="cable-inp${cls ? ' ' + cls : ''}" min="0" value="${v}" oninput="adjCable('${k}',this.value)">`;
-
-  el.innerHTML = `<div style="margin-top:10px;">
-    <div class="cbox lan"><div class="cbox-title">랜선</div>
-      <div class="crow"><span class="cn">1번 랜 (포트 → 첫 패널)</span><span class="cv">${inp('inp-l1','l1',l1v,'')} 개</span></div>
-      <div class="crow"><span class="cn">숏랜 (패널 간 연결)</span><span class="cv">${inp('inp-sl','sl',slv,'')} 개</span></div>
-      <div class="crow total"><span class="cn">합계</span><span class="cv" id="lanTotal">${l1v+slv} 개</span></div>
-      <div class="crow" style="margin-top:6px;font-size:11px;opacity:.7;">
-        <span class="cn">미할당 패널</span>
-        <span class="cv" style="${una>0?'color:#BA7517':''}">${una} / ${tot} 장</span>
+  el.innerHTML = `<div class="cc-grid">
+    <div class="cc-section lan">
+      <div class="cc-sec-title">랜선</div>
+      <div class="cc-cards">
+        <div class="cc-card">
+          <div class="cc-lbl">1번 랜</div>
+          <div class="cc-total lan">${lan.l1} 개</div>
+          <div class="cc-detail">메인 ${lan.l1Main} + 백업 ${lan.l1Back}</div>
+          <div class="cc-detail spare">여유 +${lan.l1Spare}</div>
+        </div>
+        <div class="cc-card">
+          <div class="cc-lbl">숏랜</div>
+          <div class="cc-total lan">${lan.sl} 개</div>
+          <div class="cc-bundle">${lan.slBundle}묶음 (×20)</div>
+          <div class="cc-detail spare">여유 +${lan.slSpare} 포함</div>
+        </div>
       </div>
     </div>
-    <div class="cbox pwr"><div class="cbox-title">파워콘 (전원 케이블)</div>
-      <div class="crow"><span class="cn">1번 파워 (세로 2열당 1개)</span><span class="cv">${inp('inp-c1','c1',c1v,'pwr')} 개</span></div>
-      <div class="crow"><span class="cn">숏 파워 (패널 간 연결)</span><span class="cv">${inp('inp-sp','sp',spv,'pwr')} 개</span></div>
-      <div class="crow total"><span class="cn">합계</span><span class="cv" id="pwrTotal">${c1v+spv} 개</span></div>
+    <div class="cc-section pwr">
+      <div class="cc-sec-title">파워콘</div>
+      <div class="cc-cards">
+        <div class="cc-card">
+          <div class="cc-lbl">1번 파워</div>
+          <div class="cc-total pwr">${pw.c1} 개</div>
+          <div class="cc-detail">실 ${pw.c1Net}개</div>
+          <div class="cc-detail spare">여유 +${pw.c1Spare}</div>
+        </div>
+        <div class="cc-card">
+          <div class="cc-lbl">숏 파워</div>
+          <div class="cc-total pwr">${pw.sp} 개</div>
+          <div class="cc-bundle">${pw.spBundle}묶음 (×10)</div>
+          <div class="cc-detail spare">여유 +${pw.spSpare} 포함</div>
+        </div>
+      </div>
     </div>
-    ${ov > 0 ? `<div style="background:#FCEBEB;border-radius:8px;padding:8px 12px;font-size:13px;color:#A32D2D;">픽셀 초과 포트 ${ov}개 — 연결 패널 수를 줄여주세요</div>` : ''}
+    ${una > 0 ? `<div class="cc-warn">미할당 ${una} / ${tot} 패널</div>` : ''}
+    ${ov > 0 ? `<div class="cc-error">픽셀 초과 포트 ${ov}개 — 연결 패널 수를 줄여주세요</div>` : ''}
   </div>`;
 }
 
