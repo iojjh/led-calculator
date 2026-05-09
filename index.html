@@ -226,6 +226,12 @@
   <div class="modal preview-modal">
     <div class="modal-title">저장 미리보기</div>
     <div class="modal-sub">이미지를 확인 후 다운로드하세요</div>
+    <div id="resVersionTabs" style="display:none;margin-bottom:12px;">
+      <div style="display:flex;gap:6px;">
+        <button id="tabNormal" class="res-tab active" onclick="selectResVersion('normal')">기본</button>
+        <button id="tabWm"     class="res-tab"        onclick="selectResVersion('wm')">워터마크</button>
+      </div>
+    </div>
     <div class="preview-scroll">
       <img id="previewImg" src="" alt="preview" style="width:100%;display:block;border-radius:6px;">
     </div>

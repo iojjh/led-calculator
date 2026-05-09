@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.11';
-const APP_SW_VERSION = 'v24';
+const APP_VERSION    = '1.0.12';
+const APP_SW_VERSION = 'v25';
 
 const CHANGELOG = [
+  { v: '1.0.12', items: ['해상도 이미지 격자 실선·폰트 1.5배 확대', '워터마크 버전 추가 — 사명 대각선 타일·우하단 로고, 기본/워터마크 탭 선택'] },
   { v: '1.0.11', items: ['해상도 이미지 리디자인 — 라벨·px 단위 제거, 폰트 60% 축소, × 주황 강조, 비네팅·장식선 추가'] },
   { v: '1.0.10', items: ['자동할당 배분 방식 변경 — 앞 포트부터 최대 열 수 채우기 (Greedy, 균등 배분 후순위)'] },
   { v: '1.0.9', items: ['여유분 입력 필드 전역 CSS 충돌 해소 (width:100% 덮어쓰기 방지, 여유 텍스트 옆 인라인 배치)'] },
@@ -236,6 +237,7 @@ function dateStr() {
 // ── 미리보기 모달 ─────────────────────────────────────────
 
 let pendingDownload = null; // { dataUrl, filename }
+let _resVersions   = null; // { normal, wm } — 해상도 이미지 이중 버전
 
 function showPreview(dataUrl, filename) {
   pendingDownload = { dataUrl, filename };
@@ -246,7 +248,9 @@ function showPreview(dataUrl, filename) {
 function closePreviewModal() {
   document.getElementById('previewBg').style.display = 'none';
   pendingDownload = null;
+  _resVersions = null;
   document.getElementById('previewImg').src = '';
+  document.getElementById('resVersionTabs').style.display = 'none';
 }
 function closePreview(e) {
   if (e.target === document.getElementById('previewBg')) closePreviewModal();
@@ -279,13 +283,16 @@ async function shareImage() {
 
 // ── 해상도 이미지 생성 ────────────────────────────────────
 
-function genResImage() {
-  if (!isReady()) return;
-  const sp = SPECS[curLed];
-  const tW = cols * sp.px500.w;
-  let tH = 0;
-  layout.forEach(r => { tH += ppx(r.type).h; });
+function _loadImg(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload  = () => res(img);
+    img.onerror = rej;
+    img.src = src;
+  });
+}
 
+function _buildResCanvas(sp, tW, tH) {
   const cv  = document.createElement('canvas');
   cv.width  = tW;
   cv.height = tH;
@@ -300,18 +307,16 @@ function genResImage() {
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
 
-  // 점선 격자 — 패널 경계선
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  // 실선 격자 — 패널 경계선
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
   ctx.lineWidth   = Math.max(1, Math.round(tW / 1200));
-  ctx.setLineDash([Math.round(tW / 400), Math.round(tW / 400)]);
+  ctx.setLineDash([]);
 
-  // 세로선 (열 경계)
   const pw = sp.px500.w;
   for (let x = pw; x < tW; x += pw) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
   }
 
-  // 가로선 (행 경계, 혼합 패널 대응)
   let y = 0;
   layout.forEach(r => {
     y += ppx(r.type).h;
@@ -320,10 +325,8 @@ function genResImage() {
     }
   });
 
-  ctx.setLineDash([]);
-
-  // 중앙 해상도 텍스트 (기존 대비 60%)
-  const fs   = Math.round(Math.max(28, Math.min(Math.round(tH * 0.13), 120)) * 0.6);
+  // 중앙 해상도 텍스트 (기존 60% 대비 1.5배 = 원본 90%)
+  const fs   = Math.round(Math.max(28, Math.min(Math.round(tH * 0.13), 120)) * 0.9);
   const font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
   ctx.textBaseline = 'middle';
   ctx.textAlign    = 'left';
@@ -351,9 +354,88 @@ function genResImage() {
   ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
 
-  const dataUrl  = cv.toDataURL('image/png');
+  return cv;
+}
+
+async function _buildWmCanvas(baseDataUrl, tW, tH) {
+  const cv  = document.createElement('canvas');
+  cv.width  = tW;
+  cv.height = tH;
+  const ctx = cv.getContext('2d');
+
+  const base = await _loadImg(baseDataUrl);
+  ctx.drawImage(base, 0, 0);
+
+  // 3Y_text.png — 무채색·반전 후 screen 합성으로 대각선 타일
+  const textImg = await _loadImg('3Y_text.png');
+  const tileW   = Math.round(tW * 0.24);
+  const tileH   = Math.round(tileW * textImg.height / textImg.width);
+  const stepX   = Math.round(tW * 0.38);
+  const stepY   = Math.max(tileH * 4, Math.round(tH * 0.26));
+  const halfDiag = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
+
+  ctx.save();
+  ctx.filter = 'grayscale(100%) invert(100%)';
+  ctx.globalAlpha = 0.13;
+  ctx.globalCompositeOperation = 'screen';
+  ctx.translate(tW / 2, tH / 2);
+  ctx.rotate(-Math.PI / 6);
+  for (let r = -Math.ceil(halfDiag / stepY); r <= Math.ceil(halfDiag / stepY) + 1; r++) {
+    for (let c = -Math.ceil(halfDiag / stepX); c <= Math.ceil(halfDiag / stepX) + 1; c++) {
+      ctx.drawImage(textImg, c * stepX - tileW / 2, r * stepY - tileH / 2, tileW, tileH);
+    }
+  }
+  ctx.restore();
+
+  // 3Y_no_bg.png — 우하단 코너 로고 (심볼+사명)
+  const logoImg = await _loadImg('3Y_no_bg.png');
+  const logoW   = Math.round(tW * 0.08);
+  const logoH   = Math.round(logoW * logoImg.height / logoImg.width);
+  const margin  = Math.round(tW * 0.025);
+  ctx.save();
+  ctx.globalAlpha = 0.50;
+  ctx.drawImage(logoImg, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
+  ctx.restore();
+
+  return cv;
+}
+
+async function genResImage() {
+  if (!isReady()) return;
+  const sp = SPECS[curLed];
+  const tW = cols * sp.px500.w;
+  let tH = 0;
+  layout.forEach(r => { tH += ppx(r.type).h; });
+
+  const baseCv   = _buildResCanvas(sp, tW, tH);
+  const baseUrl  = baseCv.toDataURL('image/png');
   const filename = `LED_${tW}x${tH}_${dateStr()}.png`;
-  showPreview(dataUrl, filename);
+
+  try {
+    const wmCv  = await _buildWmCanvas(baseUrl, tW, tH);
+    showResPreview(baseUrl, wmCv.toDataURL('image/png'), filename);
+  } catch {
+    showPreview(baseUrl, filename);
+  }
+}
+
+function showResPreview(normalUrl, wmUrl, filename) {
+  _resVersions = {
+    normal: { dataUrl: normalUrl, filename },
+    wm:     { dataUrl: wmUrl, filename: filename.replace('.png', '_WM.png') },
+  };
+  document.getElementById('resVersionTabs').style.display = 'block';
+  selectResVersion('normal');
+  document.getElementById('previewBg').style.display = 'flex';
+  closeModal();
+}
+
+function selectResVersion(v) {
+  if (!_resVersions) return;
+  pendingDownload = _resVersions[v];
+  document.getElementById('previewImg').src = pendingDownload.dataUrl;
+  document.getElementById('tabNormal').classList.toggle('active', v === 'normal');
+  document.getElementById('tabWm').classList.toggle('active', v === 'wm');
 }
 
 // ── PNG 스냅샷 생성 ──────────────────────────────────────
