@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.17';
-const APP_SW_VERSION = 'v30';
+const APP_VERSION    = '1.0.18';
+const APP_SW_VERSION = 'v31';
 
 const CHANGELOG = [
+  { v: '1.0.18', items: ['해상도 숫자·주황 바 완전 불투명, 워터마크 로고 좌상단 추가(좌상단·우하단 양쪽 배치)'] },
   { v: '1.0.17', items: ['워터마크 사명 타일 → 캔버스 텍스트 직접 렌더(이미지 의존 제거), 로고 RGB>230 투명 처리 + 0.80'] },
   { v: '1.0.16', items: ['워터마크 가시성 재개선 — 텍스트 알파 이중곱 제거(→순백 255), 타일 0.30·로고 0.70'] },
   { v: '1.0.15', items: ['워터마크 가시성 개선 — 픽셀 처리로 흰 배경 제거, 텍스트 흰색 반투명 타일, 로고 흰 배경 제거'] },
@@ -345,17 +346,17 @@ function _buildResCanvas(sp, tW, tH) {
   const hW   = ctx.measureText(hStr).width;
   const sx   = tW / 2 - (wW + sepW + hW) / 2;
 
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.fillStyle = '#ffffff';
   ctx.fillText(wStr, sx, tH / 2);
   ctx.fillStyle = '#FF7A2A';
   ctx.fillText(sepStr, sx + wW, tH / 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.fillStyle = '#ffffff';
   ctx.fillText(hStr, sx + wW + sepW, tH / 2);
 
-  // 주황 장식선 — 격자선 두께의 2배
+  // 주황 장식선 — 격자선 두께의 2배, 완전 불투명
   const lineLen = (wW + sepW + hW) * 1.2;
   const gap     = fs * 0.72;
-  ctx.strokeStyle = 'rgba(255,122,42,0.28)';
+  ctx.strokeStyle = '#FF7A2A';
   ctx.lineWidth   = gridLW * 2;
   ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
@@ -391,7 +392,7 @@ async function _buildWmCanvas(baseCv, tW, tH) {
   }
   ctx.restore();
 
-  // ── 우하단 로고 — R/G/B > 230 픽셀을 투명 처리 후 배치 ──
+  // ── 로고 — R/G/B > 230 투명 처리 후 좌상단·우하단 배치 ──
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
     const logoW   = Math.round(tW * 0.08);
@@ -410,7 +411,8 @@ async function _buildWmCanvas(baseCv, tW, tH) {
     tx.putImageData(id, 0, 0);
     ctx.save();
     ctx.globalAlpha = 0.80;
-    ctx.drawImage(tmp, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
+    ctx.drawImage(tmp, margin, margin, logoW, logoH);                              // 좌상단
+    ctx.drawImage(tmp, tW - logoW - margin, tH - logoH - margin, logoW, logoH);   // 우하단
     ctx.restore();
   } catch { ctx.restore(); }
 
