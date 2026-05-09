@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.13';
-const APP_SW_VERSION = 'v26';
+const APP_VERSION    = '1.0.14';
+const APP_SW_VERSION = 'v27';
 
 const CHANGELOG = [
+  { v: '1.0.14', items: ['주황 장식선 두께 격자선의 2배로 수정', '_buildWmCanvas 구조 개선 — 탭 항상 표시, 이미지 로드 실패 격리'] },
   { v: '1.0.13', items: ['격자선 볼드(opacity 0.60, lineWidth 개선)', 'SW캐시에 3Y 이미지 추가 → 워터마크 탭 정상 표시'] },
   { v: '1.0.12', items: ['해상도 이미지 격자 실선·폰트 1.5배 확대', '워터마크 버전 추가 — 사명 대각선 타일·우하단 로고, 기본/워터마크 탭 선택'] },
   { v: '1.0.11', items: ['해상도 이미지 리디자인 — 라벨·px 단위 제거, 폰트 60% 축소, × 주황 강조, 비네팅·장식선 추가'] },
@@ -309,8 +310,9 @@ function _buildResCanvas(sp, tW, tH) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
 
   // 실선 격자 — 패널 경계선
+  const gridLW = Math.max(2, Math.round(tW / 700));
   ctx.strokeStyle = 'rgba(255,255,255,0.60)';
-  ctx.lineWidth   = Math.max(2, Math.round(tW / 700));
+  ctx.lineWidth   = gridLW;
   ctx.setLineDash([]);
 
   const pw = sp.px500.w;
@@ -347,56 +349,61 @@ function _buildResCanvas(sp, tW, tH) {
   ctx.fillStyle = 'rgba(255,255,255,0.88)';
   ctx.fillText(hStr, sx + wW + sepW, tH / 2);
 
-  // 주황 장식선 (텍스트 폭 기준 위아래)
+  // 주황 장식선 — 격자선 두께의 2배
   const lineLen = (wW + sepW + hW) * 1.2;
   const gap     = fs * 0.72;
   ctx.strokeStyle = 'rgba(255,122,42,0.28)';
-  ctx.lineWidth   = Math.max(1, Math.round(tW / 1600));
+  ctx.lineWidth   = gridLW * 2;
   ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
 
   return cv;
 }
 
-async function _buildWmCanvas(baseDataUrl, tW, tH) {
+async function _buildWmCanvas(baseCv, tW, tH) {
   const cv  = document.createElement('canvas');
   cv.width  = tW;
   cv.height = tH;
   const ctx = cv.getContext('2d');
 
-  const base = await _loadImg(baseDataUrl);
-  ctx.drawImage(base, 0, 0);
+  // 기본 캔버스를 직접 복사 — data URL 왕복 없이 효율적으로
+  ctx.drawImage(baseCv, 0, 0);
 
   // 3Y_text.png — 무채색·반전 후 screen 합성으로 대각선 타일
-  const textImg = await _loadImg('3Y_text.png');
-  const tileW   = Math.round(tW * 0.24);
-  const tileH   = Math.round(tileW * textImg.height / textImg.width);
-  const stepX   = Math.round(tW * 0.38);
-  const stepY   = Math.max(tileH * 4, Math.round(tH * 0.26));
-  const halfDiag = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
-
-  ctx.save();
-  ctx.filter = 'grayscale(100%) invert(100%)';
-  ctx.globalAlpha = 0.13;
-  ctx.globalCompositeOperation = 'screen';
-  ctx.translate(tW / 2, tH / 2);
-  ctx.rotate(-Math.PI / 6);
-  for (let r = -Math.ceil(halfDiag / stepY); r <= Math.ceil(halfDiag / stepY) + 1; r++) {
-    for (let c = -Math.ceil(halfDiag / stepX); c <= Math.ceil(halfDiag / stepX) + 1; c++) {
-      ctx.drawImage(textImg, c * stepX - tileW / 2, r * stepY - tileH / 2, tileW, tileH);
+  // 로드 실패 시 이 레이어만 건너뜀 (함수는 계속 실행)
+  try {
+    const textImg  = await _loadImg('3Y_text.png');
+    const tileW    = Math.round(tW * 0.24);
+    const tileH    = Math.round(tileW * textImg.height / textImg.width);
+    const stepX    = Math.round(tW * 0.38);
+    const stepY    = Math.max(tileH * 4, Math.round(tH * 0.26));
+    const halfDiag = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
+    ctx.save();
+    ctx.filter = 'grayscale(100%) invert(100%)';
+    ctx.globalAlpha = 0.13;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.translate(tW / 2, tH / 2);
+    ctx.rotate(-Math.PI / 6);
+    for (let r = -Math.ceil(halfDiag / stepY); r <= Math.ceil(halfDiag / stepY) + 1; r++) {
+      for (let c = -Math.ceil(halfDiag / stepX); c <= Math.ceil(halfDiag / stepX) + 1; c++) {
+        ctx.drawImage(textImg, c * stepX - tileW / 2, r * stepY - tileH / 2, tileW, tileH);
+      }
     }
-  }
-  ctx.restore();
+    ctx.restore();
+  } catch { ctx.restore(); }
 
-  // 3Y_no_bg.png — 우하단 코너 로고 (심볼+사명)
-  const logoImg = await _loadImg('3Y_no_bg.png');
-  const logoW   = Math.round(tW * 0.08);
-  const logoH   = Math.round(logoW * logoImg.height / logoImg.width);
-  const margin  = Math.round(tW * 0.025);
-  ctx.save();
-  ctx.globalAlpha = 0.50;
-  ctx.drawImage(logoImg, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
-  ctx.restore();
+  // 3Y_no_bg.png — 우하단 코너 로고
+  try {
+    const logoImg = await _loadImg('3Y_no_bg.png');
+    const logoW   = Math.round(tW * 0.08);
+    const logoH   = Math.round(logoW * logoImg.height / logoImg.width);
+    const margin  = Math.round(tW * 0.025);
+    ctx.save();
+    ctx.globalAlpha = 0.50;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(logoImg, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
+    ctx.restore();
+  } catch { ctx.restore(); }
 
   return cv;
 }
@@ -409,30 +416,30 @@ async function genResImage() {
   layout.forEach(r => { tH += ppx(r.type).h; });
 
   const baseCv   = _buildResCanvas(sp, tW, tH);
-  const baseUrl  = baseCv.toDataURL('image/png');
   const filename = `LED_${tW}x${tH}_${dateStr()}.png`;
 
+  // _buildWmCanvas는 throw하지 않으므로 탭이 항상 표시됨
+  let wmUrl = null;
   try {
-    const wmCv  = await _buildWmCanvas(baseUrl, tW, tH);
-    showResPreview(baseUrl, wmCv.toDataURL('image/png'), filename);
-  } catch {
-    showPreview(baseUrl, filename);
-  }
+    const wmCv = await _buildWmCanvas(baseCv, tW, tH);
+    wmUrl = wmCv.toDataURL('image/png');
+  } catch { /* 치명적 실패 시 탭 없이 기본 버전만 */ }
+
+  const baseUrl = baseCv.toDataURL('image/png');
+  showResPreview(baseUrl, wmUrl, filename);
 }
 
-function showResPreview(normalUrl, wmUrl, filename) {
-  _resVersions = {
-    normal: { dataUrl: normalUrl, filename },
-    wm:     { dataUrl: wmUrl, filename: filename.replace('.png', '_WM.png') },
-  };
-  document.getElementById('resVersionTabs').style.display = 'block';
+function showResPreview(baseUrl, wmUrl, filename) {
+  _resVersions = { normal: { dataUrl: baseUrl, filename } };
+  if (wmUrl) _resVersions.wm = { dataUrl: wmUrl, filename: filename.replace('.png', '_WM.png') };
+  document.getElementById('resVersionTabs').style.display = wmUrl ? 'block' : 'none';
   selectResVersion('normal');
   document.getElementById('previewBg').style.display = 'flex';
   closeModal();
 }
 
 function selectResVersion(v) {
-  if (!_resVersions) return;
+  if (!_resVersions || !_resVersions[v]) return;
   pendingDownload = _resVersions[v];
   document.getElementById('previewImg').src = pendingDownload.dataUrl;
   document.getElementById('tabNormal').classList.toggle('active', v === 'normal');
