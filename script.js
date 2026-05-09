@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.16';
-const APP_SW_VERSION = 'v29';
+const APP_VERSION    = '1.0.17';
+const APP_SW_VERSION = 'v30';
 
 const CHANGELOG = [
+  { v: '1.0.17', items: ['워터마크 사명 타일 → 캔버스 텍스트 직접 렌더(이미지 의존 제거), 로고 RGB>230 투명 처리 + 0.80'] },
   { v: '1.0.16', items: ['워터마크 가시성 재개선 — 텍스트 알파 이중곱 제거(→순백 255), 타일 0.30·로고 0.70'] },
   { v: '1.0.15', items: ['워터마크 가시성 개선 — 픽셀 처리로 흰 배경 제거, 텍스트 흰색 반투명 타일, 로고 흰 배경 제거'] },
   { v: '1.0.14', items: ['주황 장식선 두께 격자선의 2배로 수정', '_buildWmCanvas 구조 개선 — 탭 항상 표시, 이미지 로드 실패 격리'] },
@@ -362,43 +363,6 @@ function _buildResCanvas(sp, tW, tH) {
   return cv;
 }
 
-// 흰 배경 이미지 → 흰색 완전불투명 텍스트만 남기기 (불투명도는 외부 globalAlpha로 제어)
-function _toWhiteAlpha(img, w, h) {
-  const tmp = document.createElement('canvas');
-  tmp.width = w; tmp.height = h;
-  const tx  = tmp.getContext('2d');
-  tx.drawImage(img, 0, 0, w, h);
-  const id = tx.getImageData(0, 0, w, h);
-  const d  = id.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-    if (lum > 200) {
-      d[i+3] = 0;                // 흰 배경 → 완전 투명
-    } else {
-      d[i] = d[i+1] = d[i+2] = 255;  // 텍스트 → 순백색
-      d[i+3] = 255;              // 완전 불투명 (밖의 globalAlpha로 전체 농도 조절)
-    }
-  }
-  tx.putImageData(id, 0, 0);
-  return tmp;
-}
-
-// 흰 배경 제거 (로고용 — 실제 투명도가 없는 경우 대비)
-function _removeWhiteBg(img) {
-  const tmp = document.createElement('canvas');
-  tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
-  const tx  = tmp.getContext('2d');
-  tx.drawImage(img, 0, 0);
-  const id = tx.getImageData(0, 0, tmp.width, tmp.height);
-  const d  = id.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-    if (lum > 210 && d[i+3] > 200) d[i+3] = 0;
-  }
-  tx.putImageData(id, 0, 0);
-  return tmp;
-}
-
 async function _buildWmCanvas(baseCv, tW, tH) {
   const cv  = document.createElement('canvas');
   cv.width  = tW;
@@ -406,37 +370,47 @@ async function _buildWmCanvas(baseCv, tW, tH) {
   const ctx = cv.getContext('2d');
   ctx.drawImage(baseCv, 0, 0);
 
-  // 3Y_text.png — 픽셀 처리로 흰 배경 제거 후 대각선 반복 타일
-  try {
-    const textImg  = await _loadImg('3Y_text.png');
-    const tileW    = Math.round(tW * 0.24);
-    const tileH    = Math.round(tileW * textImg.height / textImg.width);
-    const wmTile   = _toWhiteAlpha(textImg, tileW, tileH);
-    const stepX    = Math.round(tW * 0.38);
-    const stepY    = Math.max(tileH * 4, Math.round(tH * 0.26));
-    const halfDiag = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
-    ctx.save();
-    ctx.globalAlpha = 0.30;
-    ctx.translate(tW / 2, tH / 2);
-    ctx.rotate(-Math.PI / 6);
-    for (let r = -Math.ceil(halfDiag / stepY); r <= Math.ceil(halfDiag / stepY) + 1; r++) {
-      for (let c = -Math.ceil(halfDiag / stepX); c <= Math.ceil(halfDiag / stepX) + 1; c++) {
-        ctx.drawImage(wmTile, c * stepX - tileW / 2, r * stepY - tileH / 2, tileW, tileH);
-      }
+  // ── 사명 타일 — 캔버스 텍스트 직접 렌더 (이미지 로드 불필요, 절대 실패 없음) ──
+  const wmText = '3Y ENTERTAINMENT';
+  const fSize  = Math.round(Math.max(24, tW * 0.022));
+  ctx.save();
+  ctx.font         = `600 ${fSize}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
+  ctx.fillStyle    = 'rgba(255,255,255,0.38)';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  const textW  = ctx.measureText(wmText).width;
+  const stepX  = Math.round(textW  * 1.6);
+  const stepY  = Math.round(fSize  * 5.2);
+  const halfD  = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
+  ctx.translate(tW / 2, tH / 2);
+  ctx.rotate(-Math.PI / 6);
+  for (let r = -Math.ceil(halfD / stepY); r <= Math.ceil(halfD / stepY) + 1; r++) {
+    for (let c = -Math.ceil(halfD / stepX); c <= Math.ceil(halfD / stepX) + 1; c++) {
+      ctx.fillText(wmText, c * stepX, r * stepY);
     }
-    ctx.restore();
-  } catch { ctx.restore(); }
+  }
+  ctx.restore();
 
-  // 3Y_no_bg.png — 흰 배경 제거 후 우하단 코너 배치
+  // ── 우하단 로고 — R/G/B > 230 픽셀을 투명 처리 후 배치 ──
   try {
-    const logoImg   = await _loadImg('3Y_no_bg.png');
-    const logoClean = _removeWhiteBg(logoImg);
-    const logoW     = Math.round(tW * 0.08);
-    const logoH     = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin    = Math.round(tW * 0.025);
+    const logoImg = await _loadImg('3Y_no_bg.png');
+    const logoW   = Math.round(tW * 0.08);
+    const logoH   = Math.round(logoW * logoImg.height / logoImg.width);
+    const margin  = Math.round(tW * 0.025);
+    const tmp     = document.createElement('canvas');
+    tmp.width     = logoImg.naturalWidth;
+    tmp.height    = logoImg.naturalHeight;
+    const tx      = tmp.getContext('2d');
+    tx.drawImage(logoImg, 0, 0);
+    const id = tx.getImageData(0, 0, tmp.width, tmp.height);
+    const d  = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 230 && d[i+1] > 230 && d[i+2] > 230) d[i+3] = 0;
+    }
+    tx.putImageData(id, 0, 0);
     ctx.save();
-    ctx.globalAlpha = 0.70;
-    ctx.drawImage(logoClean, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
+    ctx.globalAlpha = 0.80;
+    ctx.drawImage(tmp, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
     ctx.restore();
   } catch { ctx.restore(); }
 
