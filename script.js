@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.15';
-const APP_SW_VERSION = 'v28';
+const APP_VERSION    = '1.0.16';
+const APP_SW_VERSION = 'v29';
 
 const CHANGELOG = [
+  { v: '1.0.16', items: ['워터마크 가시성 재개선 — 텍스트 알파 이중곱 제거(→순백 255), 타일 0.30·로고 0.70'] },
   { v: '1.0.15', items: ['워터마크 가시성 개선 — 픽셀 처리로 흰 배경 제거, 텍스트 흰색 반투명 타일, 로고 흰 배경 제거'] },
   { v: '1.0.14', items: ['주황 장식선 두께 격자선의 2배로 수정', '_buildWmCanvas 구조 개선 — 탭 항상 표시, 이미지 로드 실패 격리'] },
   { v: '1.0.13', items: ['격자선 볼드(opacity 0.60, lineWidth 개선)', 'SW캐시에 3Y 이미지 추가 → 워터마크 탭 정상 표시'] },
@@ -361,7 +362,7 @@ function _buildResCanvas(sp, tW, tH) {
   return cv;
 }
 
-// 흰 배경 이미지 → 흰색 반투명 텍스트만 남기기 (다크 배경용 워터마크 패턴)
+// 흰 배경 이미지 → 흰색 완전불투명 텍스트만 남기기 (불투명도는 외부 globalAlpha로 제어)
 function _toWhiteAlpha(img, w, h) {
   const tmp = document.createElement('canvas');
   tmp.width = w; tmp.height = h;
@@ -371,11 +372,11 @@ function _toWhiteAlpha(img, w, h) {
   const d  = id.data;
   for (let i = 0; i < d.length; i += 4) {
     const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-    if (lum > 210) {
-      d[i+3] = 0;                                              // 흰 배경 → 투명
+    if (lum > 200) {
+      d[i+3] = 0;                // 흰 배경 → 완전 투명
     } else {
-      d[i] = d[i+1] = d[i+2] = 255;                          // 텍스트 → 흰색
-      d[i+3] = Math.round((210 - lum) / 210 * 220);          // 어두울수록 불투명
+      d[i] = d[i+1] = d[i+2] = 255;  // 텍스트 → 순백색
+      d[i+3] = 255;              // 완전 불투명 (밖의 globalAlpha로 전체 농도 조절)
     }
   }
   tx.putImageData(id, 0, 0);
@@ -415,7 +416,7 @@ async function _buildWmCanvas(baseCv, tW, tH) {
     const stepY    = Math.max(tileH * 4, Math.round(tH * 0.26));
     const halfDiag = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
     ctx.save();
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.30;
     ctx.translate(tW / 2, tH / 2);
     ctx.rotate(-Math.PI / 6);
     for (let r = -Math.ceil(halfDiag / stepY); r <= Math.ceil(halfDiag / stepY) + 1; r++) {
@@ -434,7 +435,7 @@ async function _buildWmCanvas(baseCv, tW, tH) {
     const logoH     = Math.round(logoW * logoImg.height / logoImg.width);
     const margin    = Math.round(tW * 0.025);
     ctx.save();
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.70;
     ctx.drawImage(logoClean, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
     ctx.restore();
   } catch { ctx.restore(); }
