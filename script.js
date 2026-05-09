@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.20';
-const APP_SW_VERSION = 'v33';
+const APP_VERSION    = '1.0.21';
+const APP_SW_VERSION = 'v34';
 
 const CHANGELOG = [
+  { v: '1.0.21', items: ['워터마크 레이어 순서 개선 — 사명 타일 최하단 배치, 우하단 로고 제거, 좌상단 로고 크기 확대(18%)'] },
   { v: '1.0.20', items: ['로고 이미지 git 추가(배포 누락 수정), 흰 배경 픽셀 제거 후 투명 PNG로 합성'] },
   { v: '1.0.19', items: ['워터마크 로고 렌더링 수정 — getImageData 제거(CORS SecurityError 원인), drawImage 직접 렌더로 교체'] },
   { v: '1.0.18', items: ['해상도 숫자·주황 바 완전 불투명, 워터마크 로고 좌상단 추가(좌상단·우하단 양쪽 배치)'] },
@@ -366,19 +367,25 @@ function _buildResCanvas(sp, tW, tH) {
   return cv;
 }
 
-async function _buildWmCanvas(baseCv, tW, tH) {
+async function _buildWmCanvas(sp, tW, tH) {
   const cv  = document.createElement('canvas');
   cv.width  = tW;
   cv.height = tH;
   const ctx = cv.getContext('2d');
-  ctx.drawImage(baseCv, 0, 0);
 
-  // ── 사명 타일 — 캔버스 텍스트 직접 렌더 (이미지 로드 불필요, 절대 실패 없음) ──
+  // ── Layer 1: 배경 + 비네팅 ──
+  ctx.fillStyle = '#141414';
+  ctx.fillRect(0, 0, tW, tH);
+  const vg = ctx.createRadialGradient(tW/2, tH/2, 0, tW/2, tH/2, Math.hypot(tW, tH) / 2);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
+
+  // ── Layer 2: 사명 타일 (최하단 — 격자·텍스트 아래) ──
   const wmText = '3Y ENTERTAINMENT';
   const fSize  = Math.round(Math.max(24, tW * 0.022));
   ctx.save();
   ctx.font         = `600 ${fSize}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
-  ctx.fillStyle    = 'rgba(255,255,255,0.38)';
+  ctx.fillStyle    = 'rgba(255,255,255,0.28)';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   const textW  = ctx.measureText(wmText).width;
@@ -394,10 +401,43 @@ async function _buildWmCanvas(baseCv, tW, tH) {
   }
   ctx.restore();
 
-  // ── 로고 — 흰 배경 제거 후 합성 ──
+  // ── Layer 3: 격자선 ──
+  const gridLW = Math.max(2, Math.round(tW / 700));
+  ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+  ctx.lineWidth   = gridLW;
+  ctx.setLineDash([]);
+  const pw = sp.px500.w;
+  for (let x = pw; x < tW; x += pw) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
+  }
+  let y = 0;
+  layout.forEach(r => {
+    y += ppx(r.type).h;
+    if (y < tH) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tW, y); ctx.stroke(); }
+  });
+
+  // ── Layer 4: 해상도 텍스트 + 주황 바 ──
+  const fs   = Math.round(Math.max(28, Math.min(Math.round(tH * 0.13), 120)) * 0.9);
+  ctx.font         = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'left';
+  const wStr = `${tW}`, sepStr = '  ×  ', hStr = `${tH}`;
+  const wW   = ctx.measureText(wStr).width;
+  const sepW = ctx.measureText(sepStr).width;
+  const hW   = ctx.measureText(hStr).width;
+  const sx   = tW / 2 - (wW + sepW + hW) / 2;
+  ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, sx, tH / 2);
+  ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, sx + wW, tH / 2);
+  ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, sx + wW + sepW, tH / 2);
+  const lineLen = (wW + sepW + hW) * 1.2;
+  const gap     = fs * 0.72;
+  ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
+  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
+
+  // ── Layer 5: 회사 로고 (좌상단, 충분히 크게) ──
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    // 동일 출처 이미지 → tmp canvas에서 흰 픽셀(R>230 G>230 B>230) 투명 처리
     const tmp = document.createElement('canvas');
     tmp.width = logoImg.naturalWidth; tmp.height = logoImg.naturalHeight;
     const tx = tmp.getContext('2d');
@@ -408,13 +448,12 @@ async function _buildWmCanvas(baseCv, tW, tH) {
       if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) d[i+3] = 0;
     }
     tx.putImageData(id, 0, 0);
-    const logoW  = Math.round(tW * 0.08);
+    const logoW  = Math.round(tW * 0.18);
     const logoH  = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin = Math.round(tW * 0.025);
+    const margin = Math.round(tW * 0.03);
     ctx.save();
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 0.90;
     ctx.drawImage(tmp, margin, margin, logoW, logoH);
-    ctx.drawImage(tmp, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
     ctx.restore();
   } catch { /* 로고 없이 계속 */ }
 
@@ -434,7 +473,7 @@ async function genResImage() {
   // _buildWmCanvas는 throw하지 않으므로 탭이 항상 표시됨
   let wmUrl = null;
   try {
-    const wmCv = await _buildWmCanvas(baseCv, tW, tH);
+    const wmCv = await _buildWmCanvas(sp, tW, tH);
     wmUrl = wmCv.toDataURL('image/png');
   } catch { /* 치명적 실패 시 탭 없이 기본 버전만 */ }
 
