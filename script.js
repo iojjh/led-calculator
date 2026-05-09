@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.14';
-const APP_SW_VERSION = 'v27';
+const APP_VERSION    = '1.0.15';
+const APP_SW_VERSION = 'v28';
 
 const CHANGELOG = [
+  { v: '1.0.15', items: ['워터마크 가시성 개선 — 픽셀 처리로 흰 배경 제거, 텍스트 흰색 반투명 타일, 로고 흰 배경 제거'] },
   { v: '1.0.14', items: ['주황 장식선 두께 격자선의 2배로 수정', '_buildWmCanvas 구조 개선 — 탭 항상 표시, 이미지 로드 실패 격리'] },
   { v: '1.0.13', items: ['격자선 볼드(opacity 0.60, lineWidth 개선)', 'SW캐시에 3Y 이미지 추가 → 워터마크 탭 정상 표시'] },
   { v: '1.0.12', items: ['해상도 이미지 격자 실선·폰트 1.5배 확대', '워터마크 버전 추가 — 사명 대각선 타일·우하단 로고, 기본/워터마크 탭 선택'] },
@@ -360,48 +361,81 @@ function _buildResCanvas(sp, tW, tH) {
   return cv;
 }
 
+// 흰 배경 이미지 → 흰색 반투명 텍스트만 남기기 (다크 배경용 워터마크 패턴)
+function _toWhiteAlpha(img, w, h) {
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tx  = tmp.getContext('2d');
+  tx.drawImage(img, 0, 0, w, h);
+  const id = tx.getImageData(0, 0, w, h);
+  const d  = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+    if (lum > 210) {
+      d[i+3] = 0;                                              // 흰 배경 → 투명
+    } else {
+      d[i] = d[i+1] = d[i+2] = 255;                          // 텍스트 → 흰색
+      d[i+3] = Math.round((210 - lum) / 210 * 220);          // 어두울수록 불투명
+    }
+  }
+  tx.putImageData(id, 0, 0);
+  return tmp;
+}
+
+// 흰 배경 제거 (로고용 — 실제 투명도가 없는 경우 대비)
+function _removeWhiteBg(img) {
+  const tmp = document.createElement('canvas');
+  tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
+  const tx  = tmp.getContext('2d');
+  tx.drawImage(img, 0, 0);
+  const id = tx.getImageData(0, 0, tmp.width, tmp.height);
+  const d  = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+    if (lum > 210 && d[i+3] > 200) d[i+3] = 0;
+  }
+  tx.putImageData(id, 0, 0);
+  return tmp;
+}
+
 async function _buildWmCanvas(baseCv, tW, tH) {
   const cv  = document.createElement('canvas');
   cv.width  = tW;
   cv.height = tH;
   const ctx = cv.getContext('2d');
-
-  // 기본 캔버스를 직접 복사 — data URL 왕복 없이 효율적으로
   ctx.drawImage(baseCv, 0, 0);
 
-  // 3Y_text.png — 무채색·반전 후 screen 합성으로 대각선 타일
-  // 로드 실패 시 이 레이어만 건너뜀 (함수는 계속 실행)
+  // 3Y_text.png — 픽셀 처리로 흰 배경 제거 후 대각선 반복 타일
   try {
     const textImg  = await _loadImg('3Y_text.png');
     const tileW    = Math.round(tW * 0.24);
     const tileH    = Math.round(tileW * textImg.height / textImg.width);
+    const wmTile   = _toWhiteAlpha(textImg, tileW, tileH);
     const stepX    = Math.round(tW * 0.38);
     const stepY    = Math.max(tileH * 4, Math.round(tH * 0.26));
     const halfDiag = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
     ctx.save();
-    ctx.filter = 'grayscale(100%) invert(100%)';
-    ctx.globalAlpha = 0.13;
-    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.22;
     ctx.translate(tW / 2, tH / 2);
     ctx.rotate(-Math.PI / 6);
     for (let r = -Math.ceil(halfDiag / stepY); r <= Math.ceil(halfDiag / stepY) + 1; r++) {
       for (let c = -Math.ceil(halfDiag / stepX); c <= Math.ceil(halfDiag / stepX) + 1; c++) {
-        ctx.drawImage(textImg, c * stepX - tileW / 2, r * stepY - tileH / 2, tileW, tileH);
+        ctx.drawImage(wmTile, c * stepX - tileW / 2, r * stepY - tileH / 2, tileW, tileH);
       }
     }
     ctx.restore();
   } catch { ctx.restore(); }
 
-  // 3Y_no_bg.png — 우하단 코너 로고
+  // 3Y_no_bg.png — 흰 배경 제거 후 우하단 코너 배치
   try {
-    const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW   = Math.round(tW * 0.08);
-    const logoH   = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin  = Math.round(tW * 0.025);
+    const logoImg   = await _loadImg('3Y_no_bg.png');
+    const logoClean = _removeWhiteBg(logoImg);
+    const logoW     = Math.round(tW * 0.08);
+    const logoH     = Math.round(logoW * logoImg.height / logoImg.width);
+    const margin    = Math.round(tW * 0.025);
     ctx.save();
-    ctx.globalAlpha = 0.50;
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(logoImg, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(logoClean, tW - logoW - margin, tH - logoH - margin, logoW, logoH);
     ctx.restore();
   } catch { ctx.restore(); }
 
