@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.12';
-const APP_SW_VERSION = 'v25';
+const APP_VERSION    = '1.0.13';
+const APP_SW_VERSION = 'v26';
 
 const CHANGELOG = [
+  { v: '1.0.13', items: ['격자선 볼드(opacity 0.60, lineWidth 개선)', 'SW캐시에 3Y 이미지 추가 → 워터마크 탭 정상 표시'] },
   { v: '1.0.12', items: ['해상도 이미지 격자 실선·폰트 1.5배 확대', '워터마크 버전 추가 — 사명 대각선 타일·우하단 로고, 기본/워터마크 탭 선택'] },
   { v: '1.0.11', items: ['해상도 이미지 리디자인 — 라벨·px 단위 제거, 폰트 60% 축소, × 주황 강조, 비네팅·장식선 추가'] },
   { v: '1.0.10', items: ['자동할당 배분 방식 변경 — 앞 포트부터 최대 열 수 채우기 (Greedy, 균등 배분 후순위)'] },
@@ -308,8 +309,8 @@ function _buildResCanvas(sp, tW, tH) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
 
   // 실선 격자 — 패널 경계선
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth   = Math.max(1, Math.round(tW / 1200));
+  ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+  ctx.lineWidth   = Math.max(2, Math.round(tW / 700));
   ctx.setLineDash([]);
 
   const pw = sp.px500.w;

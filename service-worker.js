@@ -4,7 +4,7 @@
 //  버전 업데이트 시 CACHE_VERSION 숫자를 올리면 구 캐시가 자동 삭제됨
 // ════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'v25';
+const CACHE_VERSION = 'v26';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
 // 앱 구동에 필수인 에셋 — 캐시 실패 시 SW 설치가 중단됨
@@ -20,6 +20,8 @@ const EXTRA_ASSETS = [
   './',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './3Y_text.png',
+  './3Y_no_bg.png',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
