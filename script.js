@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.18';
-const APP_SW_VERSION = 'v31';
+const APP_VERSION    = '1.0.19';
+const APP_SW_VERSION = 'v32';
 
 const CHANGELOG = [
+  { v: '1.0.19', items: ['워터마크 로고 렌더링 수정 — getImageData 제거(CORS SecurityError 원인), drawImage 직접 렌더로 교체'] },
   { v: '1.0.18', items: ['해상도 숫자·주황 바 완전 불투명, 워터마크 로고 좌상단 추가(좌상단·우하단 양쪽 배치)'] },
   { v: '1.0.17', items: ['워터마크 사명 타일 → 캔버스 텍스트 직접 렌더(이미지 의존 제거), 로고 RGB>230 투명 처리 + 0.80'] },
   { v: '1.0.16', items: ['워터마크 가시성 재개선 — 텍스트 알파 이중곱 제거(→순백 255), 타일 0.30·로고 0.70'] },
@@ -392,27 +393,17 @@ async function _buildWmCanvas(baseCv, tW, tH) {
   }
   ctx.restore();
 
-  // ── 로고 — R/G/B > 230 투명 처리 후 좌상단·우하단 배치 ──
+  // ── 로고 — 직접 렌더 (getImageData 없음, CORS 에러 원천 차단) ──
+  // 3Y_no_bg.png 는 투명 배경 PNG이므로 픽셀 가공 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
     const logoW   = Math.round(tW * 0.08);
     const logoH   = Math.round(logoW * logoImg.height / logoImg.width);
     const margin  = Math.round(tW * 0.025);
-    const tmp     = document.createElement('canvas');
-    tmp.width     = logoImg.naturalWidth;
-    tmp.height    = logoImg.naturalHeight;
-    const tx      = tmp.getContext('2d');
-    tx.drawImage(logoImg, 0, 0);
-    const id = tx.getImageData(0, 0, tmp.width, tmp.height);
-    const d  = id.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i] > 230 && d[i+1] > 230 && d[i+2] > 230) d[i+3] = 0;
-    }
-    tx.putImageData(id, 0, 0);
     ctx.save();
-    ctx.globalAlpha = 0.80;
-    ctx.drawImage(tmp, margin, margin, logoW, logoH);                              // 좌상단
-    ctx.drawImage(tmp, tW - logoW - margin, tH - logoH - margin, logoW, logoH);   // 우하단
+    ctx.globalAlpha = 0.82;
+    ctx.drawImage(logoImg, margin, margin, logoW, logoH);                              // 좌상단
+    ctx.drawImage(logoImg, tW - logoW - margin, tH - logoH - margin, logoW, logoH);   // 우하단
     ctx.restore();
   } catch { ctx.restore(); }
 
