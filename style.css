@@ -77,6 +77,28 @@ input[type=number].spare-inp:focus{outline:none;border-bottom-style:solid;border
 .cc-warn{background:#FFF5E0;border-radius:8px;padding:6px 10px;font-size:12px;color:#BA7517;}
 .cc-error{background:#FCEBEB;border-radius:8px;padding:8px 12px;font-size:13px;color:#A32D2D;}
 
+/* 면적 모드 토글 */
+.area-mode-toggle{display:flex;gap:3px;background:#f0f0f0;border-radius:8px;padding:3px;}
+.mode-btn{border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:500;cursor:pointer;color:#888;background:transparent;transition:all .15s;}
+.mode-btn.on{background:#fff;color:#0F6E56;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.sec-label-row{font-size:11px;font-weight:700;color:#0F6E56;letter-spacing:.05em;margin-bottom:6px;margin-top:4px;}
+.sec-label-row:first-child{margin-top:0;}
+.copy-btn{font-size:10px;font-weight:500;padding:2px 7px;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;cursor:pointer;color:#666;white-space:nowrap;transition:all .12s;}
+.copy-btn:hover{border-color:#0F6E56;color:#0F6E56;background:#E1F5EE;}
+
+/* 멀티 모드 개별 섹션 해상도 */
+.res-section{background:#f8f8f8;border-radius:8px;padding:8px 12px;margin-bottom:6px;}
+.res-section:last-child{margin-bottom:0;}
+.res-sec-label{font-size:10px;font-weight:700;color:#0F6E56;letter-spacing:.04em;margin-bottom:2px;}
+.res-sec-val{font-size:14px;font-weight:500;color:#1a1a1a;}
+.res-sec-empty{font-size:12px;color:#bbb;}
+
+/* 시뮬레이터 섹션 탭 (멀티 모드) */
+.sim-sec-tabs{display:flex;gap:4px;margin-bottom:10px;}
+.sim-sec-tab{border:1.5px solid #e0e0e0;border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer;color:#666;background:#fafafa;transition:all .15s;}
+.sim-sec-tab.on{background:#0F6E56;border-color:#0F6E56;color:#fff;font-weight:500;}
+.sim-sec-tab:disabled{opacity:.35;cursor:default;}
+
 /* 포트 */
 .port-strip{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
 .port-btn{border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;background:#f5f5f5;color:#888;min-width:38px;text-align:center;}

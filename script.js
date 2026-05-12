@@ -678,6 +678,13 @@ function doFullReset() {
   // 면적 입력 초기화
   document.getElementById('iW').value = '';
   document.getElementById('iH').value = '';
+  ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => { document.getElementById(id).value = ''; });
+  // 모드 단일로 복귀
+  areaMode = 'single';
+  document.getElementById('modeBtn-single').classList.add('on');
+  document.getElementById('modeBtn-multi').classList.remove('on');
+  document.getElementById('area-single').style.display = '';
+  document.getElementById('area-multi').style.display  = 'none';
   spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 };
   // 칩 선택 초기화
   document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
@@ -706,6 +713,18 @@ function getAppState(name) {
     date: new Date().toLocaleDateString('ko-KR'),
     W: document.getElementById('iW').value,
     H: document.getElementById('iH').value,
+    areaMode, activeSimSec,
+    mW_L: document.getElementById('mW_L').value,
+    mH_L: document.getElementById('mH_L').value,
+    mW_C: document.getElementById('mW_C').value,
+    mH_C: document.getElementById('mH_C').value,
+    mW_R: document.getElementById('mW_R').value,
+    mH_R: document.getElementById('mH_R').value,
+    multiPorts: {
+      left:   { pA: multiSec.left.pA.map(s=>[...s]),   pH2: multiSec.left.pH2.map(a=>[...a])   },
+      center: { pA: multiSec.center.pA.map(s=>[...s]), pH2: multiSec.center.pH2.map(a=>[...a]) },
+      right:  { pA: multiSec.right.pA.map(s=>[...s]),  pH2: multiSec.right.pH2.map(a=>[...a])  },
+    },
     curLed, basePH, curSending,
     consoleName: document.querySelector('#consoleChips .chip.on')?.dataset.v || null,
     fiberLen: document.getElementById('fiberLen').value,
@@ -761,13 +780,34 @@ function loadAppState(st) {
 
   memoList = st.memoList || []; renderMemo();
 
-  // 계산 실행 후 포트 할당 복원 (calc()가 pA를 초기화하므로 반드시 이후에)
+  // 계산 실행 후 포트 할당 복원
   rst();
-  if (isReady()) calc();
-  if (st.pA && isReady()) {
-    pA  = st.pA.map(a => new Set(a));
-    pH2 = (st.pH2 || st.pA).map(a => [...a]);
-    drawCv(); renderPorts(); renderLeg(); renderSum();
+  if (st.areaMode === 'multi') {
+    // 멀티 모드 복원
+    setAreaMode('multi');
+    ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => {
+      document.getElementById(id).value = st[id] || '';
+    });
+    if (st.multiPorts) {
+      ['left','center','right'].forEach(k => {
+        if (st.multiPorts[k]) {
+          multiSec[k].pA  = st.multiPorts[k].pA.map(a  => new Set(a));
+          multiSec[k].pH2 = st.multiPorts[k].pH2.map(a => [...a]);
+        }
+      });
+    }
+    activeSimSec = st.activeSimSec || 'center';
+    if (isReady()) calcMulti();
+    const as = multiSec[activeSimSec];
+    pA = as.pA; pH2 = as.pH2;
+    if (isReady()) { drawCv(); renderPorts(); renderLeg(); renderSum(); }
+  } else {
+    if (isReady()) calc();
+    if (st.pA && isReady()) {
+      pA  = st.pA.map(a => new Set(a));
+      pH2 = (st.pH2 || st.pA).map(a => [...a]);
+      drawCv(); renderPorts(); renderLeg(); renderSum();
+    }
   }
 }
 
@@ -1015,17 +1055,116 @@ window.addEventListener('popstate', e => {
 let curLed = null, basePH = null; // 선택된 LED 피치 / 기준 패널 높이(mm)
 let cols = 0, layout = [];        // 가로 패널 수 / 행별 타입 배열 [{type:'full'|'half'}]
 
+let areaMode     = 'single';  // 'single' | 'multi'
+let activeSimSec = 'center';  // 멀티 모드에서 시뮬레이터에 표시 중인 섹션
+
+function _mkSec() {
+  return { cols:0, layout:[], pA:Array.from({length:8},()=>new Set()), pH2:Array.from({length:8},()=>[]) };
+}
+let multiSec = { left:_mkSec(), center:_mkSec(), right:_mkSec() };
+
 function isReady() { return curLed && basePH; }
 
 function selLed(el) {
   document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
   el.classList.add('on'); curLed = el.dataset.v;
-  rst(); calc();
+  rst(); areaMode === 'single' ? calc() : calcMulti();
 }
 function selPanel(el) {
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
   el.classList.add('on'); basePH = parseInt(el.dataset.v);
-  rst(); calc();
+  rst(); areaMode === 'single' ? calc() : calcMulti();
+}
+
+// ── 면적 모드 전환 ──────────────────────────────────────────
+function setAreaMode(mode) {
+  areaMode = mode;
+  document.getElementById('modeBtn-single').classList.toggle('on', mode === 'single');
+  document.getElementById('modeBtn-multi').classList.toggle('on',  mode === 'multi');
+  document.getElementById('area-single').style.display = mode === 'single' ? '' : 'none';
+  document.getElementById('area-multi').style.display  = mode === 'multi'  ? '' : 'none';
+  cols = 0; layout = [];
+  rst();
+  mode === 'single' ? calc() : calcMulti();
+}
+
+// ── 섹션 크기 복사 (from → to) ──────────────────────────────
+function copySectionSize(from, to) {
+  const ids = { left:['mW_L','mH_L'], center:['mW_C','mH_C'], right:['mW_R','mH_R'] };
+  const wVal = document.getElementById(ids[from][0]).value;
+  const hVal = document.getElementById(ids[from][1]).value;
+  if (!wVal && !hVal) return;
+  document.getElementById(ids[to][0]).value = wVal;
+  document.getElementById(ids[to][1]).value = hVal;
+  calcMulti();
+}
+
+// ── 섹션 레이아웃 계산 헬퍼 ────────────────────────────────
+function calcSection(W, H) {
+  const sec = { cols:0, layout:[] };
+  if (!W || !H || !isReady()) return sec;
+  sec.cols = Math.max(1, Math.round(W * 1000 / 500));
+  const Hmm = H * 1000;
+  if (basePH === 1000) {
+    const fr = Math.floor(Hmm / 1000);
+    if (Math.round(Hmm - fr * 1000) >= 400) sec.layout.push({ type:'half' });
+    for (let i = 0; i < fr; i++) sec.layout.push({ type:'full' });
+  } else {
+    const nr = Math.max(1, Math.round(Hmm / 500));
+    for (let i = 0; i < nr; i++) sec.layout.push({ type:'full' });
+  }
+  return sec;
+}
+
+// ── 멀티 모드 계산 ─────────────────────────────────────────
+function calcMulti() {
+  const ids = { left:['mW_L','mH_L'], center:['mW_C','mH_C'], right:['mW_R','mH_R'] };
+  let anyInput = false;
+
+  ['left','center','right'].forEach(k => {
+    const W = parseFloat(document.getElementById(ids[k][0]).value) || 0;
+    const H = parseFloat(document.getElementById(ids[k][1]).value) || 0;
+    const res = calcSection(W, H);
+    // 범위 밖 포트 할당 제거
+    multiSec[k].pA.forEach((s, pi) => {
+      [...s].forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        if (r >= res.layout.length || c >= res.cols) {
+          s.delete(key); multiSec[k].pH2[pi] = multiSec[k].pH2[pi].filter(x => x !== key);
+        }
+      });
+    });
+    multiSec[k].cols   = res.cols;
+    multiSec[k].layout = res.layout;
+    if (W && H) anyInput = true;
+  });
+
+  if (!isReady()) {
+    document.getElementById('resultBody').innerHTML = '<div style="color:#999;font-size:13px;">LED 종류와 패널 사이즈를 선택하세요</div>';
+    document.getElementById('simArea').innerHTML    = '<div class="sim-locked">LED 종류와 패널 사이즈를 먼저 선택해주세요</div>';
+    return;
+  }
+  if (!anyInput) {
+    document.getElementById('resultBody').innerHTML = '<div style="color:#999;font-size:13px;">설치 면적을 입력하세요</div>';
+    document.getElementById('simArea').innerHTML    = '<div class="sim-locked">설치 면적을 먼저 입력해주세요</div>';
+    return;
+  }
+
+  // 전역 cols/layout/pA/pH2 를 활성 섹션과 동기화
+  const as = multiSec[activeSimSec];
+  cols = as.cols; layout = as.layout; pA = as.pA; pH2 = as.pH2;
+
+  renderResMulti();
+  buildSim();
+}
+
+// ── 시뮬레이터 섹션 전환 (멀티 모드) ──────────────────────
+function switchSimSec(sec) {
+  activeSimSec = sec;
+  const as = multiSec[sec];
+  cols = as.cols; layout = as.layout; pA = as.pA; pH2 = as.pH2;
+  aPort = firstEmpty(); fCell = null; drag = false; dStk = []; dHov = null;
+  buildSim();
 }
 
 // 행 타입에 따른 픽셀 크기 반환
@@ -1133,6 +1272,69 @@ function renderRes() {
 }
 
 
+function renderResMulti() {
+  if (!isReady()) return;
+  const sp = SPECS[curLed];
+  const NAMES = { left:'좌측', center:'중앙', right:'우측' };
+
+  let totalC5 = 0, totalC10 = 0, totalTW = 0, maxTH = 0;
+  const secInfo = {};
+
+  ['left','center','right'].forEach(k => {
+    const sec = multiSec[k];
+    if (!sec.cols || !sec.layout.length) { secInfo[k] = null; return; }
+    let c5 = 0, c10 = 0;
+    sec.layout.forEach(r => {
+      if (r.type === 'half')    c5  += sec.cols;
+      else if (basePH === 1000) c10 += sec.cols;
+      else                      c5  += sec.cols;
+    });
+    let tH = 0; sec.layout.forEach(r => { tH += ppx(r.type).h; });
+    const tW = sec.cols * sp.px500.w;
+    totalC5 += c5; totalC10 += c10; totalTW += tW; maxTH = Math.max(maxTH, tH);
+    secInfo[k] = { c5, c10, tW, tH, cols: sec.cols, rows: sec.layout.length };
+  });
+
+  // 합산 패널 수
+  let h = '<div class="metric-grid">';
+  h += `<div class="metric"><div class="ml">500×500 패널 (합계)</div><div class="mv">${totalC5}<span class="mu"> ea</span></div></div>`;
+  h += `<div class="metric"><div class="ml">500×1000 패널 (합계)</div><div class="mv">${totalC10}<span class="mu"> ea</span></div></div>`;
+  h += '</div>';
+
+  // 전체 해상도 배너
+  if (totalTW && maxTH) {
+    let coverHtml = '';
+    if (curSending) {
+      const ss = SSPEC[curSending];
+      const modesStr  = ss.modes.map(m => `${m.maxW}×${m.maxH}@${m.maxHz}Hz`).join(' / ');
+      const sorted    = [...ss.modes].sort((a,b) => b.maxHz - a.maxHz);
+      const coverMode = sorted.find(m => totalTW <= m.maxW && maxTH <= m.maxH) || null;
+      const ok = coverMode !== null;
+      coverHtml = `<div class="cover-row${ok ? '' : ' cover-over'}">
+        <span>${ss.label}: ${modesStr}</span>
+        <span class="cover-badge">${ok ? `✓ ${coverMode.maxHz}Hz 커버 가능` : '✗ 해상도 초과'}</span>
+      </div>`;
+    }
+    h += `<div class="res-banner"><div class="rl">전체 해상도</div><div class="rv">${totalTW} × ${maxTH} px</div></div>`;
+    h += coverHtml;
+  }
+
+  // 섹션별 해상도
+  h += '<div style="margin-top:8px;">';
+  ['left','center','right'].forEach(k => {
+    const r = secInfo[k];
+    if (!r) {
+      h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]}</div><div class="res-sec-empty">미입력</div></div>`;
+    } else {
+      h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]} — 가로 ${r.cols}ea × 세로 ${r.rows}행</div><div class="res-sec-val">${r.tW} × ${r.tH} px</div></div>`;
+    }
+  });
+  h += '</div>';
+  h += `<div style="font-size:12px;color:#999;margin-top:4px;">패널 해상도 — 500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px</div>`;
+  document.getElementById('resultBody').innerHTML = h;
+}
+
+
 // ════════════════════════════════════════════════════════════
 //  §11  랜선 시뮬레이터
 // ════════════════════════════════════════════════════════════
@@ -1153,6 +1355,8 @@ function rst() {
   pH2      = Array.from({ length: 8 }, () => []);
   spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 };
   fCell = null; drag = false; dStk = []; dHov = null; aPort = 0;
+  multiSec = { left:_mkSec(), center:_mkSec(), right:_mkSec() };
+  activeSimSec = 'center';
 }
 function rstPort(pi) {
   pA[pi] = new Set(); pH2[pi] = [];
@@ -1166,7 +1370,20 @@ function nextEmpty()  { for (let i = 0; i < 8; i++) { if (pA[i].size === 0) retu
 // ── 시뮬레이터 UI 빌드 ────────────────────────────────────
 
 function buildSim() {
-  document.getElementById('simArea').innerHTML = `
+  let secTabsHtml = '';
+  if (areaMode === 'multi') {
+    const NAMES = { left:'좌측', center:'중앙', right:'우측' };
+    secTabsHtml = '<div class="sim-sec-tabs">' +
+      ['left','center','right'].map(k => {
+        const hasData = multiSec[k].cols > 0 && multiSec[k].layout.length > 0;
+        const on = k === activeSimSec ? ' on' : '';
+        const dis = hasData ? '' : ' disabled';
+        return `<button class="sim-sec-tab${on}"${dis} onclick="switchSimSec('${k}')">${NAMES[k]}</button>`;
+      }).join('') +
+      '</div>';
+  }
+
+  document.getElementById('simArea').innerHTML = secTabsHtml + `
     <div class="sim-hint">
       <b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp;
       <b style="color:#333">꾹+드래그</b> 자동 포트 선택 후 연속 할당 &nbsp;·&nbsp;

@@ -30,10 +30,43 @@
 <!-- 탭1: 계산기 -->
 <div class="tab-page on" id="tab-calc">
   <div class="card" id="card-area">
-    <div class="stitle">설치 면적</div>
-    <div class="row2">
-      <div class="field"><label>가로 (m)</label><input type="number" id="iW" placeholder="예: 4" min="0.5" step="0.5" oninput="calc()"></div>
-      <div class="field"><label>세로 (m)</label><input type="number" id="iH" placeholder="예: 3" min="0.5" step="0.5" oninput="calc()"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="stitle" style="margin-bottom:0">설치 면적</div>
+      <div class="area-mode-toggle">
+        <button class="mode-btn on" id="modeBtn-single" onclick="setAreaMode('single')">단일</button>
+        <button class="mode-btn"    id="modeBtn-multi"  onclick="setAreaMode('multi')">좌·중·우</button>
+      </div>
+    </div>
+    <!-- 단일 모드 -->
+    <div id="area-single">
+      <div class="row2">
+        <div class="field"><label>가로 (m)</label><input type="number" id="iW" placeholder="예: 4" min="0.5" step="0.5" oninput="calc()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="iH" placeholder="예: 3" min="0.5" step="0.5" oninput="calc()"></div>
+      </div>
+    </div>
+    <!-- 멀티 모드 (좌·중·우) -->
+    <div id="area-multi" style="display:none;">
+      <div class="sec-label-row">좌측</div>
+      <div class="row2" style="margin-bottom:8px;">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_L" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field">
+          <label style="display:flex;align-items:center;justify-content:space-between;">세로 (m)<button class="copy-btn" onclick="copySectionSize('right','left')">우측과 동일</button></label>
+          <input type="number" id="mH_L" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
+        </div>
+      </div>
+      <div class="sec-label-row">중앙</div>
+      <div class="row2" style="margin-bottom:8px;">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_C" placeholder="예: 4" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="mH_C" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()"></div>
+      </div>
+      <div class="sec-label-row">우측</div>
+      <div class="row2">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_R" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field">
+          <label style="display:flex;align-items:center;justify-content:space-between;">세로 (m)<button class="copy-btn" onclick="copySectionSize('left','right')">좌측과 동일</button></label>
+          <input type="number" id="mH_R" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
+        </div>
+      </div>
     </div>
   </div>
   <div class="card" id="card-led">
