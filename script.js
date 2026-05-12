@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.24';
-const APP_SW_VERSION = 'v37';
+const APP_VERSION    = '1.0.25';
+const APP_SW_VERSION = 'v38';
 
 const CHANGELOG = [
+  { v: '1.0.25', items: ['멀티 모드 키보드 방향키 할당 수정 — 섹션 프리픽스 처리로 화면 표시 정상화', '할당 순서 번호가 배선 경로 위에 표시되도록 드로우 순서 수정', '자동 할당 두 가지 모드 추가 — 섹션별 분리(기존) · 통합(전체 하나의 벽으로 처리)'] },
   { v: '1.0.24', items: ['멀티 모드 배선 경로 수정 — 섹션 간 포트 연결 시 배선 연속 표시, 순서 번호 전 섹션 통합'] },
   { v: '1.0.23', items: ['랜선 시뮬레이터 멀티 모드 — 좌/중/우 섹션 통합 캔버스 표시(섹션 간 간격 구분)', '포트 1개로 여러 섹션 패널 동시 할당 가능(섹션 간 포트 연결)', '자동 할당 시 섹션 순서대로 포트 연속 배분'] },
   { v: '1.0.22', items: ['설치 면적 단일/멀티(좌·중·우) 모드 토글 추가', '멀티 모드: 좌측·중앙·우측 각각 독립 입력, 좌↔우 크기 복사 버튼', '계산 결과: 합산 패널 수 + 섹션별/전체 해상도 분리 표시'] },
@@ -1379,6 +1380,10 @@ function nextEmpty()  { for (let i = 0; i < 8; i++) { if (pA[i].size === 0) retu
 // ── 시뮬레이터 UI 빌드 ────────────────────────────────────
 
 function buildSim() {
+  const autoButtons = areaMode === 'multi'
+    ? `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 섹션별 분리</button>
+       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합 자동할당</button>`
+    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>`;
   document.getElementById('simArea').innerHTML = `
     <div class="sim-hint">
       <b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp;
@@ -1388,7 +1393,7 @@ function buildSim() {
     <div class="port-strip" id="portStrip"></div>
     <div class="port-info-bar" id="portInfo"></div>
     <div class="reset-row">
-      <button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>
+      ${autoButtons}
       <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
       <button class="reset-btn" id="rstPBtn"   onclick="doRstPort()">포트 초기화</button>
     </div>
@@ -1602,7 +1607,10 @@ function drawCv() {
   _drawSingleSection(ctx);
 }
 
-function _drawSingleSection(ctx, secName) {
+function _drawSingleSection(ctx, secName, passOnly) {
+  // passOnly: undefined/0=전체, 1=배경만, 3=번호/레이블만
+  const doP1 = !passOnly || passOnly === 1;
+  const doP3 = !passOnly || passOnly === 3;
   const pfx = secName ? secName + ':' : '';
   // 셀별 순서 번호 — 전 섹션 통합 계산 (멀티 모드에서도 번호 연속)
   const stepOf = new Map();
@@ -1611,7 +1619,7 @@ function _drawSingleSection(ctx, secName) {
   });
 
   // ── 패스 1: 셀 배경 · 테두리 · 패턴 ──────────────────────
-  let y = 0;
+  if (doP1) { let y = 0;
   layout.forEach((row, ri) => {
     const ch = rH[ri];
     for (let c = 0; c < cols; c++) {
@@ -1654,13 +1662,13 @@ function _drawSingleSection(ctx, secName) {
       }
     }
     y += ch;
-  });
+  }); } // end pass1
 
   // ── 패스 2: 포트 배선 경로 — 단일 모드만 (멀티는 _drawCvMulti에서 통합 처리)
   if (areaMode !== 'multi') drawPortPaths(ctx, secName);
 
   // ── 패스 3: 순서 번호 & 포트 레이블 (배선 경로 위에 그림) ─────
-  y = 0;
+  if (doP3) { let y = 0;
   layout.forEach((row, ri) => {
     const ch = rH[ri];
     for (let c = 0; c < cols; c++) {
@@ -1695,7 +1703,7 @@ function _drawSingleSection(ctx, secName) {
       }
     }
     y += ch;
-  });
+  }); } // end pass3
 }
 
 // 프리픽스 키 → 캔버스 절대 좌표 변환 (멀티 모드 전용)
@@ -1783,7 +1791,7 @@ function _drawCvMulti(ctx) {
     ctx.fillText(NAMES[k], xStart + secW / 2, SEC_LBL_H / 2);
   });
 
-  // 각 섹션 패널 그리기 — pass1(배경) + pass3(번호/레이블), 배선은 이후 통합 처리
+  // 패스 1: 셀 배경·테두리 — 모든 섹션
   ['left','center','right'].forEach(k => {
     if (multiCvOffsets[k] < 0) return;
     const sec = multiSec[k];
@@ -1792,13 +1800,27 @@ function _drawCvMulti(ctx) {
     cols = sec.cols; layout = sec.layout; rH = sec.rH;
     ctx.save();
     ctx.translate(multiCvOffsets[k], SEC_LBL_H);
-    _drawSingleSection(ctx, k);
+    _drawSingleSection(ctx, k, 1);
     ctx.restore();
     [cols, layout, rH] = [sc, sl, srH];
   });
 
-  // 섹션 간 연결을 포함한 포트 배선 경로 통합 그리기 (절대 좌표)
+  // 섹션 간 연결 포함 포트 배선 경로 (배경 위, 번호 아래)
   _drawPortPathsMulti(ctx);
+
+  // 패스 3: 순서 번호·포트 레이블 — 배선 경로 위에 그리기
+  ['left','center','right'].forEach(k => {
+    if (multiCvOffsets[k] < 0) return;
+    const sec = multiSec[k];
+    if (!sec.cols || !sec.layout.length || !sec.rH.length) return;
+    const [sc, sl, srH] = [cols, layout, rH];
+    cols = sec.cols; layout = sec.layout; rH = sec.rH;
+    ctx.save();
+    ctx.translate(multiCvOffsets[k], SEC_LBL_H);
+    _drawSingleSection(ctx, k, 3);
+    ctx.restore();
+    [cols, layout, rH] = [sc, sl, srH];
+  });
 }
 
 // ── 범례 & 케이블 수량 요약 ───────────────────────────────
@@ -2017,28 +2039,46 @@ function attachEv() {
     const M = { ArrowUp:{dr:-1,dc:0}, ArrowDown:{dr:1,dc:0}, ArrowLeft:{dr:0,dc:-1}, ArrowRight:{dr:0,dc:1} };
     const d = M[e.key]; if (!d) return;
     e.preventDefault();
-    if (!fCell) { fCell = {r:0,c:0}; assign(aPort, '0,0'); drawCv(); renderPorts(); renderLeg(); renderSum(); return; }
-    const hist = pH2[aPort].filter(k => pA[aPort].has(k));
+
+    const secName = areaMode === 'multi' ? activeSimSec : null;
+    const pfx     = secName ? secName + ':' : '';
+    const curLay  = secName ? multiSec[secName].layout : layout;
+    const curCols = secName ? multiSec[secName].cols    : cols;
+
+    if (!fCell) {
+      fCell = { r:0, c:0, section: secName };
+      assign(aPort, pfx + '0,0');
+      drawCv(); renderPorts(); renderLeg(); renderSum(); return;
+    }
+
+    // 현재 섹션 안의 히스토리만 추출
+    const hist = pH2[aPort].filter(k => pA[aPort].has(k) && k.startsWith(pfx));
+    const parseCoords = k => k.slice(pfx.length).split(',').map(Number);
+
     // 역방향 → 마지막 셀 취소
     if (hist.length >= 2) {
-      const [pr, pc] = hist[hist.length-2].split(',').map(Number);
-      if (fCell.r+d.dr === pr && fCell.c+d.dc === pc) {
-        deassign(aPort, `${fCell.r},${fCell.c}`); fCell = {r:pr,c:pc};
+      const [pr, pc] = parseCoords(hist[hist.length - 2]);
+      if (fCell.r + d.dr === pr && fCell.c + d.dc === pc) {
+        deassign(aPort, pfx + `${fCell.r},${fCell.c}`);
+        fCell = { r:pr, c:pc, section: secName };
         drawCv(); renderPorts(); renderLeg(); renderSum(); return;
       }
     } else if (hist.length === 1) {
-      const nr2 = fCell.r+d.dr, nc2 = fCell.c+d.dc;
-      if (nr2 < 0 || nr2 >= layout.length || nc2 < 0 || nc2 >= cols) {
-        deassign(aPort, `${fCell.r},${fCell.c}`); fCell = null;
+      const nr2 = fCell.r + d.dr, nc2 = fCell.c + d.dc;
+      if (nr2 < 0 || nr2 >= curLay.length || nc2 < 0 || nc2 >= curCols) {
+        deassign(aPort, pfx + `${fCell.r},${fCell.c}`);
+        fCell = null;
         drawCv(); renderPorts(); renderLeg(); renderSum(); return;
       }
     }
-    const nr = Math.max(0, Math.min(layout.length-1, fCell.r+d.dr));
-    const nc = Math.max(0, Math.min(cols-1, fCell.c+d.dc));
+
+    const nr = Math.max(0, Math.min(curLay.length - 1, fCell.r + d.dr));
+    const nc = Math.max(0, Math.min(curCols - 1, fCell.c + d.dc));
     if (nr === fCell.r && nc === fCell.c) return;
-    const nk = `${nr},${nc}`;
+    const nk = pfx + `${nr},${nc}`;
     if (owner(nk) >= 0 && owner(nk) !== aPort) return;
-    fCell = {r:nr,c:nc}; assign(aPort, nk);
+    fCell = { r:nr, c:nc, section: secName };
+    assign(aPort, nk);
     drawCv(); renderPorts(); renderLeg(); renderSum();
   });
 }
@@ -2103,6 +2143,50 @@ function doAutoAssign() {
     openConfirm('자동 포트 할당', '기존 할당을 초기화하고 자동으로 포트를 할당할까요?', autoAssign);
   } else {
     autoAssign();
+  }
+}
+
+// 통합 자동 할당 — 좌→중→우 순서로 전역 열 인덱스 기반 뱀 할당 (섹션 경계 무시)
+function autoAssignUnified() {
+  if (!isReady()) return;
+  pA  = Array.from({ length: 8 }, () => new Set());
+  pH2 = Array.from({ length: 8 }, () => []);
+  fCell = null; drag = false; dStk = []; dHov = null; aPort = 0;
+
+  const vCols = [];
+  ['left','center','right'].forEach(secName => {
+    const sec = multiSec[secName];
+    if (!sec.cols || !sec.layout.length) return;
+    for (let ci = 0; ci < sec.cols; ci++) vCols.push({ secName, ci, lay: sec.layout });
+  });
+  if (!vCols.length) return;
+
+  let curPort = 0, curPortPx = 0;
+  for (let gi = 0; gi < vCols.length; gi++) {
+    if (curPort >= 8) break;
+    const { secName, ci, lay } = vCols[gi];
+    const colPx = lay.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+    if (curPortPx + colPx > MAX_PX && curPortPx > 0) { curPort++; curPortPx = 0; if (curPort >= 8) break; }
+    curPortPx += colPx;
+    const isEven = gi % 2 === 0;
+    for (let ri = 0; ri < lay.length; ri++) {
+      const row = isEven ? lay.length - 1 - ri : ri;
+      assign(curPort, `${secName}:${row},${ci}`);
+    }
+  }
+
+  aPort = 0;
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
+
+function doAutoAssignUnified() {
+  if (!isReady()) return;
+  const hasData = ['left','center','right'].some(k => multiSec[k].cols > 0 && multiSec[k].layout.length > 0);
+  if (!hasData) return;
+  if (pA.some(s => s.size > 0)) {
+    openConfirm('통합 자동 할당', '기존 할당을 초기화하고 통합 자동 할당을 실행할까요?', autoAssignUnified);
+  } else {
+    autoAssignUnified();
   }
 }
 
