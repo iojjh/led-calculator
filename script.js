@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.23';
-const APP_SW_VERSION = 'v36';
+const APP_VERSION    = '1.0.24';
+const APP_SW_VERSION = 'v37';
 
 const CHANGELOG = [
+  { v: '1.0.24', items: ['멀티 모드 배선 경로 수정 — 섹션 간 포트 연결 시 배선 연속 표시, 순서 번호 전 섹션 통합'] },
   { v: '1.0.23', items: ['랜선 시뮬레이터 멀티 모드 — 좌/중/우 섹션 통합 캔버스 표시(섹션 간 간격 구분)', '포트 1개로 여러 섹션 패널 동시 할당 가능(섹션 간 포트 연결)', '자동 할당 시 섹션 순서대로 포트 연속 배분'] },
   { v: '1.0.22', items: ['설치 면적 단일/멀티(좌·중·우) 모드 토글 추가', '멀티 모드: 좌측·중앙·우측 각각 독립 입력, 좌↔우 크기 복사 버튼', '계산 결과: 합산 패널 수 + 섹션별/전체 해상도 분리 표시'] },
   { v: '1.0.21', items: ['워터마크 레이어 순서 개선 — 사명 타일 최하단 배치, 우하단 로고 제거, 좌상단 로고 크기 확대(18%)'] },
@@ -1603,10 +1604,10 @@ function drawCv() {
 
 function _drawSingleSection(ctx, secName) {
   const pfx = secName ? secName + ':' : '';
-  // 셀별 포트 내 연결 순서 번호 사전 계산 (이 섹션 셀만)
+  // 셀별 순서 번호 — 전 섹션 통합 계산 (멀티 모드에서도 번호 연속)
   const stepOf = new Map();
   pA.forEach((s, pi) => {
-    pH2[pi].filter(k => s.has(k) && k.startsWith(pfx)).forEach((k, idx) => stepOf.set(k, idx + 1));
+    pH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
   });
 
   // ── 패스 1: 셀 배경 · 테두리 · 패턴 ──────────────────────
@@ -1655,8 +1656,8 @@ function _drawSingleSection(ctx, secName) {
     y += ch;
   });
 
-  // ── 패스 2: 포트 배선 경로 (배경 · 텍스트 위에, 순서번호 아래) ──
-  drawPortPaths(ctx, secName);
+  // ── 패스 2: 포트 배선 경로 — 단일 모드만 (멀티는 _drawCvMulti에서 통합 처리)
+  if (areaMode !== 'multi') drawPortPaths(ctx, secName);
 
   // ── 패스 3: 순서 번호 & 포트 레이블 (배선 경로 위에 그림) ─────
   y = 0;
@@ -1697,6 +1698,70 @@ function _drawSingleSection(ctx, secName) {
   });
 }
 
+// 프리픽스 키 → 캔버스 절대 좌표 변환 (멀티 모드 전용)
+function _absCoords(key) {
+  const colon = key.indexOf(':');
+  if (colon < 0) return null;
+  const sec = key.slice(0, colon);
+  const [r, c] = key.slice(colon + 1).split(',').map(Number);
+  const xOff = multiCvOffsets[sec];
+  if (xOff < 0) return null;
+  const secRH = multiSec[sec].rH;
+  let y = 0;
+  for (let i = 0; i < r; i++) y += secRH[i] || 0;
+  y += (secRH[r] || 0) / 2;
+  return { x: xOff + c * cellW + cellW / 2, y: SEC_LBL_H + y, r, c, sec };
+}
+
+// 멀티 모드 전용 — 절대 좌표로 포트 배선 경로 전체 그리기 (섹션 간 연결 포함)
+function _drawPortPathsMulti(ctx) {
+  pA.forEach((s, pi) => {
+    const h = pH2[pi].filter(k => s.has(k));
+    if (h.length < 2) return;
+    const col = PC[pi];
+    const pts = h.map(k => _absCoords(k)).filter(Boolean);
+    if (pts.length < 2) return;
+
+    const pL0 = pts[pts.length - 2], pL1 = pts[pts.length - 1];
+    const ldx = pL1.x - pL0.x, ldy = pL1.y - pL0.y;
+
+    const strokePath = (style, lw) => {
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        // 같은 섹션 내 같은 행에서 열 이동 → 베지어 호
+        if (a.sec === b.sec && a.c !== b.c && a.r === b.r) {
+          const secRows = multiSec[a.sec].layout.length;
+          const isTop = a.r < secRows / 2;
+          const rh = (multiSec[a.sec].rH[a.r] || cellW);
+          const ctY = isTop ? a.y - rh * 0.7 : a.y + rh * 0.7;
+          ctx.quadraticCurveTo((a.x + b.x) / 2, ctY, b.x, b.y);
+        } else {
+          ctx.lineTo(b.x, b.y);
+        }
+      }
+      ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
+    };
+
+    const fillArrow = (style) => {
+      const len = Math.sqrt(ldx * ldx + ldy * ldy); if (len < 1) return;
+      const ux = ldx / len, uy = ldy / len, hw = 6, hl = 12, nx = -uy, ny = ux;
+      const bx = pL1.x - ux * 5, by = pL1.y - uy * 5;
+      ctx.beginPath(); ctx.moveTo(bx, by);
+      ctx.lineTo(bx - ux * hl + nx * hw, by - uy * hl + ny * hw);
+      ctx.lineTo(bx - ux * hl - nx * hw, by - uy * hl - ny * hw);
+      ctx.closePath(); ctx.fillStyle = style; ctx.fill();
+    };
+
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    strokePath('rgba(255,255,255,0.85)', 6);
+    strokePath(col, 3.5);
+    fillArrow('rgba(255,255,255,0.85)');
+    fillArrow(col);
+    ctx.restore();
+  });
+}
+
 function _drawCvMulti(ctx) {
   const NAMES = { left:'좌측', center:'중앙', right:'우측' };
 
@@ -1718,7 +1783,7 @@ function _drawCvMulti(ctx) {
     ctx.fillText(NAMES[k], xStart + secW / 2, SEC_LBL_H / 2);
   });
 
-  // 각 섹션 패널 그리기 (cols/layout/rH 임시 교체 + translate)
+  // 각 섹션 패널 그리기 — pass1(배경) + pass3(번호/레이블), 배선은 이후 통합 처리
   ['left','center','right'].forEach(k => {
     if (multiCvOffsets[k] < 0) return;
     const sec = multiSec[k];
@@ -1731,6 +1796,9 @@ function _drawCvMulti(ctx) {
     ctx.restore();
     [cols, layout, rH] = [sc, sl, srH];
   });
+
+  // 섹션 간 연결을 포함한 포트 배선 경로 통합 그리기 (절대 좌표)
+  _drawPortPathsMulti(ctx);
 }
 
 // ── 범례 & 케이블 수량 요약 ───────────────────────────────
