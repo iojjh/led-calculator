@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.25';
-const APP_SW_VERSION = 'v38';
+const APP_VERSION    = '1.0.26';
+const APP_SW_VERSION = 'v39';
 
 const CHANGELOG = [
+  { v: '1.0.26', items: ['자동 할당 규칙 적용 — 포트 양끝 바닥행 보장을 위해 짝수 열 단위로 분배, 나머지는 새 포트 강제 없이 그대로 할당 (섹션별 분리·통합 모두 적용)'] },
   { v: '1.0.25', items: ['멀티 모드 키보드 방향키 할당 수정 — 섹션 프리픽스 처리로 화면 표시 정상화', '할당 순서 번호가 배선 경로 위에 표시되도록 드로우 순서 수정', '자동 할당 두 가지 모드 추가 — 섹션별 분리(기존) · 통합(전체 하나의 벽으로 처리)'] },
   { v: '1.0.24', items: ['멀티 모드 배선 경로 수정 — 섹션 간 포트 연결 시 배선 연속 표시, 순서 번호 전 섹션 통합'] },
   { v: '1.0.23', items: ['랜선 시뮬레이터 멀티 모드 — 좌/중/우 섹션 통합 캔버스 표시(섹션 간 간격 구분)', '포트 1개로 여러 섹션 패널 동시 할당 가능(섹션 간 포트 연결)', '자동 할당 시 섹션 순서대로 포트 연속 배분'] },
@@ -2086,26 +2087,28 @@ function attachEv() {
 // ── 자동 포트 할당 ────────────────────────────────────────
 
 function _autoAssignSec(secName, secLayout, secCols, portOff) {
-  const colPx = secLayout.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
-  const maxCols  = Math.max(1, Math.floor(MAX_PX / colPx));
-  const numPorts = Math.min(8 - portOff, Math.ceil(secCols / maxCols));
-  const portCols = []; let rem = secCols;
-  for (let pi = 0; pi < numPorts; pi++) {
-    const n = pi < numPorts - 1 ? Math.min(maxCols, rem) : rem;
-    portCols.push(n); rem -= n;
-  }
-  let colStart = 0;
-  for (let pi = 0; pi < numPorts; pi++) {
-    for (let ci = 0; ci < portCols[pi]; ci++) {
+  const colPx   = secLayout.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+  const maxRaw  = Math.max(1, Math.floor(MAX_PX / colPx));
+  // 짝수 열로 내림 → 포트 양끝 바닥행 보장 (규칙1)
+  const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
+
+  let colStart = 0, portCount = 0;
+  while (colStart < secCols && portOff + portCount < 8) {
+    const rem  = secCols - colStart;
+    // 남은 열이 maxRaw 이하면 모두 할당 — 홀수여도 새 포트 강제 X (규칙2)
+    const take = rem <= maxRaw ? rem : maxEven;
+    const pi   = portOff + portCount;
+    for (let ci = 0; ci < take; ci++) {
       const col = colStart + ci;
       for (let ri = 0; ri < secLayout.length; ri++) {
         const row = ci % 2 === 0 ? secLayout.length - 1 - ri : ri;
-        assign(portOff + pi, secName ? `${secName}:${row},${col}` : `${row},${col}`);
+        assign(pi, secName ? `${secName}:${row},${col}` : `${row},${col}`);
       }
     }
-    colStart += portCols[pi];
+    colStart += take;
+    portCount++;
   }
-  return numPorts;
+  return portCount;
 }
 
 function autoAssign() {
@@ -2161,18 +2164,33 @@ function autoAssignUnified() {
   });
   if (!vCols.length) return;
 
-  let curPort = 0, curPortPx = 0;
-  for (let gi = 0; gi < vCols.length; gi++) {
-    if (curPort >= 8) break;
-    const { secName, ci, lay } = vCols[gi];
-    const colPx = lay.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
-    if (curPortPx + colPx > MAX_PX && curPortPx > 0) { curPort++; curPortPx = 0; if (curPort >= 8) break; }
-    curPortPx += colPx;
-    const isEven = gi % 2 === 0;
-    for (let ri = 0; ri < lay.length; ri++) {
-      const row = isEven ? lay.length - 1 - ri : ri;
-      assign(curPort, `${secName}:${row},${ci}`);
+  const colPxOf = lay => lay.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+  let gi = 0, curPort = 0;
+  while (gi < vCols.length && curPort < 8) {
+    // 현재 포트에 들어갈 수 있는 최대 열 수 (픽셀 한도 기준)
+    let nFit = 0, accPx = 0;
+    while (gi + nFit < vCols.length) {
+      const px = colPxOf(vCols[gi + nFit].lay);
+      if (accPx + px > MAX_PX && nFit > 0) break;
+      accPx += px; nFit++;
     }
+    if (nFit === 0) break;
+
+    const rem     = vCols.length - gi;
+    // 남은 열이 nFit 이하면 모두 할당 (규칙2), 아니면 짝수로 내림 (규칙1)
+    const maxEven = nFit >= 2 ? (nFit % 2 === 0 ? nFit : nFit - 1) : nFit;
+    const take    = rem <= nFit ? rem : maxEven;
+
+    for (let ci = 0; ci < take; ci++) {
+      const { secName, ci: localCi, lay } = vCols[gi + ci];
+      const isEven = (gi + ci) % 2 === 0;
+      for (let ri = 0; ri < lay.length; ri++) {
+        const row = isEven ? lay.length - 1 - ri : ri;
+        assign(curPort, `${secName}:${row},${localCi}`);
+      }
+    }
+    gi += take;
+    curPort++;
   }
 
   aPort = 0;
