@@ -19,10 +19,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.21';
-const APP_SW_VERSION = 'v34';
+const APP_VERSION    = '1.0.23';
+const APP_SW_VERSION = 'v36';
 
 const CHANGELOG = [
+  { v: '1.0.23', items: ['랜선 시뮬레이터 멀티 모드 — 좌/중/우 섹션 통합 캔버스 표시(섹션 간 간격 구분)', '포트 1개로 여러 섹션 패널 동시 할당 가능(섹션 간 포트 연결)', '자동 할당 시 섹션 순서대로 포트 연속 배분'] },
+  { v: '1.0.22', items: ['설치 면적 단일/멀티(좌·중·우) 모드 토글 추가', '멀티 모드: 좌측·중앙·우측 각각 독립 입력, 좌↔우 크기 복사 버튼', '계산 결과: 합산 패널 수 + 섹션별/전체 해상도 분리 표시'] },
   { v: '1.0.21', items: ['워터마크 레이어 순서 개선 — 사명 타일 최하단 배치, 우하단 로고 제거, 좌상단 로고 크기 확대(18%)'] },
   { v: '1.0.20', items: ['로고 이미지 git 추가(배포 누락 수정), 흰 배경 픽셀 제거 후 투명 PNG로 합성'] },
   { v: '1.0.19', items: ['워터마크 로고 렌더링 수정 — getImageData 제거(CORS SecurityError 원인), drawImage 직접 렌더로 교체'] },
@@ -720,11 +722,6 @@ function getAppState(name) {
     mH_C: document.getElementById('mH_C').value,
     mW_R: document.getElementById('mW_R').value,
     mH_R: document.getElementById('mH_R').value,
-    multiPorts: {
-      left:   { pA: multiSec.left.pA.map(s=>[...s]),   pH2: multiSec.left.pH2.map(a=>[...a])   },
-      center: { pA: multiSec.center.pA.map(s=>[...s]), pH2: multiSec.center.pH2.map(a=>[...a]) },
-      right:  { pA: multiSec.right.pA.map(s=>[...s]),  pH2: multiSec.right.pH2.map(a=>[...a])  },
-    },
     curLed, basePH, curSending,
     consoleName: document.querySelector('#consoleChips .chip.on')?.dataset.v || null,
     fiberLen: document.getElementById('fiberLen').value,
@@ -788,19 +785,24 @@ function loadAppState(st) {
     ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => {
       document.getElementById(id).value = st[id] || '';
     });
-    if (st.multiPorts) {
-      ['left','center','right'].forEach(k => {
-        if (st.multiPorts[k]) {
-          multiSec[k].pA  = st.multiPorts[k].pA.map(a  => new Set(a));
-          multiSec[k].pH2 = st.multiPorts[k].pH2.map(a => [...a]);
-        }
-      });
-    }
     activeSimSec = st.activeSimSec || 'center';
     if (isReady()) calcMulti();
-    const as = multiSec[activeSimSec];
-    pA = as.pA; pH2 = as.pH2;
-    if (isReady()) { drawCv(); renderPorts(); renderLeg(); renderSum(); }
+    // 구버전 저장(multiPorts)을 새 형식(전역 pA 프리픽스 키)으로 마이그레이션
+    if (st.multiPorts && isReady()) {
+      pA  = Array.from({length:8}, () => new Set());
+      pH2 = Array.from({length:8}, () => []);
+      ['left','center','right'].forEach(secName => {
+        const mp = st.multiPorts[secName];
+        if (!mp) return;
+        mp.pA.forEach((arr, pi)  => arr.forEach(k => pA[pi].add(`${secName}:${k}`)));
+        mp.pH2.forEach((arr, pi) => arr.forEach(k => pH2[pi].push(`${secName}:${k}`)));
+      });
+      drawCv(); renderPorts(); renderLeg(); renderSum();
+    } else if (st.pA && isReady()) {
+      pA  = st.pA.map(a => new Set(a));
+      pH2 = (st.pH2 || st.pA).map(a => [...a]);
+      drawCv(); renderPorts(); renderLeg(); renderSum();
+    }
   } else {
     if (isReady()) calc();
     if (st.pA && isReady()) {
@@ -1058,8 +1060,12 @@ let cols = 0, layout = [];        // 가로 패널 수 / 행별 타입 배열 [{
 let areaMode     = 'single';  // 'single' | 'multi'
 let activeSimSec = 'center';  // 멀티 모드에서 시뮬레이터에 표시 중인 섹션
 
+const SECTION_GAP = 20;  // 멀티 모드 섹션 간 픽셀 간격
+const SEC_LBL_H   = 22;  // 섹션 레이블 바 높이
+let multiCvOffsets = { left: -1, center: -1, right: -1 }; // 캔버스 내 섹션 x 오프셋
+
 function _mkSec() {
-  return { cols:0, layout:[], pA:Array.from({length:8},()=>new Set()), pH2:Array.from({length:8},()=>[]) };
+  return { cols:0, layout:[], rH:[] };
 }
 let multiSec = { left:_mkSec(), center:_mkSec(), right:_mkSec() };
 
@@ -1125,12 +1131,13 @@ function calcMulti() {
     const W = parseFloat(document.getElementById(ids[k][0]).value) || 0;
     const H = parseFloat(document.getElementById(ids[k][1]).value) || 0;
     const res = calcSection(W, H);
-    // 범위 밖 포트 할당 제거
-    multiSec[k].pA.forEach((s, pi) => {
+    // 범위 밖 포트 할당 제거 (전역 pA, 프리픽스 키 기준)
+    pA.forEach((s, pi) => {
       [...s].forEach(key => {
-        const [r, c] = key.split(',').map(Number);
+        if (!key.startsWith(k + ':')) return;
+        const [r, c] = key.slice(k.length + 1).split(',').map(Number);
         if (r >= res.layout.length || c >= res.cols) {
-          s.delete(key); multiSec[k].pH2[pi] = multiSec[k].pH2[pi].filter(x => x !== key);
+          s.delete(key); pH2[pi] = pH2[pi].filter(x => x !== key);
         }
       });
     });
@@ -1150,9 +1157,9 @@ function calcMulti() {
     return;
   }
 
-  // 전역 cols/layout/pA/pH2 를 활성 섹션과 동기화
+  // 전역 cols/layout 을 활성 섹션과 동기화
   const as = multiSec[activeSimSec];
-  cols = as.cols; layout = as.layout; pA = as.pA; pH2 = as.pH2;
+  cols = as.cols; layout = as.layout;
 
   renderResMulti();
   buildSim();
@@ -1162,9 +1169,10 @@ function calcMulti() {
 function switchSimSec(sec) {
   activeSimSec = sec;
   const as = multiSec[sec];
-  cols = as.cols; layout = as.layout; pA = as.pA; pH2 = as.pH2;
-  aPort = firstEmpty(); fCell = null; drag = false; dStk = []; dHov = null;
-  buildSim();
+  cols = as.cols; layout = as.layout;
+  rH = as.rH.length ? as.rH : layout.map(r => r.type === 'full' ? (basePH === 1000 ? cellW * 2 : cellW) : cellW);
+  fCell = null; drag = false; dStk = []; dHov = null;
+  drawCv(); renderPorts(); renderLeg(); renderSum();
 }
 
 // 행 타입에 따른 픽셀 크기 반환
@@ -1370,20 +1378,7 @@ function nextEmpty()  { for (let i = 0; i < 8; i++) { if (pA[i].size === 0) retu
 // ── 시뮬레이터 UI 빌드 ────────────────────────────────────
 
 function buildSim() {
-  let secTabsHtml = '';
-  if (areaMode === 'multi') {
-    const NAMES = { left:'좌측', center:'중앙', right:'우측' };
-    secTabsHtml = '<div class="sim-sec-tabs">' +
-      ['left','center','right'].map(k => {
-        const hasData = multiSec[k].cols > 0 && multiSec[k].layout.length > 0;
-        const on = k === activeSimSec ? ' on' : '';
-        const dis = hasData ? '' : ' disabled';
-        return `<button class="sim-sec-tab${on}"${dis} onclick="switchSimSec('${k}')">${NAMES[k]}</button>`;
-      }).join('') +
-      '</div>';
-  }
-
-  document.getElementById('simArea').innerHTML = secTabsHtml + `
+  document.getElementById('simArea').innerHTML = `
     <div class="sim-hint">
       <b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp;
       <b style="color:#333">꾹+드래그</b> 자동 포트 선택 후 연속 할당 &nbsp;·&nbsp;
@@ -1403,7 +1398,11 @@ function buildSim() {
   renderPorts(); buildCv(); renderLeg(); renderSum();
 }
 
-function _execRstAll() { rst(); drawCv(); renderPorts(); renderLeg(); renderSum(); }
+function _execRstAll() {
+  rst();
+  if (areaMode === 'multi') { calcMulti(); return; }
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
 function doRstAll()    { openConfirm('포트 전체 초기화', '할당된 모든 포트를 초기화할까요?', _execRstAll); }
 function doRstPort()   { rstPort(aPort); drawCv(); renderPorts(); renderLeg(); renderSum(); }
 
@@ -1411,9 +1410,17 @@ function doRstPort()   { rstPort(aPort); drawCv(); renderPorts(); renderLeg(); r
 function pxOf(pi) {
   let px = 0;
   pA[pi].forEach(k => {
-    const [r] = k.split(',').map(Number);
-    if (!layout[r]) return;
-    const p = ppx(layout[r].type);
+    let r, lay;
+    if (areaMode === 'multi' && k.includes(':')) {
+      const [sec, coords] = k.split(':');
+      [r] = coords.split(',').map(Number);
+      lay = multiSec[sec]?.layout;
+    } else {
+      [r] = k.split(',').map(Number);
+      lay = layout;
+    }
+    if (!lay || !lay[r]) return;
+    const p = ppx(lay[r].type);
     px += p.w * p.h;
   });
   return px;
@@ -1453,7 +1460,34 @@ function setP(i) { aPort = i; renderPorts(); }
 // ── 캔버스 빌드 & 드로잉 ──────────────────────────────────
 
 function buildCv() {
-  const cv = document.getElementById('simCanvas'); if (!cv || !cols || !layout.length) return;
+  const cv = document.getElementById('simCanvas'); if (!cv) return;
+
+  if (areaMode === 'multi') {
+    const activeSecs = ['left','center','right'].filter(k => multiSec[k].cols > 0 && multiSec[k].layout.length > 0);
+    if (!activeSecs.length) return;
+    const totalCols = activeSecs.reduce((s, k) => s + multiSec[k].cols, 0);
+    const gaps = activeSecs.length - 1;
+    const cW = Math.min(cv.parentElement.clientWidth - 32, 900);
+    cellW = Math.max(22, Math.min(60, Math.floor((cW - gaps * SECTION_GAP) / totalCols)));
+    let xOff = 0;
+    ['left','center','right'].forEach(k => {
+      const sec = multiSec[k];
+      if (sec.cols > 0 && sec.layout.length > 0) {
+        multiCvOffsets[k] = xOff;
+        sec.rH = sec.layout.map(r => r.type === 'full' ? (basePH === 1000 ? cellW * 2 : cellW) : cellW);
+        xOff += sec.cols * cellW + SECTION_GAP;
+      } else {
+        multiCvOffsets[k] = -1; sec.rH = [];
+      }
+    });
+    rH = multiSec[activeSimSec].rH.length ? multiSec[activeSimSec].rH : [];
+    cv.width  = xOff - SECTION_GAP;
+    cv.height = SEC_LBL_H + Math.max(...activeSecs.map(k => multiSec[k].rH.reduce((s, h) => s + h, 0)));
+    drawCv();
+    return;
+  }
+
+  if (!cols || !layout.length) return;
   const cW = Math.min(cv.parentElement.clientWidth - 32, 600);
   cellW = Math.max(28, Math.min(64, Math.floor(cW / cols)));
   rH    = layout.map(r => r.type === 'full' ? (basePH === 1000 ? cellW * 2 : cellW) : cellW);
@@ -1466,6 +1500,23 @@ function cyOf(r) { let y = 0; for (let i = 0; i < r; i++) y += rH[i]; return y +
 
 // 마우스/터치 좌표 → 행·열 인덱스 변환
 function cellAt(mx, my) {
+  if (areaMode === 'multi') {
+    for (const k of ['left','center','right']) {
+      if (multiCvOffsets[k] < 0) continue;
+      const sec = multiSec[k];
+      if (!sec.rH || !sec.rH.length) continue;
+      const xStart = multiCvOffsets[k];
+      if (mx < xStart || mx >= xStart + sec.cols * cellW) continue;
+      const localY = my - SEC_LBL_H;
+      if (localY < 0) return null;
+      const c = Math.floor((mx - xStart) / cellW);
+      let y = 0, ri = -1;
+      sec.rH.forEach((h, i) => { if (ri < 0 && localY >= y && localY < y + h) ri = i; y += h; });
+      if (ri < 0 || c < 0 || c >= sec.cols) return null;
+      return { key: `${k}:${ri},${c}`, r: ri, c, section: k };
+    }
+    return null;
+  }
   if (mx < 0 || mx >= cols * cellW) return null;
   const c = Math.floor(mx / cellW); let y = 0, ri = -1;
   rH.forEach((h, i) => { if (ri < 0 && my >= y && my < y + h) ri = i; y += h; });
@@ -1486,15 +1537,16 @@ function deassign(pi, k) { pA[pi].delete(k); pH2[pi] = pH2[pi].filter(x => x !==
 
 // 포트별 배선 경로를 연속 베지어 곡선으로 그리기
 // 같은 열 이동: 직선, 열 전환(뱀 꺾임): 2차 베지어 곡선 (위/아래 호)
-function drawPortPaths(ctx) {
+function drawPortPaths(ctx, secName) {
   const rows = layout.length;
+  const pfx  = secName ? secName + ':' : null;
   pA.forEach((s, pi) => {
-    if (s.size < 2) return;
-    const h = pH2[pi].filter(k => s.has(k));
+    const h = pH2[pi].filter(k => s.has(k) && (!pfx || k.startsWith(pfx)));
     if (h.length < 2) return;
     const col = PC[pi];
     const pts = h.map(k => {
-      const [r, c] = k.split(',').map(Number);
+      const raw = pfx ? k.slice(pfx.length) : k;
+      const [r, c] = raw.split(',').map(Number);
       return { x: cxOf(c), y: cyOf(r), r, c };
     });
 
@@ -1545,11 +1597,16 @@ function drawCv() {
   const cv = document.getElementById('simCanvas'); if (!cv) return;
   const ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, cv.width, cv.height);
+  if (areaMode === 'multi') { _drawCvMulti(ctx); return; }
+  _drawSingleSection(ctx);
+}
 
-  // 셀별 포트 내 연결 순서 번호 사전 계산
+function _drawSingleSection(ctx, secName) {
+  const pfx = secName ? secName + ':' : '';
+  // 셀별 포트 내 연결 순서 번호 사전 계산 (이 섹션 셀만)
   const stepOf = new Map();
   pA.forEach((s, pi) => {
-    pH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
+    pH2[pi].filter(k => s.has(k) && k.startsWith(pfx)).forEach((k, idx) => stepOf.set(k, idx + 1));
   });
 
   // ── 패스 1: 셀 배경 · 테두리 · 패턴 ──────────────────────
@@ -1557,7 +1614,7 @@ function drawCv() {
   layout.forEach((row, ri) => {
     const ch = rH[ri];
     for (let c = 0; c < cols; c++) {
-      const k   = `${ri},${c}`;
+      const k   = pfx + `${ri},${c}`;
       const ow  = owner(k);
       const lk  = ow >= 0 && ow !== aPort;
       const hov  = drag && k === dHov && ow < 0;
@@ -1590,7 +1647,7 @@ function drawCv() {
         }
         ctx.restore();
       }
-      if (fCell && fCell.r === ri && fCell.c === c) {
+      if (fCell && fCell.r === ri && fCell.c === c && (!secName || fCell.section === secName)) {
         ctx.strokeStyle = 'white';   ctx.lineWidth = 3; ctx.strokeRect(c*cellW+4, y+4, cellW-8, ch-8);
         ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(c*cellW+4, y+4, cellW-8, ch-8);
       }
@@ -1599,21 +1656,20 @@ function drawCv() {
   });
 
   // ── 패스 2: 포트 배선 경로 (배경 · 텍스트 위에, 순서번호 아래) ──
-  drawPortPaths(ctx);
+  drawPortPaths(ctx, secName);
 
   // ── 패스 3: 순서 번호 & 포트 레이블 (배선 경로 위에 그림) ─────
   y = 0;
   layout.forEach((row, ri) => {
     const ch = rH[ri];
     for (let c = 0; c < cols; c++) {
-      const k  = `${ri},${c}`;
+      const k  = pfx + `${ri},${c}`;
       const ow = owner(k);
       if (ow < 0 || cellW < 20) continue;
       const lk   = ow !== aPort;
       const step = stepOf.get(k);
       const cx2  = c*cellW + cellW/2, cy2 = y + ch/2;
 
-      // 순서 번호 — 흰 원형 배지 + 포트색 텍스트 (배선 위에 떠 있는 효과)
       if (step) {
         const fs = Math.min(12, cellW - 8);
         const r  = Math.max(8, fs * 0.72);
@@ -1626,7 +1682,6 @@ function drawCv() {
         ctx.fillText(String(step), cx2, cy2);
       }
 
-      // 포트 레이블 (좌상단 소형 — 아웃라인 강도 동일하게 유지)
       if (cellW >= 32) {
         const label = 'P' + (ow + 1);
         ctx.font = '700 9px sans-serif';
@@ -1639,6 +1694,42 @@ function drawCv() {
       }
     }
     y += ch;
+  });
+}
+
+function _drawCvMulti(ctx) {
+  const NAMES = { left:'좌측', center:'중앙', right:'우측' };
+
+  // 섹션 레이블 바
+  ['left','center','right'].forEach(k => {
+    if (multiCvOffsets[k] < 0) return;
+    const sec = multiSec[k];
+    const xStart = multiCvOffsets[k];
+    const secW = sec.cols * cellW;
+    const isActive = k === activeSimSec;
+    ctx.fillStyle = isActive ? '#3B82F6' : '#E2E8F0';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(xStart + 1, 1, secW - 2, SEC_LBL_H - 2, 4);
+    else ctx.rect(xStart + 1, 1, secW - 2, SEC_LBL_H - 2);
+    ctx.fill();
+    ctx.font = `${isActive ? '700' : '600'} 11px sans-serif`;
+    ctx.fillStyle = isActive ? '#fff' : '#64748B';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(NAMES[k], xStart + secW / 2, SEC_LBL_H / 2);
+  });
+
+  // 각 섹션 패널 그리기 (cols/layout/rH 임시 교체 + translate)
+  ['left','center','right'].forEach(k => {
+    if (multiCvOffsets[k] < 0) return;
+    const sec = multiSec[k];
+    if (!sec.cols || !sec.layout.length || !sec.rH.length) return;
+    const [sc, sl, srH] = [cols, layout, rH];
+    cols = sec.cols; layout = sec.layout; rH = sec.rH;
+    ctx.save();
+    ctx.translate(multiCvOffsets[k], SEC_LBL_H);
+    _drawSingleSection(ctx, k);
+    ctx.restore();
+    [cols, layout, rH] = [sc, sl, srH];
   });
 }
 
@@ -1666,11 +1757,37 @@ function _calcLan() {
   return { l1, l1Main, l1Back, l1Spare, slNet, sl, slSpare, slBundle };
 }
 
+function calcPWMulti() {
+  let c1Net = 0, spNet = 0;
+  ['left','center','right'].forEach(k => {
+    const sec = multiSec[k];
+    if (!sec.cols || !sec.layout.length) return;
+    c1Net += Math.ceil(sec.cols / 2);
+    const pc = Math.floor(sec.cols / 2), odd = sec.cols % 2 === 1, rows = sec.layout.length;
+    for (let i = 0; i < pc; i++) spNet += rows * 2 - 1;
+    if (odd) spNet += rows - 1;
+  });
+  const c1Spare = spareAdj.c1, c1 = c1Net + c1Spare;
+  const spSpare = spareAdj.sp, sp = spNet + spSpare, spBundle = Math.ceil(sp / 10);
+  return { c1, c1Net, c1Spare, spNet, sp, spSpare, spBundle };
+}
+
 function renderSum() {
   const el = document.getElementById('simSum'); if (!el) return;
   const asgn = new Set(); pA.forEach(s => s.forEach(k => asgn.add(k)));
-  const tot  = layout.length * cols, una = tot - asgn.size;
-  const lan  = _calcLan(), pw = calcPW();
+  let tot = 0, pw;
+  if (areaMode === 'multi') {
+    ['left','center','right'].forEach(k => {
+      const sec = multiSec[k];
+      if (sec.cols && sec.layout.length) tot += sec.cols * sec.layout.length;
+    });
+    pw = calcPWMulti();
+  } else {
+    tot = layout.length * cols;
+    pw = calcPW();
+  }
+  const una = tot - asgn.size;
+  const lan  = _calcLan();
   const ov   = pA.filter((_, i) => pxOf(i) > MAX_PX).length;
 
   const si = (k, v) =>
@@ -1747,10 +1864,13 @@ function attachEv() {
   const cv = document.getElementById('simCanvas');
 
   function dn(e) {
-    if (!isReady() || !cols || !layout.length) return;
+    if (!isReady()) return;
+    if (areaMode !== 'multi' && (!cols || !layout.length)) return;
     e.preventDefault();
     const { mx, my } = xy(cv, e), inf = cellAt(mx, my);
     if (!inf) return;
+    if (areaMode === 'multi' && inf.section !== activeSimSec) switchSimSec(inf.section);
+    if (!cols || !layout.length) return;
     // 터치는 LP_TOUCH(600ms), 마우스는 LP_MS(380ms) — 일반 탭이 드래그로 오인되지 않도록
     const delay = e.touches ? LP_TOUCH : LP_MS;
     lpT = setTimeout(() => {
@@ -1795,16 +1915,19 @@ function attachEv() {
     // 드래그 종료
     if (drag) { drag = false; dStk = []; dHov = null; drawCv(); renderPorts(); renderLeg(); renderSum(); return; }
     // 단순 탭/클릭 → 현재 포트로 토글 (할당 ↔ 해제)
-    if (!isReady() || !cols || !layout.length) return;
+    if (!isReady()) return;
+    if (areaMode !== 'multi' && (!cols || !layout.length)) return;
     const { mx, my } = xy(cv, e), inf = cellAt(mx, my);
     if (!inf) return;
+    if (areaMode === 'multi' && inf.section !== activeSimSec) switchSimSec(inf.section);
+    if (!cols || !layout.length) return;
     const ow = owner(inf.key);
     if (ow >= 0 && ow !== aPort) return; // 다른 포트 셀은 건드리지 않음
     if (pA[aPort].has(inf.key)) {
       deassign(aPort, inf.key);
-      if (fCell && `${fCell.r},${fCell.c}` === inf.key) fCell = null;
+      if (fCell && fCell.r === inf.r && fCell.c === inf.c) fCell = null;
     } else {
-      assign(aPort, inf.key); fCell = { r: inf.r, c: inf.c };
+      assign(aPort, inf.key); fCell = { r: inf.r, c: inf.c, section: inf.section || null };
     }
     drawCv(); renderPorts(); renderLeg(); renderSum(); cv.focus();
   }
@@ -1854,50 +1977,60 @@ function attachEv() {
 
 // ── 자동 포트 할당 ────────────────────────────────────────
 
-function autoAssign() {
-  if (!isReady() || !cols || !layout.length) return;
-
-  // 열당 픽셀 수 (모든 열 동일)
-  const colPx = layout.reduce((s, r) => {
-    const p = ppx(r.type); return s + p.w * p.h;
-  }, 0);
-
-  // 규칙 1: 포트당 허용 최대 열 수로 최소 포트 수 계산
+function _autoAssignSec(secName, secLayout, secCols, portOff) {
+  const colPx = secLayout.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   const maxCols  = Math.max(1, Math.floor(MAX_PX / colPx));
-  const numPorts = Math.min(8, Math.ceil(cols / maxCols));
-
-  // 규칙 4 (후순위): 앞 포트부터 maxCols씩 채우고 나머지를 마지막 포트에 배치
-  const portCols = [];
-  let rem = cols;
+  const numPorts = Math.min(8 - portOff, Math.ceil(secCols / maxCols));
+  const portCols = []; let rem = secCols;
   for (let pi = 0; pi < numPorts; pi++) {
     const n = pi < numPorts - 1 ? Math.min(maxCols, rem) : rem;
-    portCols.push(n);
-    rem -= n;
+    portCols.push(n); rem -= n;
   }
-
-  rst();
   let colStart = 0;
   for (let pi = 0; pi < numPorts; pi++) {
-    const nCols = portCols[pi];
-    for (let ci = 0; ci < nCols; ci++) {
+    for (let ci = 0; ci < portCols[pi]; ci++) {
       const col = colStart + ci;
-      // 첫 열(ci=0)은 항상 바닥→위 시작 (규칙 2)
-      // 짝수 nCols → 마지막 열도 바닥 끝 (규칙 2 완전 충족)
-      // 홀수 nCols → 마지막 열은 위에서 끝 (규칙 3 허용)
-      for (let ri = 0; ri < layout.length; ri++) {
-        const row = ci % 2 === 0 ? layout.length - 1 - ri : ri;
-        assign(pi, `${row},${col}`);
+      for (let ri = 0; ri < secLayout.length; ri++) {
+        const row = ci % 2 === 0 ? secLayout.length - 1 - ri : ri;
+        assign(portOff + pi, secName ? `${secName}:${row},${col}` : `${row},${col}`);
       }
     }
-    colStart += nCols;
+    colStart += portCols[pi];
+  }
+  return numPorts;
+}
+
+function autoAssign() {
+  if (!isReady()) return;
+
+  if (areaMode === 'multi') {
+    pA  = Array.from({ length: 8 }, () => new Set());
+    pH2 = Array.from({ length: 8 }, () => []);
+    fCell = null; drag = false; dStk = []; dHov = null; aPort = 0;
+    let portOff = 0;
+    ['left','center','right'].forEach(secName => {
+      const sec = multiSec[secName];
+      if (!sec.cols || !sec.layout.length) return;
+      portOff += _autoAssignSec(secName, sec.layout, sec.cols, portOff);
+    });
+    aPort = 0;
+    drawCv(); renderPorts(); renderLeg(); renderSum();
+    return;
   }
 
+  if (!cols || !layout.length) return;
+  rst();
+  _autoAssignSec(null, layout, cols, 0);
   aPort = 0;
   drawCv(); renderPorts(); renderLeg(); renderSum();
 }
 
 function doAutoAssign() {
-  if (!isReady() || !cols || !layout.length) return;
+  if (!isReady()) return;
+  if (areaMode === 'multi') {
+    const hasData = ['left','center','right'].some(k => multiSec[k].cols > 0 && multiSec[k].layout.length > 0);
+    if (!hasData) return;
+  } else if (!cols || !layout.length) return;
   if (pA.some(s => s.size > 0)) {
     openConfirm('자동 포트 할당', '기존 할당을 초기화하고 자동으로 포트를 할당할까요?', autoAssign);
   } else {
