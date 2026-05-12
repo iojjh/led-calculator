@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.26';
-const APP_SW_VERSION = 'v39';
+const APP_VERSION    = '1.0.27';
+const APP_SW_VERSION = 'v40';
 
 const CHANGELOG = [
+  { v: '1.0.27', items: ['멀티 모드 계산 결과에 섹션별 가로 해상도 비율 표시 — 전체 가로를 1로 두고 소수점 4자리'] },
   { v: '1.0.26', items: ['자동 할당 규칙 적용 — 포트 양끝 바닥행 보장을 위해 짝수 열 단위로 분배, 나머지는 새 포트 강제 없이 그대로 할당 (섹션별 분리·통합 모두 적용)'] },
   { v: '1.0.25', items: ['멀티 모드 키보드 방향키 할당 수정 — 섹션 프리픽스 처리로 화면 표시 정상화', '할당 순서 번호가 배선 경로 위에 표시되도록 드로우 순서 수정', '자동 할당 두 가지 모드 추가 — 섹션별 분리(기존) · 통합(전체 하나의 벽으로 처리)'] },
   { v: '1.0.24', items: ['멀티 모드 배선 경로 수정 — 섹션 간 포트 연결 시 배선 연속 표시, 순서 번호 전 섹션 통합'] },
@@ -1330,14 +1331,15 @@ function renderResMulti() {
     h += coverHtml;
   }
 
-  // 섹션별 해상도
+  // 섹션별 해상도 + 가로 비율
   h += '<div style="margin-top:8px;">';
   ['left','center','right'].forEach(k => {
     const r = secInfo[k];
     if (!r) {
       h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]}</div><div class="res-sec-empty">미입력</div></div>`;
     } else {
-      h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]} — 가로 ${r.cols}ea × 세로 ${r.rows}행</div><div class="res-sec-val">${r.tW} × ${r.tH} px</div></div>`;
+      const ratio = totalTW ? (r.tW / totalTW).toFixed(4) : '—';
+      h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]} — 가로 ${r.cols}ea × 세로 ${r.rows}행 <span style="color:#888;font-weight:400;font-size:11px;">(비율 ${ratio})</span></div><div class="res-sec-val">${r.tW} × ${r.tH} px</div></div>`;
     }
   });
   h += '</div>';
