@@ -19,10 +19,16 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.27';
-const APP_SW_VERSION = 'v40';
+const APP_VERSION    = '1.0.33';
+const APP_SW_VERSION = 'v46';
 
 const CHANGELOG = [
+  { v: '1.0.33', items: ['vMix 보정 비율 알고리즘 개선 — 각 섹션 독립 반올림으로 픽셀 변화 최소화, 합산 오차는 오차가 큰 섹션이 ±1스텝 흡수, 최대 픽셀 변화 표시'] },
+  { v: '1.0.32', items: ['vMix 보정 비율 재설계 — 유효 픽셀 단위(T/gcd(100000,T)) 기반, 중앙 확대(좌우 내림)·좌우 확대(좌우 올림) 두 모드, 좌우 대칭 자동 적용, 보정 비율 5자리 표기, 픽셀 변화 표시'] },
+  { v: '1.0.31', items: ['vMix 보정 비율 계산 추가 — 중앙 조정(좌우 확정·중앙 흡수)·좌우 대칭 조정(중앙 확정·좌우 동일) 두 모드, 대칭 불가 시 중앙 ±1px 두 옵션 제시, 보정 비율(10자리)·비율·픽셀 변화 표시'] },
+  { v: '1.0.30', items: ['vMix 픽셀 검증 재설계 — LED 실제 해상도 고정 기준, 5자리 비율×전체 vs 실제 픽셀 오차 비교, 반올림 시 중앙 흡수 픽셀 변동, 오차 있을 때 10자리 정수화 비율 제시'] },
+  { v: '1.0.29', items: ['멀티 모드 Y이동 소수점 3자리로 축소, vMix 픽셀 계산 숨김 패널 추가 (해상도 입력 → 정수 여부·흡수 섹션·최소 권장 해상도 표시)'] },
+  { v: '1.0.28', items: ['멀티 모드 비율 소수점 5자리로 확대, 좌측·우측에 vMix Y축 이동값 추가 표시 (좌: 비율-1, 우: 1-비율)'] },
   { v: '1.0.27', items: ['멀티 모드 계산 결과에 섹션별 가로 해상도 비율 표시 — 전체 가로를 1로 두고 소수점 4자리'] },
   { v: '1.0.26', items: ['자동 할당 규칙 적용 — 포트 양끝 바닥행 보장을 위해 짝수 열 단위로 분배, 나머지는 새 포트 강제 없이 그대로 할당 (섹션별 분리·통합 모두 적용)'] },
   { v: '1.0.25', items: ['멀티 모드 키보드 방향키 할당 수정 — 섹션 프리픽스 처리로 화면 표시 정상화', '할당 순서 번호가 배선 경로 위에 표시되도록 드로우 순서 수정', '자동 할당 두 가지 모드 추가 — 섹션별 분리(기존) · 통합(전체 하나의 벽으로 처리)'] },
@@ -91,6 +97,12 @@ const SSPEC = {
 };
 
 let curSending = null; // 현재 선택된 샌딩카드 키
+
+// vMix 픽셀 검증 패널 상태
+let vmixOpen    = false;
+let vmixAdjMode = 'center'; // 'center' | 'sides'
+let _vmixSec    = null; // renderResMulti 에서 캐시
+let _vmixTW     = 0;
 
 
 // ── §2  장비 체크리스트 ───────────────────────────────────
@@ -1338,13 +1350,197 @@ function renderResMulti() {
     if (!r) {
       h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]}</div><div class="res-sec-empty">미입력</div></div>`;
     } else {
-      const ratio = totalTW ? (r.tW / totalTW).toFixed(4) : '—';
-      h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]} — 가로 ${r.cols}ea × 세로 ${r.rows}행 <span style="color:#888;font-weight:400;font-size:11px;">(비율 ${ratio})</span></div><div class="res-sec-val">${r.tW} × ${r.tH} px</div></div>`;
+      const ratioNum = totalTW ? r.tW / totalTW : 0;
+      const ratio = totalTW ? ratioNum.toFixed(5) : '—';
+      let offsetHtml = '';
+      if (totalTW) {
+        if (k === 'left')  offsetHtml = ` <span style="color:#c07000;font-weight:400;font-size:11px;">Y이동: ${(ratioNum - 1).toFixed(3)}</span>`;
+        if (k === 'right') offsetHtml = ` <span style="color:#c07000;font-weight:400;font-size:11px;">Y이동: ${(1 - ratioNum).toFixed(3)}</span>`;
+      }
+      h += `<div class="res-section"><div class="res-sec-label">${NAMES[k]} — 가로 ${r.cols}ea × 세로 ${r.rows}행 <span style="color:#888;font-weight:400;font-size:11px;">(비율 ${ratio})</span>${offsetHtml}</div><div class="res-sec-val">${r.tW} × ${r.tH} px</div></div>`;
     }
   });
   h += '</div>';
   h += `<div style="font-size:12px;color:#999;margin-top:4px;">패널 해상도 — 500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px</div>`;
+
+  // vMix 픽셀 검증 토글 섹션
+  _vmixSec = secInfo;
+  _vmixTW  = totalTW;
+  h += `<div style="margin-top:8px;">
+    <button class="vmix-toggle-btn" onclick="toggleVmixCalc()">${vmixOpen ? '▲' : '▼'} vMix 픽셀 검증</button>
+    <div id="vmixPanel" style="display:${vmixOpen ? 'block' : 'none'};">
+      <div id="vmixResult"></div>
+    </div>
+  </div>`;
+
   document.getElementById('resultBody').innerHTML = h;
+  if (vmixOpen) renderVmixCalc();
+}
+
+
+// ── vMix 픽셀 검증 ────────────────────────────────────────
+
+function toggleVmixCalc() {
+  vmixOpen = !vmixOpen;
+  const panel = document.getElementById('vmixPanel');
+  const btn   = document.querySelector('.vmix-toggle-btn');
+  if (!panel || !btn) return;
+  panel.style.display = vmixOpen ? 'block' : 'none';
+  btn.textContent = (vmixOpen ? '▲' : '▼') + ' vMix 픽셀 검증';
+  if (vmixOpen) renderVmixCalc();
+}
+
+function setVmixAdjMode(m) {
+  vmixAdjMode = m;
+  renderVmixCalc();
+}
+
+function renderVmixCalc() {
+  const el = document.getElementById('vmixResult');
+  if (!el || !_vmixSec || !_vmixTW) { if (el) el.innerHTML = ''; return; }
+
+  const NAMES = { left:'좌측', center:'중앙', right:'우측' };
+  const keys  = ['left','center','right'].filter(k => _vmixSec[k]);
+  if (keys.length < 2) { el.innerHTML = '<div style="font-size:12px;color:#bbb;padding:4px 0;">활성 섹션 2개 이상 필요</div>'; return; }
+
+  const T = _vmixTW;
+  const hasL = keys.includes('left'), hasR = keys.includes('right'), hasC = keys.includes('center');
+
+  // 5자리 비율 × T vs 실제 픽셀
+  const S = {};
+  keys.forEach(k => {
+    const actual   = _vmixSec[k].tW;
+    const ratio5   = parseFloat((actual / T).toFixed(5));
+    const computed = ratio5 * T;
+    S[k] = { actual, computed, ocha: computed - actual, ratio5 };
+  });
+
+  // 반올림: 좌·우 기준, 중앙 흡수 (오차 테이블용)
+  const rnd = {};
+  if (hasL) rnd.left   = Math.round(S.left.computed);
+  if (hasR) rnd.right  = Math.round(S.right.computed);
+  if (hasC) rnd.center = T - (rnd.left || 0) - (rnd.right || 0);
+  else if (hasL && hasR) rnd.right = T - rnd.left;
+  const anyRoundErr = keys.some(k => rnd[k] !== S[k].actual);
+
+  // ── 오차 테이블 ──
+  let h = `<div class="vmix-header">전체 가로 <b>${T}px</b> 기준</div>`;
+  h += '<table class="vmix-tbl"><thead><tr>';
+  h += '<th>섹션</th><th>실제 px</th><th>비율×전체</th><th>오차</th>';
+  if (anyRoundErr) h += '<th>반올림 px</th>';
+  h += '</tr></thead><tbody>';
+  keys.forEach(k => {
+    const s = S[k];
+    const noErr    = s.ocha === 0;
+    const compStr  = noErr ? `${s.actual}` : s.computed.toFixed(4);
+    const ochaStr  = noErr ? '—' : (s.ocha > 0 ? '+' : '') + s.ocha.toFixed(4);
+    const ochaClass = noErr ? 'vmix-zero' : (Math.abs(s.ocha) < 0.5 ? 'vmix-warn-sm' : 'vmix-frac');
+    h += `<tr><td class="vmix-name">${NAMES[k]}</td><td class="vmix-int">${s.actual}</td><td>${compStr}</td><td><span class="${ochaClass}">${ochaStr}</span></td>`;
+    if (anyRoundErr) {
+      const r = rnd[k], diff = r - s.actual;
+      const absorbMark = (k === 'center' && hasL && hasR) ? '<span class="vmix-absorb"> 흡수</span>' : '';
+      const rndCell = diff === 0 ? `<span class="vmix-int">${r}</span>`
+        : `<span class="vmix-frac">${r} (${diff > 0 ? '+' : ''}${diff})</span>${absorbMark}`;
+      h += `<td>${rndCell}</td>`;
+    }
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  if (!anyRoundErr) {
+    h += '<div class="vmix-note ok">✓ 5자리 비율 반올림 오차 없음 — 실제 픽셀과 일치</div>';
+  } else {
+    const parts = keys.map(k => {
+      const d = rnd[k] - S[k].actual;
+      if (d === 0) return null;
+      return `${NAMES[k]} ${d > 0 ? '+' : ''}${d}px${k === 'center' && hasL && hasR ? ' (흡수)' : ''}`;
+    }).filter(Boolean);
+    h += `<div class="vmix-note warn">⚠ 반올림 시 픽셀 변동: ${parts.join(' · ')}</div>`;
+  }
+
+  // ── 보정 비율 계산 ──
+  // 5자리 비율로 표현 가능한 최소 픽셀 단위 = T / gcd(100000, T)
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+  const g    = gcd(100000, T);
+  const step = T / g; // 유효 픽셀 단위
+
+  h += '<div class="vmix-adj-wrap">';
+  h += '<div class="vmix-adj-label">보정 비율 계산</div>';
+  h += `<div class="vmix-header" style="margin-bottom:6px;">유효 픽셀 단위 <b>${step}px</b> — 최소 비율 조정 ${(step / T).toFixed(5)}</div>`;
+
+  if (step === 1) {
+    // T가 100000의 약수 → 모든 정수 픽셀 사용 가능
+    h += '<div class="vmix-note ok">✓ 현재 픽셀값 그대로 정수 비율 표현 가능 — 보정 불필요</div>';
+    keys.forEach(k => {
+      h += `<div style="font-size:11px;padding:2px 0;"><span class="vmix-name">${NAMES[k]}</span> → 비율 <span class="vmix-ratio10">${(S[k].actual / T).toFixed(5)}</span></div>`;
+    });
+  } else {
+    h += `<div class="vmix-adj-tabs">
+      <button class="vmix-adj-tab${vmixAdjMode === 'center' ? ' on' : ''}" onclick="setVmixAdjMode('center')">중앙 확대</button>
+      <button class="vmix-adj-tab${vmixAdjMode === 'sides'  ? ' on' : ''}" onclick="setVmixAdjMode('sides')">좌우 확대</button>
+    </div>`;
+
+    const L = hasL ? S.left.actual   : 0;
+    const C = hasC ? S.center.actual : 0;
+    const R = hasR ? S.right.actual  : 0;
+
+    // 각 섹션을 독립적으로 최근접 유효 단위로 반올림 (픽셀 변화 최소화)
+    let adjL = hasL ? Math.round(L / step) * step : 0;
+    let adjC = hasC ? Math.round(C / step) * step : 0;
+    let adjR = hasR ? Math.round(R / step) * step : 0;
+
+    // 합이 T와 다를 경우 ±step 한 단계를 한 섹션이 흡수
+    const sumDiff = T - adjL - adjC - adjR;
+    let absorber = null;
+    if (sumDiff !== 0) {
+      if (vmixAdjMode === 'center' && hasC) {
+        adjC += sumDiff; absorber = 'center';
+      } else if (hasL && hasR) {
+        // 좌우 중 반올림 오차가 더 큰 쪽이 흡수
+        const errL = L - adjL, errR = R - adjR;
+        if (sumDiff > 0) {
+          if (errL >= errR) { adjL += step; absorber = 'left'; }
+          else              { adjR += step; absorber = 'right'; }
+        } else {
+          if (errL <= errR) { adjL -= step; absorber = 'left'; }
+          else              { adjR -= step; absorber = 'right'; }
+        }
+      } else if (hasL)  { adjL += sumDiff; absorber = 'left'; }
+      else if (hasR)    { adjR += sumDiff; absorber = 'right'; }
+      else if (hasC)    { adjC += sumDiff; absorber = 'center'; }
+    }
+
+    const adj = { left: hasL ? adjL : null, center: hasC ? adjC : null, right: hasR ? adjR : null };
+    const maxChange = Math.max(...keys.map(k => Math.abs(adj[k] - S[k].actual)));
+
+    h += '<table class="vmix-tbl"><thead><tr>';
+    h += '<th>섹션</th><th>보정 px</th><th>보정 비율</th><th>픽셀 변화</th>';
+    h += '</tr></thead><tbody>';
+    keys.forEach(k => {
+      const a = adj[k];
+      if (a === null || a === undefined) return;
+      const pxDiff   = a - S[k].actual;
+      const adjRatio = (a / T).toFixed(5);
+      const isAbsorb = k === absorber;
+      const pdStr = pxDiff === 0 ? '—' : (pxDiff > 0 ? '+' : '') + pxDiff + 'px';
+      const pdCls = pxDiff === 0 ? 'vmix-zero' : (pxDiff > 0 ? 'vmix-plus' : 'vmix-minus');
+      h += `<tr>
+        <td class="vmix-name">${NAMES[k]}${isAbsorb ? '<span class="vmix-absorb"> 흡수</span>' : ''}</td>
+        <td>${a}</td>
+        <td class="vmix-ratio10">${adjRatio}</td>
+        <td><span class="${pdCls}">${pdStr}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+
+    if (maxChange === 0) {
+      h += '<div class="vmix-note ok">✓ 보정 불필요 — 이미 유효 단위</div>';
+    } else {
+      h += `<div class="vmix-note info">최대 픽셀 변화 ±${maxChange}px</div>`;
+    }
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 
