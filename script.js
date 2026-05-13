@@ -19,10 +19,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.33';
-const APP_SW_VERSION = 'v46';
+const APP_VERSION    = '1.0.34';
+const APP_SW_VERSION = 'v47';
 
 const CHANGELOG = [
+  { v: '1.0.34', items: ['vMix 보정 비율에 소스 조정값 추가 — LED < 소스 시 양쪽 자르기 픽셀(각 Xpx), LED > 소스 시 확대 배율(×Z), 한쪽 자르기 3px 이하/확대 2% 이하면 시각 오차 미미 표시'] },
   { v: '1.0.33', items: ['vMix 보정 비율 알고리즘 개선 — 각 섹션 독립 반올림으로 픽셀 변화 최소화, 합산 오차는 오차가 큰 섹션이 ±1스텝 흡수, 최대 픽셀 변화 표시'] },
   { v: '1.0.32', items: ['vMix 보정 비율 재설계 — 유효 픽셀 단위(T/gcd(100000,T)) 기반, 중앙 확대(좌우 내림)·좌우 확대(좌우 올림) 두 모드, 좌우 대칭 자동 적용, 보정 비율 5자리 표기, 픽셀 변화 표시'] },
   { v: '1.0.31', items: ['vMix 보정 비율 계산 추가 — 중앙 조정(좌우 확정·중앙 흡수)·좌우 대칭 조정(중앙 확정·좌우 동일) 두 모드, 대칭 불가 시 중앙 ±1px 두 옵션 제시, 보정 비율(10자리)·비율·픽셀 변화 표시'] },
@@ -1513,7 +1514,7 @@ function renderVmixCalc() {
     const maxChange = Math.max(...keys.map(k => Math.abs(adj[k] - S[k].actual)));
 
     h += '<table class="vmix-tbl"><thead><tr>';
-    h += '<th>섹션</th><th>보정 px</th><th>보정 비율</th><th>픽셀 변화</th>';
+    h += '<th>섹션</th><th>보정 px</th><th>보정 비율</th><th>픽셀 변화</th><th>소스 조정</th>';
     h += '</tr></thead><tbody>';
     keys.forEach(k => {
       const a = adj[k];
@@ -1523,11 +1524,26 @@ function renderVmixCalc() {
       const isAbsorb = k === absorber;
       const pdStr = pxDiff === 0 ? '—' : (pxDiff > 0 ? '+' : '') + pxDiff + 'px';
       const pdCls = pxDiff === 0 ? 'vmix-zero' : (pxDiff > 0 ? 'vmix-plus' : 'vmix-minus');
+      let srcAdj;
+      if (pxDiff === 0) {
+        srcAdj = '<span class="vmix-zero">—</span>';
+      } else if (pxDiff < 0) {
+        // LED가 소스보다 좁음 → 소스 양쪽을 half픽셀씩 자르기
+        const half = (-pxDiff) / 2;
+        const halfStr = Number.isInteger(half) ? half : half.toFixed(1);
+        const cropCls = half <= 3 ? 'vmix-int' : (half <= 6 ? 'vmix-warn-sm' : 'vmix-frac');
+        srcAdj = `<span class="${cropCls}">각 ${halfStr}px 자르기</span>`;
+      } else {
+        // LED가 소스보다 넓음 → 소스를 확대해서 채움
+        const zoom = (a / S[k].actual).toFixed(5);
+        srcAdj = `<span class="vmix-warn-sm">×${zoom} 확대</span>`;
+      }
       h += `<tr>
         <td class="vmix-name">${NAMES[k]}${isAbsorb ? '<span class="vmix-absorb"> 흡수</span>' : ''}</td>
         <td>${a}</td>
         <td class="vmix-ratio10">${adjRatio}</td>
         <td><span class="${pdCls}">${pdStr}</span></td>
+        <td style="font-size:11px;">${srcAdj}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -1535,7 +1551,17 @@ function renderVmixCalc() {
     if (maxChange === 0) {
       h += '<div class="vmix-note ok">✓ 보정 불필요 — 이미 유효 단위</div>';
     } else {
-      h += `<div class="vmix-note info">최대 픽셀 변화 ±${maxChange}px</div>`;
+      const maxCropHalf = Math.max(0, ...keys
+        .filter(k => adj[k] != null && adj[k] < S[k].actual)
+        .map(k => (S[k].actual - adj[k]) / 2));
+      const maxZoom = Math.max(1, ...keys
+        .filter(k => adj[k] != null && adj[k] > S[k].actual)
+        .map(k => adj[k] / S[k].actual));
+      const noteParts = [];
+      if (maxCropHalf > 0) noteParts.push(`자르기 최대 ${Number.isInteger(maxCropHalf) ? maxCropHalf : maxCropHalf.toFixed(1)}px (한쪽)`);
+      if (maxZoom > 1)     noteParts.push(`확대 최대 ×${maxZoom.toFixed(5)}`);
+      const isOk = maxCropHalf <= 3 && maxZoom <= 1.02;
+      h += `<div class="vmix-note ${isOk ? 'ok' : 'info'}">${noteParts.join(' · ')}</div>`;
     }
   }
 
