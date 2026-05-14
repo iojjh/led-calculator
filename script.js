@@ -14,15 +14,19 @@
 //  §9.5 PDF 뷰어 (PDF.js, 페이지 단위 이동)
 //  §10 계산기 핵심 (면적·패널 계산 & 결과 렌더링)
 //  §11 랜선 시뮬레이터 (캔버스, 포트 할당, 이벤트)
+//  §12 vMix 소스 매크로 (파일 로드, 비율 변환, 다운로드)
 // ════════════════════════════════════════════════════════════
 
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION    = '1.0.34';
-const APP_SW_VERSION = 'v47';
+const APP_VERSION    = '1.0.37';
+const APP_SW_VERSION = 'v50';
 
 const CHANGELOG = [
+  { v: '1.0.37', items: ['vMix 버츄얼 인풋 생성 탭 추가 — 소스 선택·생성 수 입력 후 일괄 생성, 각 VI별 레이어(Overlay0~2) 숫자 입력+드롭다운 편집', '각 기능 탭 초기화 버튼 추가(화면비율·포지션 복사·버츄얼 인풋 생성)', '포지션 복사 적용 소스에 복사 원본 번호 표시, 전체 선택·붙여넣기 컨트롤 목록 상단 이동', '화면비율 탭 전체 선택 체크박스 제거', 'VI 순번 정확도 개선(최상위 Input 직접 카운트), 레이어 번호 입력칸 소형화'] },
+  { v: '1.0.36', items: ['vMix 매크로 소스 선택 적용 — 순서 번호 표시, 개별 체크박스로 선택 후 Widescreen 변환, 소스 위치값(줌·이동·레이어 전체) 복사→다른 소스에 붙여넣기'] },
+  { v: '1.0.35', items: ['vMix 소스 매크로 탭 추가 — .vmix 파일 업로드 후 소스 화면비율을 원본→와이드스크린(16:9)으로 일괄 변환, 수정된 파일 다운로드'] },
   { v: '1.0.34', items: ['vMix 보정 비율에 소스 조정값 추가 — LED < 소스 시 양쪽 자르기 픽셀(각 Xpx), LED > 소스 시 확대 배율(×Z), 한쪽 자르기 3px 이하/확대 2% 이하면 시각 오차 미미 표시'] },
   { v: '1.0.33', items: ['vMix 보정 비율 알고리즘 개선 — 각 섹션 독립 반올림으로 픽셀 변화 최소화, 합산 오차는 오차가 큰 섹션이 ±1스텝 흡수, 최대 픽셀 변화 표시'] },
   { v: '1.0.32', items: ['vMix 보정 비율 재설계 — 유효 픽셀 단위(T/gcd(100000,T)) 기반, 중앙 확대(좌우 내림)·좌우 확대(좌우 올림) 두 모드, 좌우 대칭 자동 적용, 보정 비율 5자리 표기, 픽셀 변화 표시'] },
@@ -2431,6 +2435,514 @@ function doAutoAssignUnified() {
     autoAssignUnified();
   }
 }
+
+// ── §12  vMix 소스 매크로 ────────────────────────────────
+
+let _vmixRawText   = '';   // 원본 raw 텍스트 (다운로드용, XMLSerializer 없이 직접 교체)
+let _vmixDoc       = null; // DOM (속성 읽기·커스텀 뱃지 표시용)
+let _vmixFilename  = '';
+let _vmixCopiedKey = null;
+let _vmixNewVIs     = [];          // 새로 생성된 버츄얼 인풋 [{ key, parentKey, title, overlays:[k,k,k] }]
+let _vmixPastedFrom = new Map();  // targetKey → 복사 원본 vmix 순번
+let _vmixOrigText   = '';         // 로드 시 원본 텍스트 보관 (초기화용)
+let _vmixInputCount = 0;          // 원본 파일의 최상위 Input 수 (VI 순번 계산용)
+
+const _VMIX_AR = { '0': '출력 비율', '1': '와이드스크린', '100': '원본' };
+
+function vmixLoad(file) {
+  if (!file) return;
+  _vmixFilename  = file.name;
+  _vmixCopiedKey  = null;
+  _vmixNewVIs     = [];
+  _vmixPastedFrom = new Map();
+  const reader = new FileReader();
+  reader.onload = e => {
+    _vmixOrigText = e.target.result;
+    _vmixRawText  = e.target.result;
+    _vmixDoc = new DOMParser().parseFromString(_vmixRawText, 'text/xml');
+    _vmixInputCount = Array.from(_vmixDoc.documentElement.children)
+      .filter(e => e.tagName === 'Input').length;
+    document.getElementById('vmixFilename').textContent   = file.name;
+    document.getElementById('vmixFilename').style.display = 'block';
+    vmixRenderArList();
+    vmixRenderPosList();
+    vmixRenderVIPane();
+    document.getElementById('vmixSourceCard').style.display   = 'block';
+    document.getElementById('vmixDownloadCard').style.display = 'none';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// OriginalTitle이 있는 소스만 반환
+function _vmixInputs() {
+  return Array.from(_vmixDoc.querySelectorAll('Input'))
+    .filter(inp => inp.getAttribute('OriginalTitle')?.trim());
+}
+
+// vmix 파일 전체 Input 목록 기준 1-based 순번 (이름 없는 소스 포함하여 계산)
+function _vmixNum(inp) {
+  return Array.from(_vmixDoc.querySelectorAll('Input')).indexOf(inp) + 1;
+}
+
+// 원본 파일 텍스트에서 특정 Key의 속성값 추출 (초기화용)
+function _vmixGetOrigAttr(key, attrName) {
+  const eol = _vmixOrigText.includes('\r\n') ? '\r\n' : '\n';
+  for (const line of _vmixOrigText.split(eol)) {
+    if (!line.includes(`Key="${key}"`)) continue;
+    const m = new RegExp(attrName + '="([^"]*)"').exec(line);
+    return m ? m[1] : null;
+  }
+  return null;
+}
+
+// 화면비율 초기화 (원본 AspectRatio 복원)
+function vmixResetAR() {
+  _vmixInputs().forEach(inp => {
+    const key  = inp.getAttribute('Key');
+    const orig = _vmixGetOrigAttr(key, 'AspectRatio');
+    if (orig !== null) {
+      inp.setAttribute('AspectRatio', orig);
+      _vmixSetRawAttr(key, 'AspectRatio', orig);
+    }
+  });
+  vmixRenderArList();
+}
+
+// 포지션 복사 초기화 (붙여넣기 대상 원복 + 상태 초기화)
+function vmixResetPos() {
+  if (_vmixPastedFrom.size > 0) {
+    const origDoc   = new DOMParser().parseFromString(_vmixOrigText, 'text/xml');
+    const curInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
+    _vmixPastedFrom.forEach((_, targetKey) => {
+      const origPos    = _vmixGetOrigAttr(targetKey, 'Positions');
+      const origPosExt = _vmixGetOrigAttr(targetKey, 'PositionsExtended');
+      if (origPos)    _vmixSetRawAttr(targetKey, 'Positions', origPos);
+      if (origPosExt) _vmixSetRawAttr(targetKey, 'PositionsExtended', origPosExt);
+      const origInp = Array.from(origDoc.querySelectorAll('Input'))
+        .find(i => i.getAttribute('Key') === targetKey);
+      const curInp  = curInputs.find(i => i.getAttribute('Key') === targetKey);
+      if (origInp && curInp) {
+        const op  = origInp.getAttribute('Positions');
+        const ope = origInp.getAttribute('PositionsExtended');
+        if (op)  curInp.setAttribute('Positions', op);
+        if (ope) curInp.setAttribute('PositionsExtended', ope);
+      }
+    });
+  }
+  _vmixCopiedKey = null;
+  _vmixPastedFrom.clear();
+  vmixRenderPosList();
+}
+
+// 버츄얼 인풋 생성 초기화 (생성된 VI 삭제)
+function vmixResetVI() {
+  if (_vmixNewVIs.length > 0) {
+    const viKeys = new Set(_vmixNewVIs.map(v => v.key));
+    const eol    = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+    let skipNext = false;
+    const filtered = _vmixRawText.split(eol).filter(line => {
+      if (skipNext) { skipNext = false; return false; }
+      for (const key of viKeys) {
+        if (line.includes(`Key="${key}"`)) {
+          if (!line.trimEnd().endsWith('/>')) skipNext = true;
+          return false;
+        }
+      }
+      return true;
+    });
+    _vmixRawText = filtered.join(eol);
+    _vmixNewVIs  = [];
+  }
+  vmixRenderVIPane();
+}
+
+// raw 텍스트에서 특정 Key를 가진 Input 행의 속성값 교체
+function _vmixSetRawAttr(key, attrName, rawValue) {
+  const eol   = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+  const lines = _vmixRawText.split(eol);
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].includes(`Key="${key}"`)) continue;
+    lines[i] = lines[i].replace(
+      new RegExp(`${attrName}="[^"]*"`),
+      `${attrName}="${rawValue}"`
+    );
+    break;
+  }
+  _vmixRawText = lines.join(eol);
+}
+
+// raw 텍스트에서 특정 Key를 가진 Input의 지정 속성값(인코딩 유지) 추출
+function _vmixGetRawAttr(key, attrName) {
+  const eol   = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+  const lines = _vmixRawText.split(eol);
+  for (const line of lines) {
+    if (!line.includes(`Key="${key}"`)) continue;
+    const re = new RegExp(attrName + '="([^"]*)"');
+    const m  = re.exec(line);
+    return m ? m[1] : null;
+  }
+  return null;
+}
+
+// MatrixPosition 값이 기본값(줌1, 이동0, 회전0)에서 벗어났는지 확인
+function _vmixHasCustomPos(inp) {
+  let posXml = inp.getAttribute('Positions');
+  if (!posXml) return false;
+  try {
+    // <?xml ...?> 선언 제거 후 파싱 (encoding 선언이 브라우저 파서를 방해하는 경우 대응)
+    posXml = posXml.replace(/^\s*<\?xml[^?]*\?>\s*/, '');
+    const pdoc = new DOMParser().parseFromString(posXml, 'text/xml');
+    for (const m of pdoc.querySelectorAll('MatrixPosition')) {
+      const dc = name => Array.from(m.children).find(c => c.tagName === name)?.textContent.trim() ?? null;
+      if (dc('ZoomX') !== '1' || dc('ZoomY') !== '1')         return true;
+      if (dc('PostZoomX') !== '1' || dc('PostZoomY') !== '1') return true;
+      if (dc('PanX') !== '0' || dc('PanY') !== '0')           return true;
+      if (dc('Mirror') === 'true' || dc('Hidden') === 'true')  return true;
+      const rotEl = Array.from(m.children).find(c => c.tagName === 'Rotate');
+      if (rotEl) {
+        const rx = rotEl.querySelector('X')?.textContent.trim();
+        const ry = rotEl.querySelector('Y')?.textContent.trim();
+        const rz = rotEl.querySelector('Z')?.textContent.trim();
+        if (rx !== '0' || ry !== '0' || rz !== '0') return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+function vmixSwitchTab(id, btn) {
+  document.querySelectorAll('.vmix-sub-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('vmix-pane-ar').style.display  = id === 'ar'  ? '' : 'none';
+  document.getElementById('vmix-pane-pos').style.display = id === 'pos' ? '' : 'none';
+  document.getElementById('vmix-pane-vi').style.display  = id === 'vi'  ? '' : 'none';
+}
+
+function vmixRenderArList() {
+  const inputs = _vmixInputs();
+  document.getElementById('vmixArList').innerHTML = inputs.map(inp => {
+    const title   = inp.getAttribute('OriginalTitle');
+    const key     = inp.getAttribute('Key');
+    const ar      = inp.getAttribute('AspectRatio') || '-';
+    const arLabel = _VMIX_AR[ar] || ar;
+    const isWide  = ar === '1';
+    return `<div class="vmix-source-row">
+      <label class="vmix-cb"><input type="checkbox" class="vmix-ar-cb" data-key="${key}"></label>
+      <span class="vmix-num">${_vmixNum(inp)}</span>
+      <span class="vmix-source-name" title="${title}">${title}</span>
+      <span class="vmix-ar-badge${isWide ? ' wide' : ''}">${arLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+function vmixRenderPosList() {
+  const inputs    = _vmixInputs();
+  const hasCopied = _vmixCopiedKey !== null;
+  const header = hasCopied ? `<div class="vmix-action-bar" style="margin-top:0;padding-top:0;border-top:none;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #f0f0f0;">
+    <label class="vmix-selall-wrap"><input type="checkbox" id="vmixPosSelAll" onchange="vmixTogglePosAll(this.checked)"><span>전체 선택</span></label>
+    <button class="vmix-act-btn accent" style="flex:none;padding:8px 14px;" onclick="vmixPasteToSelected()">선택 항목에 붙여넣기</button>
+  </div>` : '';
+  const rows = inputs.map(inp => {
+    const title      = inp.getAttribute('OriginalTitle');
+    const key        = inp.getAttribute('Key');
+    const isCopied   = key === _vmixCopiedKey;
+    const pastedFrom = _vmixPastedFrom.get(key);
+    const hasCustom  = _vmixHasCustomPos(inp);
+    const cbCell     = hasCopied && !isCopied
+      ? `<label class="vmix-cb"><input type="checkbox" class="vmix-pos-cb" data-key="${key}"></label>`
+      : `<span class="vmix-cb-ph"></span>`;
+    let badge = '';
+    if (pastedFrom != null)  badge = `<span class="vmix-pos-badge pasted">← ${pastedFrom}번</span>`;
+    else if (hasCustom)      badge = `<span class="vmix-pos-badge custom">커스텀</span>`;
+    else                     badge = `<span class="vmix-pos-badge"></span>`;
+    return `<div class="vmix-source-row">
+      ${cbCell}
+      <span class="vmix-num">${_vmixNum(inp)}</span>
+      <span class="vmix-source-name" title="${title}">${title}</span>
+      ${badge}
+      <button class="vmix-btn${isCopied ? ' is-copied' : ''}" onclick="vmixCopyPos('${key}')">${isCopied ? '📋 복사됨' : '포지션 복사'}</button>
+    </div>`;
+  }).join('');
+  const resetBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+    <button class="vmix-reset-btn" onclick="vmixResetPos()">초기화</button>
+  </div>`;
+  document.getElementById('vmixPosList').innerHTML = resetBtn + header + rows;
+}
+
+function vmixApplyWideSelected() {
+  const checked   = Array.from(document.querySelectorAll('.vmix-ar-cb:checked'));
+  if (!checked.length) return;
+  const allInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
+  checked.forEach(cb => {
+    const inp = allInputs.find(i => i.getAttribute('Key') === cb.dataset.key);
+    if (inp) inp.setAttribute('AspectRatio', '1');
+    _vmixSetRawAttr(cb.dataset.key, 'AspectRatio', '1');
+  });
+  vmixRenderArList();
+  document.getElementById('vmixDownloadCard').style.display = 'block';
+}
+
+function vmixApplyWide() {
+  _vmixInputs().forEach(inp => inp.setAttribute('AspectRatio', '1'));
+  _vmixRawText = _vmixRawText.replace(/AspectRatio="100"/g, 'AspectRatio="1"');
+  vmixRenderArList();
+  document.getElementById('vmixDownloadCard').style.display = 'block';
+}
+
+function vmixCopyPos(key) {
+  _vmixCopiedKey = _vmixCopiedKey === key ? null : key;
+  vmixRenderPosList();
+}
+
+function vmixTogglePosAll(checked) {
+  document.querySelectorAll('.vmix-pos-cb').forEach(cb => cb.checked = checked);
+}
+
+function vmixPasteToSelected() {
+  const checked = Array.from(document.querySelectorAll('.vmix-pos-cb:checked'));
+  if (!checked.length) return;
+  const allInputs     = Array.from(_vmixDoc.querySelectorAll('Input'));
+  const src           = allInputs.find(i => i.getAttribute('Key') === _vmixCopiedKey);
+  const srcName       = src?.getAttribute('OriginalTitle') || '소스';
+  const rawPos        = _vmixGetRawAttr(_vmixCopiedKey, 'Positions');
+  const rawPosExt     = _vmixGetRawAttr(_vmixCopiedKey, 'PositionsExtended');
+  const srcDecoded    = src?.getAttribute('Positions');
+  const srcDecodedExt = src?.getAttribute('PositionsExtended');
+  const msg = checked.length === 1
+    ? `'${srcName}'의 포지션을 '${allInputs.find(i => i.getAttribute('Key') === checked[0].dataset.key)?.getAttribute('OriginalTitle') || '소스'}'에 붙여넣을까요?`
+    : `'${srcName}'의 포지션을 선택한 ${checked.length}개 소스에 붙여넣을까요?`;
+  const srcNum = _vmixNum(src);
+  openConfirm('포지션 붙여넣기', msg, () => {
+    checked.forEach(cb => {
+      // Positions + PositionsExtended 모두 교체 (vMix는 PositionsExtended를 우선 사용)
+      if (rawPos)    _vmixSetRawAttr(cb.dataset.key, 'Positions', rawPos);
+      if (rawPosExt) _vmixSetRawAttr(cb.dataset.key, 'PositionsExtended', rawPosExt);
+      // DOM 갱신 (커스텀 뱃지 표시용)
+      const dst = allInputs.find(i => i.getAttribute('Key') === cb.dataset.key);
+      if (dst) {
+        if (srcDecoded)    dst.setAttribute('Positions', srcDecoded);
+        if (srcDecodedExt) dst.setAttribute('PositionsExtended', srcDecodedExt);
+      }
+      _vmixPastedFrom.set(cb.dataset.key, srcNum);
+    });
+    vmixRenderPosList();
+    document.getElementById('vmixDownloadCard').style.display = 'block';
+  });
+}
+
+// ── 버츄얼 인풋 생성 ─────────────────────────────────────
+
+function _vmixGenUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function vmixRenderVIPane() {
+  const pane = document.getElementById('vmix-pane-vi');
+  if (!pane) return;
+
+  // 원본 소스 (새로 생성된 VI 제외)
+  const newKeys    = new Set(_vmixNewVIs.map(v => v.key));
+  const origInputs = _vmixInputs().filter(inp => !newKeys.has(inp.getAttribute('Key')));
+
+  const srcOpts = origInputs.map(inp =>
+    `<option value="${inp.getAttribute('Key')}">${_vmixNum(inp)}. ${inp.getAttribute('OriginalTitle')}</option>`
+  ).join('');
+
+  const setup = `<div class="vmix-vi-setup">
+    <div class="vmix-vi-form-row">
+      <span class="vmix-vi-label">소스 선택</span>
+      <select id="vmixVISrcSel" class="vmix-vi-select">${srcOpts}</select>
+    </div>
+    <div class="vmix-vi-form-row">
+      <span class="vmix-vi-label">생성 수</span>
+      <input type="number" id="vmixVICount" class="vmix-vi-count" min="1" max="20" value="1">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+      <button class="vmix-act-btn" onclick="vmixCreateVirtuals()">생성하기</button>
+      <button class="vmix-reset-btn" onclick="vmixResetVI()">초기화</button>
+    </div>
+  </div>`;
+
+  const baseCount = _vmixInputCount;
+  const cards = _vmixNewVIs.map((vi, idx) => {
+    const parentTitle = origInputs.find(i => i.getAttribute('Key') === vi.parentKey)?.getAttribute('OriginalTitle') || '';
+    const viNum = baseCount + idx + 1;
+    const layers = [0, 1, 2].map(slot => {
+      const currentKey = vi.overlays[slot] || '';
+      const currentNum = currentKey
+        ? (_vmixNum(origInputs.find(i => i.getAttribute('Key') === currentKey)) || '')
+        : '';
+      const opts = `<option value="">없음</option>` + origInputs
+        .filter(inp => inp.getAttribute('Key') !== vi.parentKey)
+        .map(inp => {
+          const k   = inp.getAttribute('Key');
+          const t   = inp.getAttribute('OriginalTitle');
+          const sel = vi.overlays[slot] === k ? ' selected' : '';
+          return `<option value="${k}"${sel}>${_vmixNum(inp)}. ${t}</option>`;
+        }).join('');
+      return `<div class="vmix-vi-layer-row">
+        <span class="vmix-vi-layer-label">레이어 ${slot + 1}</span>
+        <input type="number" class="vmix-vi-layer-num" id="vin-${vi.key}-${slot}"
+          min="1" value="${currentNum}" placeholder="-"
+          onchange="vmixVILayerNumChange('${vi.key}',${slot},this)">
+        <select class="vmix-vi-layer-sel" id="vis-${vi.key}-${slot}"
+          onchange="vmixVILayerSelChange('${vi.key}',${slot},this)">${opts}</select>
+      </div>`;
+    }).join('');
+    return `<div class="vmix-vi-card">
+      <div class="vmix-vi-card-header">
+        <span class="vmix-num">${viNum}</span>
+        <span class="vmix-vi-card-title">${vi.title}</span>
+        <span class="vmix-vi-parent-tag">${parentTitle}</span>
+      </div>
+      ${layers}
+    </div>`;
+  }).join('');
+
+  pane.innerHTML = setup + (cards ? `<div class="vmix-vi-list">${cards}</div>` : '');
+}
+
+function vmixCreateVirtuals() {
+  const parentKey = document.getElementById('vmixVISrcSel')?.value;
+  const count     = parseInt(document.getElementById('vmixVICount')?.value) || 1;
+  if (!parentKey || count < 1) return;
+
+  const allInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
+  const parentInp = allInputs.find(i => i.getAttribute('Key') === parentKey);
+  if (!parentInp) return;
+
+  const nullUUID    = '00000000-0000-0000-0000-000000000000';
+  const parentTitle = parentInp.getAttribute('OriginalTitle') || 'Virtual';
+  const eol         = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+  const lines       = _vmixRawText.split(eol);
+
+  // 부모 Input 요소의 전체 라인 블록 파악 (멀티라인 지원)
+  const openIdx = lines.findIndex(l => l.includes(`Key="${parentKey}"`));
+  if (openIdx === -1) return;
+  let parentBlock;
+  if (lines[openIdx].trimEnd().endsWith('/>')) {
+    parentBlock = [lines[openIdx]];               // 자기 닫힘 단일 라인
+  } else {
+    let closeIdx = openIdx;
+    while (closeIdx < lines.length && !lines[closeIdx].includes('</Input>')) closeIdx++;
+    parentBlock = lines.slice(openIdx, closeIdx + 1); // 여는 줄 ~ </Input> 줄
+  }
+
+  // <State 직전에 삽입
+  const stateIdx = lines.findIndex(l => l.trimStart().startsWith('<State'));
+  const insertAt = stateIdx === -1 ? lines.length : stateIdx;
+
+  const newRawLines = [];
+  for (let i = 0; i < count; i++) {
+    const newKey = _vmixGenUUID();
+    const block  = [...parentBlock];
+    let ln = block[0]; // 속성이 있는 여는 줄만 수정
+
+    ln = ln.replace(`Key="${parentKey}"`, `Key="${newKey}"`);
+    ln = ln.replace(/Type="[^"]*"/, 'Type="22"');
+    ln = ln.includes('ShaderSource=')
+      ? ln.replace(/ShaderSource="[^"]*"/, `ShaderSource="${parentKey}"`)
+      : ln.replace(/(\/?>)$/, ` ShaderSource="${parentKey}"$1`);
+    if (!ln.includes('VirtualInputKey=')) {
+      ln = ln.replace(/(\/?>)$/, ` VirtualInputKey="${parentKey}" UseSourceRenderEffects="True"$1`);
+    }
+    ln = ln.replace('VideoShader_ColorCorrectionSourceEnabled="0"',
+                    'VideoShader_ColorCorrectionSourceEnabled="-1"');
+    for (let s = 0; s < 3; s++) {
+      if (!ln.includes(`Overlay${s}="`)) {
+        ln = ln.replace(/(\/?>)$/, ` Overlay${s}="${nullUUID}"$1`);
+      }
+    }
+
+    block[0] = ln;
+    newRawLines.push(...block);
+
+    _vmixNewVIs.push({
+      key:      newKey,
+      parentKey,
+      title:    parentTitle,
+      overlays: [0, 1, 2].map(s => {
+        const v = parentInp.getAttribute(`Overlay${s}`);
+        return (v && v !== nullUUID) ? v : null;
+      }),
+    });
+  }
+
+  lines.splice(insertAt, 0, ...newRawLines);
+  _vmixRawText = lines.join(eol);
+
+  vmixRenderVIPane();
+  document.getElementById('vmixDownloadCard').style.display = 'block';
+}
+
+function vmixUpdateVIOverlay(viKey, slot, sourceKey) {
+  const nullUUID = '00000000-0000-0000-0000-000000000000';
+  const val      = sourceKey || nullUUID;
+  _vmixSetRawAttr(viKey, `Overlay${slot}`, val);
+  const vi = _vmixNewVIs.find(v => v.key === viKey);
+  if (vi) vi.overlays[slot] = sourceKey || null;
+}
+
+function vmixVILayerNumChange(viKey, slot, numEl) {
+  const num        = parseInt(numEl.value);
+  const vi         = _vmixNewVIs.find(v => v.key === viKey);
+  const newKeys    = new Set(_vmixNewVIs.map(v => v.key));
+  const origInputs = _vmixInputs().filter(inp => !newKeys.has(inp.getAttribute('Key')));
+  const target     = origInputs.find(inp =>
+    _vmixNum(inp) === num && inp.getAttribute('Key') !== vi?.parentKey
+  );
+  const sel = document.getElementById(`vis-${viKey}-${slot}`);
+  if (target) {
+    const k = target.getAttribute('Key');
+    if (sel) sel.value = k;
+    vmixUpdateVIOverlay(viKey, slot, k);
+  } else {
+    numEl.value = '';
+    if (sel) sel.value = '';
+    vmixUpdateVIOverlay(viKey, slot, '');
+  }
+}
+
+function vmixVILayerSelChange(viKey, slot, selEl) {
+  const sourceKey  = selEl.value;
+  const newKeys    = new Set(_vmixNewVIs.map(v => v.key));
+  const origInputs = _vmixInputs().filter(inp => !newKeys.has(inp.getAttribute('Key')));
+  const numEl      = document.getElementById(`vin-${viKey}-${slot}`);
+  if (sourceKey) {
+    const inp = origInputs.find(i => i.getAttribute('Key') === sourceKey);
+    if (numEl) numEl.value = inp ? _vmixNum(inp) : '';
+  } else {
+    if (numEl) numEl.value = '';
+  }
+  vmixUpdateVIOverlay(viKey, slot, sourceKey);
+}
+
+function vmixDownload() {
+  // XMLSerializer 대신 raw 텍스트 직접 사용 — 인코딩 변환 없이 원본 포맷 유지
+  const blob = new Blob([_vmixRawText], { type: 'application/xml;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = _vmixFilename.replace(/\.vmix$/i, '') + '_edited.vmix';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+(function () {
+  const drop = document.getElementById('vmixDropArea');
+  drop.addEventListener('dragover',  e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) vmixLoad(file);
+  });
+})();
+
 
 // ── 초기 실행 ────────────────────────────────────────────
 calc();

@@ -24,6 +24,7 @@
 <div class="tab-nav">
   <button class="tab-btn on" onclick="swTab('calc',this)">계산기</button>
   <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
+  <button class="tab-btn" onclick="swTab('vmix',this)">vMix 소스 매크로</button>
   <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
 </div>
 
@@ -142,6 +143,44 @@
       <input type="text" id="add-memo" placeholder="메모 추가..." onkeydown="if(event.key==='Enter')addMemo()">
       <button class="add-btn" onclick="addMemo()">추가</button>
     </div>
+  </div>
+</div>
+
+<!-- 탭3: vMix 소스 매크로 -->
+<div class="tab-page" id="tab-vmix">
+  <div class="card">
+    <div class="stitle">vMix 파일 불러오기</div>
+    <div class="vmix-drop-area" id="vmixDropArea" onclick="document.getElementById('vmixFileInput').click()">
+      <input type="file" id="vmixFileInput" accept=".vmix" style="display:none" onchange="vmixLoad(this.files[0])">
+      <div class="vmix-drop-icon">📂</div>
+      <div class="vmix-drop-hint">클릭하거나 .vmix 파일을 드래그하세요</div>
+      <div class="vmix-filename" id="vmixFilename" style="display:none"></div>
+    </div>
+  </div>
+  <div class="card" id="vmixSourceCard" style="display:none">
+    <div class="vmix-sub-tabs">
+      <button class="vmix-sub-tab on" onclick="vmixSwitchTab('ar',this)">화면비율</button>
+      <button class="vmix-sub-tab" onclick="vmixSwitchTab('pos',this)">포지션 복사</button>
+      <button class="vmix-sub-tab" onclick="vmixSwitchTab('vi',this)">버츄얼 인풋 생성</button>
+    </div>
+    <!-- 화면비율 패널 -->
+    <div id="vmix-pane-ar">
+      <div id="vmixArList"></div>
+      <div class="vmix-action-bar">
+        <button class="vmix-reset-btn" onclick="vmixResetAR()">초기화</button>
+        <button class="vmix-act-btn" onclick="vmixApplyWideSelected()">선택 → Widescreen</button>
+        <button class="vmix-act-btn accent" onclick="vmixApplyWide()">전체 → Widescreen</button>
+      </div>
+    </div>
+    <!-- 포지션 복사 패널 -->
+    <div id="vmix-pane-pos" style="display:none">
+      <div id="vmixPosList"></div>
+    </div>
+    <!-- 버츄얼 인풋 생성 패널 -->
+    <div id="vmix-pane-vi" style="display:none"></div>
+  </div>
+  <div class="card" id="vmixDownloadCard" style="display:none">
+    <button class="confirm-btn" style="width:100%;margin-top:0" onclick="vmixDownload()">수정된 .vmix 파일 다운로드</button>
   </div>
 </div>
 
