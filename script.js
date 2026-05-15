@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.41';
-const APP_SW_VERSION = 'v54';
+const APP_VERSION = '1.0.42';
+const APP_SW_VERSION = 'v55';
 
 const CHANGELOG = [
+  { v: '1.0.42', items: ['멀티 섹션 모드 이름 변경 (좌·중·우 → 멀티 섹션)', '멀티 섹션 해상도 이미지 생성 추가 — 기본·워터마크·섹션별·워터마크+섹션별 4종'] },
   { v: '1.0.41', items: ['if 중괄호 추가 시 else if 구조 오파스 수정 — SyntaxError 해결'] },
   { v: '1.0.40', items: ['리팩토링 — 30+ 전역 변수를 State 단일 객체로 통합, 느슨한 비교(==)→엄격한 비교(===) 전수 교체, if 문 중괄호 전수 추가, 컬럼 정렬 공백 제거'] },
   { v: '1.0.39', items: ['EC90 메뉴얼 파일명 공백 제거(MIG-EC90_User_Manual_1.0.pdf) — file:// 환경 경로 오류 수정', '워터마크 로고 getImageData 제거 — 3Y_no_bg.png는 투명 PNG이므로 drawImage 직접 렌더로 교체(CORS SecurityError 방지)'] },
@@ -537,9 +538,192 @@ async function genResImage() {
   showResPreview(baseUrl, wmUrl, filename);
 }
 
+// ── 멀티 섹션 이미지 생성 ─────────────────────────────────
+
+function _drawBgVignette(ctx, tW, tH) {
+  ctx.fillStyle = '#141414';
+  ctx.fillRect(0, 0, tW, tH);
+  const vg = ctx.createRadialGradient(tW/2, tH/2, 0, tW/2, tH/2, Math.hypot(tW, tH)/2);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, tW, tH);
+}
+
+function _drawWmTiles(ctx, tW, tH) {
+  const wmText = '3Y ENTERTAINMENT';
+  const fSize = Math.round(Math.max(24, tW * 0.022));
+  ctx.save();
+  ctx.font = `600 ${fSize}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const textW = ctx.measureText(wmText).width;
+  const stepX = Math.round(textW * 1.6);
+  const stepY = Math.round(fSize * 5.2);
+  const halfD = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
+  ctx.translate(tW / 2, tH / 2);
+  ctx.rotate(-Math.PI / 6);
+  for (let r = -Math.ceil(halfD / stepY); r <= Math.ceil(halfD / stepY) + 1; r++) {
+    for (let c = -Math.ceil(halfD / stepX); c <= Math.ceil(halfD / stepX) + 1; c++) {
+      ctx.fillText(wmText, c * stepX, r * stepY);
+    }
+  }
+  ctx.restore();
+}
+
+function _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH) {
+  const gridLW = Math.max(2, Math.round(totalTW / 700));
+  const pw = sp.px500.w;
+  const active = ['left','center','right'].filter(k => secInfo[k]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+  ctx.lineWidth = gridLW;
+  let secX = 0;
+  active.forEach(k => {
+    const sec = secInfo[k];
+    for (let x = pw; x < sec.tW; x += pw) {
+      ctx.beginPath(); ctx.moveTo(secX + x, 0); ctx.lineTo(secX + x, maxTH); ctx.stroke();
+    }
+    let y = 0;
+    sec.layout.forEach(r => {
+      y += ppx(r.type).h;
+      if (y < maxTH) { ctx.beginPath(); ctx.moveTo(secX, y); ctx.lineTo(secX + sec.tW, y); ctx.stroke(); }
+    });
+    secX += sec.tW;
+  });
+  if (active.length > 1) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.90)';
+    ctx.lineWidth = gridLW * 2;
+    let dx = 0;
+    active.slice(0, -1).forEach(k => {
+      dx += secInfo[k].tW;
+      ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, maxTH); ctx.stroke();
+    });
+  }
+  return gridLW;
+}
+
+function _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes) {
+  if (showSecRes) {
+    const LABELS = { left: '좌측', center: '중앙', right: '우측' };
+    const active = ['left','center','right'].filter(k => secInfo[k]);
+    let sx = 0;
+    active.forEach(k => {
+      const sec = secInfo[k];
+      const cx = sx + sec.tW / 2;
+      const cy = maxTH / 2;
+      const fs = Math.round(Math.max(18, Math.min(sec.tH * 0.13, sec.tW * 0.12, 100)) * 0.9);
+      const gap = fs * 0.72;
+      const lfs = Math.round(fs * 0.48);
+      ctx.font = `500 ${lfs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
+      ctx.fillStyle = '#FF7A2A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(LABELS[k], cx, cy - gap - lfs);
+      const wStr = `${sec.tW}`, sepStr = '  ×  ', hStr = `${sec.tH}`;
+      ctx.font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const wW = ctx.measureText(wStr).width;
+      const sepW = ctx.measureText(sepStr).width;
+      const hW = ctx.measureText(hStr).width;
+      const textX = cx - (wW + sepW + hW) / 2;
+      ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, textX, cy);
+      ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, textX + wW, cy);
+      ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, textX + wW + sepW, cy);
+      const lineLen = (wW + sepW + hW) * 1.2;
+      ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
+      ctx.beginPath(); ctx.moveTo(cx - lineLen/2, cy - gap); ctx.lineTo(cx + lineLen/2, cy - gap); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - lineLen/2, cy + gap); ctx.lineTo(cx + lineLen/2, cy + gap); ctx.stroke();
+      sx += sec.tW;
+    });
+  } else {
+    const fs = Math.round(Math.max(28, Math.min(maxTH * 0.13, 120)) * 0.9);
+    ctx.font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    const wStr = `${totalTW}`, sepStr = '  ×  ', hStr = `${maxTH}`;
+    const wW = ctx.measureText(wStr).width;
+    const sepW = ctx.measureText(sepStr).width;
+    const hW = ctx.measureText(hStr).width;
+    const sx2 = totalTW / 2 - (wW + sepW + hW) / 2;
+    ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, sx2, maxTH / 2);
+    ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, sx2 + wW, maxTH / 2);
+    ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, sx2 + wW + sepW, maxTH / 2);
+    const lineLen = (wW + sepW + hW) * 1.2;
+    const gap = fs * 0.72;
+    ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
+    ctx.beginPath(); ctx.moveTo(totalTW/2 - lineLen/2, maxTH/2 - gap); ctx.lineTo(totalTW/2 + lineLen/2, maxTH/2 - gap); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(totalTW/2 - lineLen/2, maxTH/2 + gap); ctx.lineTo(totalTW/2 + lineLen/2, maxTH/2 + gap); ctx.stroke();
+  }
+}
+
+function _buildMultiResCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
+  const cv = document.createElement('canvas');
+  cv.width = totalTW; cv.height = maxTH;
+  const ctx = cv.getContext('2d');
+  _drawBgVignette(ctx, totalTW, maxTH);
+  const gridLW = _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH);
+  _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes);
+  return cv;
+}
+
+async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
+  const cv = document.createElement('canvas');
+  cv.width = totalTW; cv.height = maxTH;
+  const ctx = cv.getContext('2d');
+  _drawBgVignette(ctx, totalTW, maxTH);
+  _drawWmTiles(ctx, totalTW, maxTH);
+  const gridLW = _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH);
+  _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes);
+  try {
+    const logoImg = await _loadImg('3Y_no_bg.png');
+    const logoW = Math.round(totalTW * 0.18);
+    const logoH = Math.round(logoW * logoImg.height / logoImg.width);
+    const margin = Math.round(totalTW * 0.03);
+    ctx.save(); ctx.globalAlpha = 0.90;
+    ctx.drawImage(logoImg, margin, margin, logoW, logoH);
+    ctx.restore();
+  } catch { /* 로고 없이 계속 */ }
+  return cv;
+}
+
+async function genResImageMulti() {
+  if (!isReady()) { return; }
+  const sp = SPECS[State.curLed];
+  let totalTW = 0, maxTH = 0;
+  const secInfo = {};
+  ['left','center','right'].forEach(k => {
+    const sec = State.multiSec[k];
+    if (!sec.cols || !sec.layout.length) { secInfo[k] = null; return; }
+    let tH = 0; sec.layout.forEach(r => { tH += ppx(r.type).h; });
+    const tW = sec.cols * sp.px500.w;
+    totalTW += tW; maxTH = Math.max(maxTH, tH);
+    secInfo[k] = { tW, tH, cols: sec.cols, layout: [...sec.layout] };
+  });
+  if (!totalTW || !maxTH) { return; }
+  const filename = `LED_${totalTW}x${maxTH}_${dateStr()}.png`;
+  const baseUrl = _buildMultiResCanvas(sp, secInfo, totalTW, maxTH, false).toDataURL('image/png');
+  const secUrl  = _buildMultiResCanvas(sp, secInfo, totalTW, maxTH, true).toDataURL('image/png');
+  let wmUrl = null, wmSecUrl = null;
+  try {
+    wmUrl    = (await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, false)).toDataURL('image/png');
+    wmSecUrl = (await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, true)).toDataURL('image/png');
+  } catch { /* 치명적 실패 시 기본만 */ }
+  _resVersions = { normal: { dataUrl: baseUrl, filename } };
+  if (wmUrl)    { _resVersions.wm      = { dataUrl: wmUrl,    filename: filename.replace('.png', '_WM.png') }; }
+  if (secUrl)   { _resVersions.secRes  = { dataUrl: secUrl,   filename: filename.replace('.png', '_SEC.png') }; }
+  if (wmSecUrl) { _resVersions.wmSecRes = { dataUrl: wmSecUrl, filename: filename.replace('.png', '_WM_SEC.png') }; }
+  document.getElementById('tabSecRes').style.display   = secUrl   ? '' : 'none';
+  document.getElementById('tabWmSecRes').style.display = wmSecUrl ? '' : 'none';
+  document.getElementById('resVersionTabs').style.display = 'block';
+  selectResVersion('normal');
+  document.getElementById('previewBg').style.display = 'flex';
+  closeModal();
+}
+
+
 function showResPreview(baseUrl, wmUrl, filename) {
   _resVersions = { normal: { dataUrl: baseUrl, filename } };
   if (wmUrl) { _resVersions.wm = { dataUrl: wmUrl, filename: filename.replace('.png', '_WM.png') }; }
+  document.getElementById('tabSecRes').style.display = 'none';
+  document.getElementById('tabWmSecRes').style.display = 'none';
   document.getElementById('resVersionTabs').style.display = wmUrl ? 'block' : 'none';
   selectResVersion('normal');
   document.getElementById('previewBg').style.display = 'flex';
@@ -550,8 +734,10 @@ function selectResVersion(v) {
   if (!_resVersions || !_resVersions[v]) { return; }
   pendingDownload = _resVersions[v];
   document.getElementById('previewImg').src = pendingDownload.dataUrl;
-  document.getElementById('tabNormal').classList.toggle('active', v === 'normal');
-  document.getElementById('tabWm').classList.toggle('active', v === 'wm');
+  ['normal','wm','secRes','wmSecRes'].forEach(t => {
+    const el = document.getElementById('tab' + t[0].toUpperCase() + t.slice(1));
+    if (el) { el.classList.toggle('active', t === v); }
+  });
 }
 
 // ── PNG 스냅샷 생성 ──────────────────────────────────────
@@ -1363,7 +1549,7 @@ function renderResMulti() {
 
   // 전체 해상도 배너
   if (totalTW && maxTH) {
-    h += `<div class="res-banner"><div class="rl">전체 해상도</div><div class="rv">${totalTW} × ${maxTH} px</div></div>`;
+    h += `<div class="res-banner"><div class="rl">전체 해상도</div><div class="rv">${totalTW} × ${maxTH} px</div><button class="res-img-btn" onclick="genResImageMulti()">이미지 생성 →</button></div>`;
     h += _buildCoverHtml(totalTW, maxTH);
   }
 
