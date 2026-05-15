@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.46';
-const APP_SW_VERSION = 'v59';
+const APP_VERSION = '1.0.47';
+const APP_SW_VERSION = 'v60';
 
 const CHANGELOG = [
+  { v: '1.0.47', items: ['멀티 섹션 세로 통일 버튼 추가, 좌우 동일 버튼 제거', '워터마크 로고 7% 확대(0.199→0.213), 멀티모드 로고 중앙 패널 좌상단 기준으로 위치·크기 동기화'] },
   { v: '1.0.46', items: ['워터마크 이미지 탭 사라짐 수정 — _loadImg crossOrigin:anonymous 추가로 canvas taint SecurityError 방지'] },
   { v: '1.0.45', items: ['워터마크 로고 크기 15% 축소(0.234→0.199), 좌상단 구석 배치(margin 3%→1%), 단일·멀티 모드 동기화'] },
   { v: '1.0.44', items: ['미리보기 이미지 스크롤 없이 한 화면에 맞게 조정', '워터마크 로고 크기 30% 확대(0.18→0.234)', '랜선 시뮬레이터 전체화면 버튼 추가 — 전체화면에서 모든 할당 기능 동작'] },
@@ -510,7 +511,7 @@ async function _buildWmCanvas(sp, tW, tH) {
   // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(tW * 0.199);
+    const logoW = Math.round(tW * 0.213);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(tW * 0.01);
     ctx.save();
@@ -679,11 +680,15 @@ async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
   _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes);
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(totalTW * 0.199);
+    const cSec = secInfo.center;
+    const lSec = secInfo.left;
+    const baseTW = cSec ? cSec.tW : (lSec ? lSec.tW : totalTW);
+    const logoXOff = cSec && lSec ? lSec.tW : 0;
+    const logoW = Math.round(baseTW * 0.213);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin = Math.round(totalTW * 0.01);
+    const margin = Math.round(baseTW * 0.01);
     ctx.save(); ctx.globalAlpha = 0.90;
-    ctx.drawImage(logoImg, margin, margin, logoW, logoH);
+    ctx.drawImage(logoImg, logoXOff + margin, margin, logoW, logoH);
     ctx.restore();
   } catch { /* 로고 없이 계속 */ }
   return cv;
@@ -1332,13 +1337,14 @@ function setAreaMode(mode) {
 }
 
 // ── 섹션 크기 복사 (from → to) ──────────────────────────────
-function copySectionSize(from, to) {
-  const ids = { left:['mW_L','mH_L'], center:['mW_C','mH_C'], right:['mW_R','mH_R'] };
-  const wVal = document.getElementById(ids[from][0]).value;
-  const hVal = document.getElementById(ids[from][1]).value;
-  if (!wVal && !hVal) { return; }
-  document.getElementById(ids[to][0]).value = wVal;
-  document.getElementById(ids[to][1]).value = hVal;
+function syncMultiH() {
+  const val = document.getElementById('mH_L').value
+           || document.getElementById('mH_C').value
+           || document.getElementById('mH_R').value;
+  if (!val) { return; }
+  document.getElementById('mH_L').value = val;
+  document.getElementById('mH_C').value = val;
+  document.getElementById('mH_R').value = val;
   calcMulti();
 }
 
