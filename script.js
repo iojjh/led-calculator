@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.40';
-const APP_SW_VERSION = 'v53';
+const APP_VERSION = '1.0.41';
+const APP_SW_VERSION = 'v54';
 
 const CHANGELOG = [
+  { v: '1.0.41', items: ['if 중괄호 추가 시 else if 구조 오파스 수정 — SyntaxError 해결'] },
   { v: '1.0.40', items: ['리팩토링 — 30+ 전역 변수를 State 단일 객체로 통합, 느슨한 비교(==)→엄격한 비교(===) 전수 교체, if 문 중괄호 전수 추가, 컬럼 정렬 공백 제거'] },
   { v: '1.0.39', items: ['EC90 메뉴얼 파일명 공백 제거(MIG-EC90_User_Manual_1.0.pdf) — file:// 환경 경로 오류 수정', '워터마크 로고 getImageData 제거 — 3Y_no_bg.png는 투명 PNG이므로 drawImage 직접 렌더로 교체(CORS SecurityError 방지)'] },
   { v: '1.0.38', items: ['코드 정돈 — HTML 인라인 스타일 CSS 클래스 분리, renderResMulti 헬퍼 함수 추출(_buildCoverHtml·_buildSectionRowHtml)'] },
@@ -565,8 +566,7 @@ async function saveCalcPng() {
   // 패널 수량
   let c5 = 0, c10 = 0;
   State.layout.forEach(r => {
-    if (r.type === 'half') { c5  += State.cols; } else { if (State.basePH === 1000)      c10 += State.cols; }
-    else { c5  += State.cols; }
+    if (r.type === 'half') { c5 += State.cols; } else if (State.basePH === 1000) { c10 += State.cols; } else { c5 += State.cols; }
   });
 
   // 케이블 수량
@@ -1303,8 +1303,7 @@ function renderRes() {
   if (!isReady()) { return; }
   const sp = SPECS[State.curLed]; let c5 = 0, c10 = 0;
   State.layout.forEach(r => {
-    if (r.type === 'half') { c5  += State.cols; } else { if (State.basePH === 1000) c10 += State.cols; }
-    else { c5  += State.cols; }
+    if (r.type === 'half') { c5 += State.cols; } else if (State.basePH === 1000) { c10 += State.cols; } else { c5 += State.cols; }
   });
   const tW = State.cols * sp.px500.w;
   let tH = 0; State.layout.forEach(r => { tH += ppx(r.type).h; });
@@ -1348,8 +1347,7 @@ function renderResMulti() {
     if (!sec.cols || !sec.layout.length) { secInfo[k] = null; return; }
     let c5 = 0, c10 = 0;
     sec.layout.forEach(r => {
-      if (r.type === 'half') { c5  += sec.cols; } else { if (State.basePH === 1000) c10 += sec.cols; }
-      else { c5  += sec.cols; }
+      if (r.type === 'half') { c5 += sec.cols; } else if (State.basePH === 1000) { c10 += sec.cols; } else { c5 += sec.cols; }
     });
     let tH = 0; sec.layout.forEach(r => { tH += ppx(r.type).h; });
     const tW = sec.cols * sp.px500.w;
@@ -2644,8 +2642,7 @@ function vmixRenderPosList() {
       ? `<label class="vmix-cb"><input type="checkbox" class="vmix-pos-cb" data-key="${key}"></label>`
       : `<span class="vmix-cb-ph"></span>`;
     let badge = '';
-    if (pastedFrom !== null) { badge = `<span class="vmix-pos-badge pasted">← ${pastedFrom}번</span>`; } else { if (hasCustom)      badge = `<span class="vmix-pos-badge custom">커스텀</span>`; }
-    else { badge = `<span class="vmix-pos-badge"></span>`; }
+    if (pastedFrom !== null) { badge = `<span class="vmix-pos-badge pasted">← ${pastedFrom}번</span>`; } else if (hasCustom) { badge = `<span class="vmix-pos-badge custom">커스텀</span>`; } else { badge = `<span class="vmix-pos-badge"></span>`; }
     return `<div class="vmix-source-row">
       ${cbCell}
       <span class="vmix-num">${_vmixNum(inp)}</span>
