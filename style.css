@@ -117,6 +117,8 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .reset-btn.all{color:#E24B4A;border-color:#E24B4A;}
 .reset-btn.auto-assign{background:#0F6E56;color:#fff;border-color:#0F6E56;font-weight:500;}
 .reset-btn.auto-assign:hover{background:#085041;border-color:#085041;color:#fff;}
+.reset-btn.sim-fs{background:#378ADD;color:#fff;border-color:#378ADD;font-weight:500;}
+.reset-btn.sim-fs:hover{background:#2568b0;border-color:#2568b0;}
 .drag-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;color:white;margin-left:6px;}
 
 /* 콘솔 탭 */
@@ -210,7 +212,7 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
 .modal{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;}
 .preview-modal{max-height:88vh;display:flex;flex-direction:column;}
-.preview-scroll{flex:1;overflow-y:auto;background:#f0f0f0;border-radius:10px;padding:8px;margin-top:4px;}
+.preview-scroll{flex:1;min-height:0;overflow:hidden;background:#f0f0f0;border-radius:10px;padding:8px;margin-top:4px;display:flex;align-items:center;justify-content:center;}
 .confirm-dl-btn{flex:1;padding:13px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;}
 .confirm-dl-btn:hover{background:#085041;}
 .modal-title{font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;}
@@ -313,3 +315,66 @@ input[type=number].vmix-vi-layer-num::-webkit-outer-spin-button,
 input[type=number].vmix-vi-layer-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .vmix-vi-layer-sel{flex:1;font-size:12px;padding:4px 7px;border:1px solid #e0e0e0;border-radius:5px;color:#1a1a1a;background:#fff;}
+
+/* ── 유틸리티 ── */
+.flex-1{flex:1;}
+.res-tab-row{display:flex;gap:6px;}
+
+/* 카드 헤더 (타이틀 + 컨트롤 가로 배치) */
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+
+/* stitle 변형 */
+.stitle.mb0{margin-bottom:0;}
+.stitle.mt{margin-top:16px;}
+.stitle.sm{margin-bottom:8px;}
+
+/* 레이블 좌우 배치 */
+.label-between{display:flex;align-items:center;justify-content:space-between;}
+
+/* row2 하단 간격 */
+.row2--mb{margin-bottom:8px;}
+
+/* 힌트·안내 텍스트 */
+.hint-text{color:#999;font-size:13px;}
+
+/* 결과 노트 (패널 해상도 표기) */
+.panel-spec-note{font-size:12px;color:#999;margin-top:4px;}
+
+/* 멀티 모드 섹션 목록 */
+.res-section-list{margin-top:8px;}
+
+/* 멀티 모드 섹션 인라인 수치 */
+.res-offset-note{color:#c07000;font-weight:400;font-size:11px;}
+.res-ratio-note{color:#888;font-weight:400;font-size:11px;}
+
+/* 섹션 레이블 상단 여백 */
+.sec-lbl--mt{margin-top:18px;}
+
+/* 모달 변형 */
+.modal--compact{padding-bottom:20px;}
+.modal-actions{display:flex;gap:8px;margin-top:16px;}
+#resVersionTabs{margin-bottom:12px;}
+
+/* 미리보기 이미지 */
+.preview-img{max-width:100%;max-height:100%;width:auto;display:block;border-radius:6px;object-fit:contain;}
+
+/* 공유 버튼 색상 */
+.confirm-dl-btn--share{background:#378ADD;}
+
+/* 저장 모달 */
+.save-name-row{display:flex;gap:8px;margin-bottom:16px;}
+.save-name-input{flex:1;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:8px;background:#f8f8f8;}
+.save-list--scroll{max-height:240px;overflow-y:auto;}
+.save-item--featured{background:#E1F5EE;border-color:#1D9E75;}
+.si-label--primary{color:#085041;font-weight:500;}
+.si-btn--primary{background:#085041;}
+
+/* 랜선 시뮬레이터 전체화면 */
+.sim-fs-bg{position:fixed;inset:0;z-index:300;background:#fff;overflow-y:auto;}
+.sim-fs-topbar{position:sticky;top:0;z-index:1;background:#f5f5f5;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;padding:10px 14px;gap:10px;}
+.sim-fs-title{flex:1;font-size:15px;font-weight:600;color:#1a1a1a;}
+.sim-fs-close{background:#0F6E56;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+.sim-fs-bg #simArea{padding:12px;}
+
+/* 전체 너비 버튼 변형 */
+.confirm-btn--full{width:100%;margin-top:0;}
