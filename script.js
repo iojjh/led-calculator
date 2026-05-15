@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.47';
-const APP_SW_VERSION = 'v60';
+const APP_VERSION = '1.0.48';
+const APP_SW_VERSION = 'v61';
 
 const CHANGELOG = [
+  { v: '1.0.48', items: ['워터마크 로고 8% 확대(0.213→0.230), y 위치 상단 플러시', '랜선 시뮬레이터 전체화면 — 캔버스만 표시, 닫기 버튼 우상단 고정, 전체화면 시 너비 제한 해제'] },
   { v: '1.0.47', items: ['멀티 섹션 세로 통일 버튼 추가, 좌우 동일 버튼 제거', '워터마크 로고 7% 확대(0.199→0.213), 멀티모드 로고 중앙 패널 좌상단 기준으로 위치·크기 동기화'] },
   { v: '1.0.46', items: ['워터마크 이미지 탭 사라짐 수정 — _loadImg crossOrigin:anonymous 추가로 canvas taint SecurityError 방지'] },
   { v: '1.0.45', items: ['워터마크 로고 크기 15% 축소(0.234→0.199), 좌상단 구석 배치(margin 3%→1%), 단일·멀티 모드 동기화'] },
@@ -511,12 +512,12 @@ async function _buildWmCanvas(sp, tW, tH) {
   // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(tW * 0.213);
+    const logoW = Math.round(tW * 0.230);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(tW * 0.01);
     ctx.save();
     ctx.globalAlpha = 0.90;
-    ctx.drawImage(logoImg, margin, margin, logoW, logoH);
+    ctx.drawImage(logoImg, margin, 0, logoW, logoH);
     ctx.restore();
   } catch { /* 로고 없이 계속 */ }
 
@@ -684,11 +685,11 @@ async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
     const lSec = secInfo.left;
     const baseTW = cSec ? cSec.tW : (lSec ? lSec.tW : totalTW);
     const logoXOff = cSec && lSec ? lSec.tW : 0;
-    const logoW = Math.round(baseTW * 0.213);
+    const logoW = Math.round(baseTW * 0.230);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(baseTW * 0.01);
     ctx.save(); ctx.globalAlpha = 0.90;
-    ctx.drawImage(logoImg, logoXOff + margin, margin, logoW, logoH);
+    ctx.drawImage(logoImg, logoXOff + margin, 0, logoW, logoH);
     ctx.restore();
   } catch { /* 로고 없이 계속 */ }
   return cv;
@@ -1833,23 +1834,22 @@ function buildSim() {
 
 function openSimFs() {
   if (document.getElementById('simFsBg')) { return; }
+  const cv = document.getElementById('simCanvas');
+  if (!cv) { return; }
   const bg = document.createElement('div');
   bg.id = 'simFsBg';
   bg.className = 'sim-fs-bg';
-  bg.innerHTML = `<div class="sim-fs-topbar">
-    <span class="sim-fs-title">랜선 시뮬레이터</span>
-    <button class="sim-fs-close" onclick="closeSimFs()">✕ 닫기</button>
-  </div>`;
-  bg.appendChild(document.getElementById('simArea'));
+  bg.innerHTML = '<button class="sim-fs-close" onclick="closeSimFs()">✕</button>';
+  bg.appendChild(cv);
   document.body.appendChild(bg);
   bg.requestFullscreen().catch(() => {});
-  buildSim();
+  buildCv();
+  attachEv();
 }
 
 function closeSimFs() {
   const bg = document.getElementById('simFsBg');
   if (!bg) { return; }
-  document.getElementById('card-sim').appendChild(document.getElementById('simArea'));
   bg.remove();
   if (document.fullscreenElement) { document.exitFullscreen(); }
   buildSim();
@@ -1922,13 +1922,14 @@ function setP(i) { State.aPort = i; renderPorts(); }
 
 function buildCv() {
   const cv = document.getElementById('simCanvas'); if (!cv) return;
+  const fsMode = !!document.getElementById('simFsBg');
 
   if (State.areaMode === 'multi') {
     const activeSecs = ['left','center','right'].filter(k => State.multiSec[k].cols > 0 && State.multiSec[k].layout.length > 0);
     if (!activeSecs.length) { return; }
     const totalCols = activeSecs.reduce((s, k) => s + State.multiSec[k].cols, 0);
     const gaps = activeSecs.length - 1;
-    const cW = Math.min(cv.parentElement.clientWidth - 32, 900);
+    const cW = Math.min(cv.parentElement.clientWidth - 32, fsMode ? 9999 : 900);
     State.cellW = Math.max(22, Math.min(60, Math.floor((cW - gaps * SECTION_GAP) / totalCols)));
     let xOff = 0;
     ['left','center','right'].forEach(k => {
@@ -1949,7 +1950,7 @@ function buildCv() {
   }
 
   if (!State.cols || !State.layout.length) { return; }
-  const cW = Math.min(cv.parentElement.clientWidth - 32, 600);
+  const cW = Math.min(cv.parentElement.clientWidth - 32, fsMode ? 9999 : 600);
   State.cellW = Math.max(28, Math.min(64, Math.floor(cW / State.cols)));
   State.rH = State.layout.map(r => r.type === 'full' ? (State.basePH === 1000 ? State.cellW * 2 : State.cellW) : State.cellW);
   cv.width = State.cols * State.cellW;
