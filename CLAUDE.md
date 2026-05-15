@@ -123,17 +123,19 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - 단, null·undefined 동시 체크가 의도된 경우에만 `== null` 허용 (명시적 주석 필요).
 
 ### `if` 중괄호
-- **항상 중괄호 사용.** 한 줄짜리라도 예외 없음.
+- 중괄호 추가가 코드 동작을 바꾸지 않는 경우에만 적용.
+- 단순 단일문 `if`는 중괄호 추가 권장.
   ```js
   // ✓
   if (cond) { doSomething(); }
-  // ✗
-  if (cond) doSomething();
   ```
-- `else if` 3단 이상 구조는 반드시 한 줄로 이어쓰거나 각 브랜치에 중괄호를 명시.
+- `else if` 다단 구조에 중괄호를 기계적으로 추가하면 `else` 고아(orphan) 오류가 발생할 수 있으므로 주의. 이 경우 한 줄로 유지하거나, 전체 구조를 한 번에 올바르게 변환.
   ```js
-  // ✓
-  if (a) { ... } else if (b) { ... } else { ... }
+  // ✓ — 한 줄 유지
+  if (a) { x(); } else if (b) { y(); } else { z(); }
+  // ✗ — else 고아 발생 위험
+  if (a) { x(); } else { if (b) y(); }
+  else { z(); }
   ```
 
 ### 변수 선언
