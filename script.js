@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.42';
-const APP_SW_VERSION = 'v55';
+const APP_VERSION = '1.0.43';
+const APP_SW_VERSION = 'v56';
 
 const CHANGELOG = [
+  { v: '1.0.43', items: ['PWA 업데이트 감지 개선 — updateViaCache:none 적용(GitHub Pages 캐시 우회), updatefound/statechange 핸들러 추가', '멀티 섹션 이미지 탭 가시성 수정 — wmUrl 없을 때 워터마크 탭 숨김, 단일↔멀티 전환 시 탭 상태 올바르게 리셋'] },
   { v: '1.0.42', items: ['멀티 섹션 모드 이름 변경 (좌·중·우 → 멀티 섹션)', '멀티 섹션 해상도 이미지 생성 추가 — 기본·워터마크·섹션별·워터마크+섹션별 4종'] },
   { v: '1.0.41', items: ['if 중괄호 추가 시 else if 구조 오파스 수정 — SyntaxError 해결'] },
   { v: '1.0.40', items: ['리팩토링 — 30+ 전역 변수를 State 단일 객체로 통합, 느슨한 비교(==)→엄격한 비교(===) 전수 교체, if 문 중괄호 전수 추가, 컬럼 정렬 공백 제거'] },
@@ -710,6 +711,7 @@ async function genResImageMulti() {
   if (wmUrl)    { _resVersions.wm      = { dataUrl: wmUrl,    filename: filename.replace('.png', '_WM.png') }; }
   if (secUrl)   { _resVersions.secRes  = { dataUrl: secUrl,   filename: filename.replace('.png', '_SEC.png') }; }
   if (wmSecUrl) { _resVersions.wmSecRes = { dataUrl: wmSecUrl, filename: filename.replace('.png', '_WM_SEC.png') }; }
+  document.getElementById('tabWm').style.display       = wmUrl    ? '' : 'none';
   document.getElementById('tabSecRes').style.display   = secUrl   ? '' : 'none';
   document.getElementById('tabWmSecRes').style.display = wmSecUrl ? '' : 'none';
   document.getElementById('resVersionTabs').style.display = 'block';
@@ -722,7 +724,8 @@ async function genResImageMulti() {
 function showResPreview(baseUrl, wmUrl, filename) {
   _resVersions = { normal: { dataUrl: baseUrl, filename } };
   if (wmUrl) { _resVersions.wm = { dataUrl: wmUrl, filename: filename.replace('.png', '_WM.png') }; }
-  document.getElementById('tabSecRes').style.display = 'none';
+  document.getElementById('tabWm').style.display       = '';
+  document.getElementById('tabSecRes').style.display   = 'none';
   document.getElementById('tabWmSecRes').style.display = 'none';
   document.getElementById('resVersionTabs').style.display = wmUrl ? 'block' : 'none';
   selectResVersion('normal');

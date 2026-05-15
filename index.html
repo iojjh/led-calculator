@@ -363,12 +363,20 @@
 <!-- Service Worker 등록 -->
 <script>
   if ('serviceWorker' in navigator) {
+    const _showBanner = () => { document.getElementById('updateBanner').style.display = 'flex'; };
+    navigator.serviceWorker.addEventListener('controllerchange', _showBanner);
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./service-worker.js')
+      navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
+        .then(reg => {
+          if (reg.waiting) { _showBanner(); }
+          reg.addEventListener('updatefound', () => {
+            const w = reg.installing;
+            w.addEventListener('statechange', () => {
+              if (w.state === 'installed' && navigator.serviceWorker.controller) { _showBanner(); }
+            });
+          });
+        })
         .catch(err => console.warn('SW 등록 실패:', err));
-    });
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      document.getElementById('updateBanner').style.display = 'flex';
     });
   }
 </script>
