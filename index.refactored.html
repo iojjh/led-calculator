@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LED 설치 계산기</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F6E56">
+
+<!-- iOS 홈 화면 추가 지원 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LED 계산기">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="tab-nav">
+  <button class="tab-btn on" onclick="swTab('calc',this)">계산기</button>
+  <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
+  <button class="tab-btn" onclick="swTab('vmix',this)">vMix 소스 매크로</button>
+  <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
+</div>
+
+<!-- 탭1: 계산기 -->
+<div class="tab-page on" id="tab-calc">
+  <div class="card" id="card-area">
+    <div class="card-header">
+      <div class="stitle mb0">설치 면적</div>
+      <div class="area-mode-toggle">
+        <button class="mode-btn on" id="modeBtn-single" onclick="setAreaMode('single')">단일</button>
+        <button class="mode-btn"    id="modeBtn-multi"  onclick="setAreaMode('multi')">좌·중·우</button>
+      </div>
+    </div>
+    <!-- 단일 모드 -->
+    <div id="area-single">
+      <div class="row2">
+        <div class="field"><label>가로 (m)</label><input type="number" id="iW" placeholder="예: 4" min="0.5" step="0.5" oninput="calc()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="iH" placeholder="예: 3" min="0.5" step="0.5" oninput="calc()"></div>
+      </div>
+    </div>
+    <!-- 멀티 모드 (좌·중·우) -->
+    <div id="area-multi" style="display:none;">
+      <div class="sec-label-row">좌측</div>
+      <div class="row2 row2--mb">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_L" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field">
+          <label class="label-between">세로 (m)<button class="copy-btn" onclick="copySectionSize('right','left')">우측과 동일</button></label>
+          <input type="number" id="mH_L" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
+        </div>
+      </div>
+      <div class="sec-label-row">중앙</div>
+      <div class="row2 row2--mb">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_C" placeholder="예: 4" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="mH_C" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()"></div>
+      </div>
+      <div class="sec-label-row">우측</div>
+      <div class="row2">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_R" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field">
+          <label class="label-between">세로 (m)<button class="copy-btn" onclick="copySectionSize('left','right')">좌측과 동일</button></label>
+          <input type="number" id="mH_R" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="card-led">
+    <div class="stitle">LED 종류</div>
+    <div class="chip-group" id="ledChips">
+      <button class="chip" data-v="2mm" onclick="selLed(this)">2mm</button>
+      <button class="chip" data-v="3mm" onclick="selLed(this)">3mm</button>
+      <button class="chip" data-v="4mm" onclick="selLed(this)">4mm</button>
+    </div>
+    <div class="stitle mt">기준 패널 사이즈</div>
+    <div class="chip-group" id="panelChips">
+      <button class="chip" data-v="1000" onclick="selPanel(this)">500 × 1000 mm</button>
+      <button class="chip" data-v="500" onclick="selPanel(this)">500 × 500 mm</button>
+    </div>
+  </div>
+  <div class="card" id="card-equip">
+    <div class="stitle">콘솔 &amp; 장비</div>
+    <div class="equip-section">
+      <div class="stitle sm">콘솔 선택</div>
+      <div class="chip-group" id="consoleChips">
+        <button class="chip" data-v="J6" onclick="selConsole(this)">J6</button>
+        <button class="chip" data-v="EC90" onclick="selConsole(this)">EC90</button>
+      </div>
+      <div id="consoleInfo" style="display:none;margin-top:10px;">
+        <div class="info-box">
+          <div class="info-row">
+            <span class="ik">광케이블</span>
+            <div class="iv-note">
+              <span id="cableType" style="font-size:13px;font-weight:500;color:#1a1a1a;min-width:90px;"></span>
+              <input type="number" id="fiberLen" placeholder="길이" min="1">
+              <span class="unit">m</span>
+            </div>
+          </div>
+          <div class="info-row">
+            <span class="ik">리피터</span>
+            <span class="iv" id="repeaterType"></span>
+          </div>
+        </div>
+        <button id="consoleManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
+      </div>
+    </div>
+    <div class="equip-section">
+      <div class="stitle sm">샌딩카드 선택</div>
+      <div class="chip-group" id="sendingChips">
+        <button class="chip" data-v="660pro" onclick="selSending(this)">660 Pro</button>
+        <button class="chip" data-v="4k" onclick="selSending(this)">4K</button>
+      </div>
+      <div id="sendingInfo" style="display:none;margin-top:10px;">
+        <button id="sendingManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
+      </div>
+    </div>
+    <div class="equip-section">
+      <div class="stitle sm">분전함 메인선</div>
+      <div class="note-row">
+        <label>길이</label>
+        <input type="number" id="mainLen" placeholder="길이를 입력하세요" min="1">
+        <span class="unit">m</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="card-result">
+    <div class="stitle">계산 결과</div>
+    <div id="resultBody"><div class="hint-text">LED 종류와 패널 사이즈를 선택하세요</div></div>
+  </div>
+  <div class="card" id="card-sim">
+    <div class="stitle">설치 레이아웃 &amp; 랜선 시뮬레이터</div>
+    <div id="simArea"><div class="sim-locked">LED 종류와 패널 사이즈를 먼저 선택해주세요</div></div>
+  </div>
+  <div class="card" id="card-memo">
+    <div class="stitle">메모</div>
+    <div id="memoList"></div>
+    <div class="add-row">
+      <input type="text" id="add-memo" placeholder="메모 추가..." onkeydown="if(event.key==='Enter')addMemo()">
+      <button class="add-btn" onclick="addMemo()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 탭3: vMix 소스 매크로 -->
+<div class="tab-page" id="tab-vmix">
+  <div class="card">
+    <div class="stitle">vMix 파일 불러오기</div>
+    <div class="vmix-drop-area" id="vmixDropArea" onclick="document.getElementById('vmixFileInput').click()">
+      <input type="file" id="vmixFileInput" accept=".vmix" style="display:none" onchange="vmixLoad(this.files[0])">
+      <div class="vmix-drop-icon">📂</div>
+      <div class="vmix-drop-hint">클릭하거나 .vmix 파일을 드래그하세요</div>
+      <div class="vmix-filename" id="vmixFilename" style="display:none"></div>
+    </div>
+  </div>
+  <div class="card" id="vmixSourceCard" style="display:none">
+    <div class="vmix-sub-tabs">
+      <button class="vmix-sub-tab on" onclick="vmixSwitchTab('ar',this)">화면비율</button>
+      <button class="vmix-sub-tab" onclick="vmixSwitchTab('pos',this)">포지션 복사</button>
+      <button class="vmix-sub-tab" onclick="vmixSwitchTab('vi',this)">버츄얼 인풋 생성</button>
+    </div>
+    <!-- 화면비율 패널 -->
+    <div id="vmix-pane-ar">
+      <div id="vmixArList"></div>
+      <div class="vmix-action-bar">
+        <button class="vmix-reset-btn" onclick="vmixResetAR()">초기화</button>
+        <button class="vmix-act-btn" onclick="vmixApplyWideSelected()">선택 → Widescreen</button>
+        <button class="vmix-act-btn accent" onclick="vmixApplyWide()">전체 → Widescreen</button>
+      </div>
+    </div>
+    <!-- 포지션 복사 패널 -->
+    <div id="vmix-pane-pos" style="display:none">
+      <div id="vmixPosList"></div>
+    </div>
+    <!-- 버츄얼 인풋 생성 패널 -->
+    <div id="vmix-pane-vi" style="display:none"></div>
+  </div>
+  <div class="card" id="vmixDownloadCard" style="display:none">
+    <button class="confirm-btn confirm-btn--full" onclick="vmixDownload()">수정된 .vmix 파일 다운로드</button>
+  </div>
+</div>
+
+<!-- 탭2: 체크리스트 -->
+<div class="tab-page" id="tab-chk">
+  <div class="card" id="card-chk">
+    <div class="card-header">
+      <div class="stitle mb0">장비 체크리스트</div>
+      <button class="clr-btn" onclick="clearAllChecks()">전체 해제</button>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-bg"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <div class="prog-txt" id="progTxt">0 / 0</div>
+    </div>
+    <div class="sec-lbl">공통 장비</div>
+    <div class="checklist" id="commonList"></div>
+    <div class="add-row">
+      <input type="text" id="add-common" placeholder="공통 장비 추가..." onkeydown="if(event.key==='Enter')addItem('common')">
+      <button class="add-btn" onclick="addItem('common')">추가</button>
+    </div>
+    <div class="sec-lbl sec-lbl--mt">현장 상황별 장비</div>
+    <div class="checklist" id="condList"></div>
+    <div class="add-row">
+      <input type="text" id="add-cond" placeholder="현장 장비 추가..." onkeydown="if(event.key==='Enter')addItem('cond')">
+      <button class="add-btn" onclick="addItem('cond')">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 하단 바 -->
+<div class="confirm-bar">
+  <div class="bar-row">
+    <button class="bar-icon-btn bar-danger" onclick="tryResetAll()" title="전체 초기화">↺ 초기화</button>
+    <button class="confirm-btn" onclick="openModal()">PNG 저장</button>
+    <button class="bar-icon-btn" onclick="openSaveModal()" title="저장/불러오기">💾</button>
+    <button class="bar-icon-btn" onclick="toggleCalc()" title="계산기">🧮</button>
+  </div>
+</div>
+
+<!-- 계산기 패널 -->
+<div class="calc-panel-wrap"><div id="calcPanel" style="display:none;">
+  <div class="calc-expr" id="calcExpr"></div>
+  <div class="calc-display" id="calcDisplay">0</div>
+  <div class="calc-grid">
+    <button class="cbtn span2" onclick="calcClear()">C</button>
+    <button class="cbtn" onclick="calcDel()">⌫</button>
+    <button class="cbtn op" onclick="calcOper('÷')">÷</button>
+    <button class="cbtn" onclick="calcInput('7')">7</button>
+    <button class="cbtn" onclick="calcInput('8')">8</button>
+    <button class="cbtn" onclick="calcInput('9')">9</button>
+    <button class="cbtn op" onclick="calcOper('×')">×</button>
+    <button class="cbtn" onclick="calcInput('4')">4</button>
+    <button class="cbtn" onclick="calcInput('5')">5</button>
+    <button class="cbtn" onclick="calcInput('6')">6</button>
+    <button class="cbtn op" onclick="calcOper('−')">−</button>
+    <button class="cbtn" onclick="calcInput('1')">1</button>
+    <button class="cbtn" onclick="calcInput('2')">2</button>
+    <button class="cbtn" onclick="calcInput('3')">3</button>
+    <button class="cbtn op" onclick="calcOper('+')">+</button>
+    <button class="cbtn span2" onclick="calcInput('0')">0</button>
+    <button class="cbtn" onclick="calcDot()">.</button>
+    <button class="cbtn eq" onclick="calcEquals()">=</button>
+  </div>
+</div></div>
+
+<!-- 확인 다이얼로그 -->
+<div class="modal-bg" id="confirmBg" style="display:none;" onclick="closeConfirmBg(event)">
+  <div class="modal modal--compact">
+    <div class="modal-title" id="confirmTitle"></div>
+    <div class="modal-sub" id="confirmMsg"></div>
+    <div class="modal-actions">
+      <button class="modal-close flex-1" onclick="closeConfirm()">취소</button>
+      <button class="confirm-ok-btn" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 저장/불러오기 모달 -->
+<div class="modal-bg" id="saveBg" style="display:none;" onclick="closeSaveBg(event)">
+  <div class="modal">
+    <div class="modal-title">저장 / 불러오기</div>
+    <div class="modal-sub">현재 상태를 저장하거나 이전 저장을 불러옵니다</div>
+    <div class="save-name-row">
+      <input type="text" id="saveNameInput" placeholder="저장 이름 입력..." class="save-name-input">
+      <button class="add-btn" onclick="saveState()">저장</button>
+    </div>
+    <div class="modal-section">저장 목록</div>
+    <div class="save-list save-list--scroll" id="saveList"></div>
+    <button class="modal-close" onclick="closeSaveModal()">닫기</button>
+  </div>
+</div>
+
+<!-- 저장 모달 -->
+<div class="modal-bg" id="modalBg" style="display:none;" onclick="closeModalBg(event)">
+  <div class="modal">
+    <div class="modal-title">PNG 저장</div>
+    <div class="modal-sub">저장할 항목을 선택하세요</div>
+    <div class="modal-section">저장 항목</div>
+    <div class="save-list">
+      <div class="save-item save-item--featured">
+        <span class="si-label si-label--primary">계산 결과 (면적 · 장비 · 해상도 · 케이블)</span>
+        <button class="si-btn si-btn--primary" onclick="saveCalcPng();closeModal()">저장</button>
+      </div>
+      <div class="save-item">
+        <span class="si-label">장비 체크리스트</span>
+        <button class="si-btn" onclick="saveChkPng();closeModal()">저장</button>
+      </div>
+    </div>
+    <button class="modal-close" onclick="closeModal()">닫기</button>
+  </div>
+</div>
+
+<!-- 미리보기 모달 -->
+<div class="modal-bg" id="previewBg" style="display:none;" onclick="closePreview(event)">
+  <div class="modal preview-modal">
+    <div class="modal-title">저장 미리보기</div>
+    <div class="modal-sub">이미지를 확인 후 다운로드하세요</div>
+    <div id="resVersionTabs" style="display:none;">
+      <div class="res-tab-row">
+        <button id="tabNormal" class="res-tab active" onclick="selectResVersion('normal')">기본</button>
+        <button id="tabWm"     class="res-tab"        onclick="selectResVersion('wm')">워터마크</button>
+      </div>
+    </div>
+    <div class="preview-scroll">
+      <img id="previewImg" src="" alt="preview" class="preview-img">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-close flex-1" onclick="closePreviewModal()">취소</button>
+      <button class="confirm-dl-btn confirm-dl-btn--share" onclick="shareImage()">공유</button>
+      <button class="confirm-dl-btn" onclick="confirmDownload()">다운로드</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF 뷰어 (전체화면) -->
+<div id="pdfBg" class="pdf-fs-bg" style="display:none;">
+  <div class="pdf-fs">
+    <div class="pdf-topbar">
+      <span class="pdf-tb-title" id="pdfModalTitle">메뉴얼</span>
+      <span class="pdf-tb-info" id="pdfPageInfo">-</span>
+      <button class="pdf-tb-close" onclick="closePdfModal()">✕</button>
+    </div>
+    <div class="pdf-scroll-outer" id="pdfScrollOuter">
+      <div class="pdf-pages-inner" id="pdfPagesInner"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 이스터에그 -->
+<div class="easter-bg" id="easterBg" style="display:none;" onclick="closeEasterBg(event)">
+  <div class="easter-modal">
+    <div class="easter-icon">🤖</div>
+    <div class="easter-title">비밀 해제!</div>
+    <div class="easter-body">
+      <b>made by DJ</b><br>
+      with ☁️ <b>Claude Code</b>
+    </div>
+    <div class="easter-sub">
+      기획: DJ &nbsp;·&nbsp; 개발: Claude + DJ (반반)<br>버그 수정: DJ의 근성 💪
+    </div>
+    <div class="easter-meta">
+      <span class="easter-sw-ver" id="easterSwVer"></span>
+    </div>
+    <div class="easter-changelog" id="easterLog"></div>
+    <button class="modal-close" onclick="closeEaster()">닫기</button>
+  </div>
+</div>
+
+
+<script src="script.refactored.js"></script>
+
+<!-- 업데이트 배너 -->
+<div id="updateBanner" class="update-banner" style="display:none;">
+  <span>새 버전으로 업데이트되었습니다</span>
+  <button onclick="location.reload()">새로고침</button>
+</div>
+
+<!-- Service Worker 등록 -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js')
+        .catch(err => console.warn('SW 등록 실패:', err));
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      document.getElementById('updateBanner').style.display = 'flex';
+    });
+  }
+</script>
+</body>
+</html>
