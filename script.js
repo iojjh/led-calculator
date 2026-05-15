@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.52';
-const APP_SW_VERSION = 'v65';
+const APP_VERSION = '1.0.53';
+const APP_SW_VERSION = 'v66';
 
 const CHANGELOG = [
+  { v: '1.0.53', items: ['워터마크 로고 배수 1.2→2.4 확대'] },
   { v: '1.0.52', items: ['워터마크 로고 크기 기준을 패널 1열 픽셀 폭(sp.px500.w * 1.2) 고정으로 변경 — 단일·멀티 모드 동일 공식 적용, 열 수에 무관하게 일정한 로고 크기'] },
   { v: '1.0.51', items: ['전체화면 시뮬레이터 안에서 확인 팝업이 보이지 않는 문제 근본 수정 — openConfirm 호출 시 confirmBg를 fullscreen 컨테이너(simFsBg) 안으로 이동, 닫을 때 body로 복원'] },
   { v: '1.0.50', items: ['전체화면 시뮬레이터 위에서 확인 팝업 가려짐 수정 — modal-bg z-index 200→400', '단일 모드 워터마크 로고 크기를 캔버스 가로·세로 비율 모두 고려하도록 수정(tW*0.23 vs tH*0.26 중 작은 값)'] },
@@ -516,7 +517,7 @@ async function _buildWmCanvas(sp, tW, tH) {
   // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(Math.min(sp.px500.w * 1.2, tH * 0.26));
+    const logoW = Math.round(Math.min(sp.px500.w * 2.4, tH * 0.26));
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(tW * 0.01);
     ctx.save();
@@ -690,7 +691,7 @@ async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
     const baseTW = cSec ? cSec.tW : (lSec ? lSec.tW : totalTW);
     const logoXOff = cSec && lSec ? lSec.tW : 0;
     const refTH = cSec ? cSec.tH : (lSec ? lSec.tH : maxTH);
-    const logoW = Math.round(Math.min(sp.px500.w * 1.2, refTH * 0.26));
+    const logoW = Math.round(Math.min(sp.px500.w * 2.4, refTH * 0.26));
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(baseTW * 0.01);
     ctx.save(); ctx.globalAlpha = 0.90;
