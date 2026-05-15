@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.54';
-const APP_SW_VERSION = 'v67';
+const APP_VERSION = '1.0.55';
+const APP_SW_VERSION = 'v68';
 
 const CHANGELOG = [
+  { v: '1.0.55', items: ['전체화면 시뮬레이터 터치 시 포트 자동 전환 버그 수정 — openSimFs·_refreshSimFs에서 attachEv 중복 호출 제거(캔버스 이동 시 리스너 유지됨)'] },
   { v: '1.0.54', items: ['워터마크 로고 크기 고정 — 4x4 px500 패널 기준값(sp.px500.w × 1.04)으로 단일·멀티 모드 동일 고정, tH 캡 제거'] },
   { v: '1.0.53', items: ['워터마크 로고 배수 1.2→2.4 확대'] },
   { v: '1.0.52', items: ['워터마크 로고 크기 기준을 패널 1열 픽셀 폭(sp.px500.w * 1.2) 고정으로 변경 — 단일·멀티 모드 동일 공식 적용, 열 수에 무관하게 일정한 로고 크기'] },
@@ -1885,7 +1886,7 @@ function openSimFs() {
     .then(() => screen.orientation.lock('landscape').catch(() => {}))
     .catch(() => {});
 
-  renderPorts(); buildCv(); attachEv();
+  renderPorts(); buildCv();
 }
 
 function closeSimFs() {
@@ -1901,7 +1902,7 @@ function _refreshSimFs() {
   if (!wrap) { return; }
   const cv = document.getElementById('simCanvas');
   if (cv) { wrap.innerHTML = ''; wrap.appendChild(cv); }
-  renderPorts(); buildCv(); attachEv();
+  renderPorts(); buildCv();
 }
 
 document.addEventListener('fullscreenchange', () => {
