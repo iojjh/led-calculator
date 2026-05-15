@@ -31,8 +31,8 @@
 <!-- 탭1: 계산기 -->
 <div class="tab-page on" id="tab-calc">
   <div class="card" id="card-area">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div class="stitle" style="margin-bottom:0">설치 면적</div>
+    <div class="card-header">
+      <div class="stitle mb0">설치 면적</div>
       <div class="area-mode-toggle">
         <button class="mode-btn on" id="modeBtn-single" onclick="setAreaMode('single')">단일</button>
         <button class="mode-btn"    id="modeBtn-multi"  onclick="setAreaMode('multi')">좌·중·우</button>
@@ -48,15 +48,15 @@
     <!-- 멀티 모드 (좌·중·우) -->
     <div id="area-multi" style="display:none;">
       <div class="sec-label-row">좌측</div>
-      <div class="row2" style="margin-bottom:8px;">
+      <div class="row2 row2--mb">
         <div class="field"><label>가로 (m)</label><input type="number" id="mW_L" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
         <div class="field">
-          <label style="display:flex;align-items:center;justify-content:space-between;">세로 (m)<button class="copy-btn" onclick="copySectionSize('right','left')">우측과 동일</button></label>
+          <label class="label-between">세로 (m)<button class="copy-btn" onclick="copySectionSize('right','left')">우측과 동일</button></label>
           <input type="number" id="mH_L" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
         </div>
       </div>
       <div class="sec-label-row">중앙</div>
-      <div class="row2" style="margin-bottom:8px;">
+      <div class="row2 row2--mb">
         <div class="field"><label>가로 (m)</label><input type="number" id="mW_C" placeholder="예: 4" min="0.5" step="0.5" oninput="calcMulti()"></div>
         <div class="field"><label>세로 (m)</label><input type="number" id="mH_C" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()"></div>
       </div>
@@ -64,7 +64,7 @@
       <div class="row2">
         <div class="field"><label>가로 (m)</label><input type="number" id="mW_R" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
         <div class="field">
-          <label style="display:flex;align-items:center;justify-content:space-between;">세로 (m)<button class="copy-btn" onclick="copySectionSize('left','right')">좌측과 동일</button></label>
+          <label class="label-between">세로 (m)<button class="copy-btn" onclick="copySectionSize('left','right')">좌측과 동일</button></label>
           <input type="number" id="mH_R" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
         </div>
       </div>
@@ -77,7 +77,7 @@
       <button class="chip" data-v="3mm" onclick="selLed(this)">3mm</button>
       <button class="chip" data-v="4mm" onclick="selLed(this)">4mm</button>
     </div>
-    <div style="margin-top:16px" class="stitle">기준 패널 사이즈</div>
+    <div class="stitle mt">기준 패널 사이즈</div>
     <div class="chip-group" id="panelChips">
       <button class="chip" data-v="1000" onclick="selPanel(this)">500 × 1000 mm</button>
       <button class="chip" data-v="500" onclick="selPanel(this)">500 × 500 mm</button>
@@ -86,7 +86,7 @@
   <div class="card" id="card-equip">
     <div class="stitle">콘솔 &amp; 장비</div>
     <div class="equip-section">
-      <div class="stitle" style="margin-bottom:8px">콘솔 선택</div>
+      <div class="stitle sm">콘솔 선택</div>
       <div class="chip-group" id="consoleChips">
         <button class="chip" data-v="J6" onclick="selConsole(this)">J6</button>
         <button class="chip" data-v="EC90" onclick="selConsole(this)">EC90</button>
@@ -110,7 +110,7 @@
       </div>
     </div>
     <div class="equip-section">
-      <div class="stitle" style="margin-bottom:8px">샌딩카드 선택</div>
+      <div class="stitle sm">샌딩카드 선택</div>
       <div class="chip-group" id="sendingChips">
         <button class="chip" data-v="660pro" onclick="selSending(this)">660 Pro</button>
         <button class="chip" data-v="4k" onclick="selSending(this)">4K</button>
@@ -119,8 +119,8 @@
         <button id="sendingManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
       </div>
     </div>
-    <div class="equip-section" style="margin-bottom:0">
-      <div class="stitle" style="margin-bottom:8px">분전함 메인선</div>
+    <div class="equip-section">
+      <div class="stitle sm">분전함 메인선</div>
       <div class="note-row">
         <label>길이</label>
         <input type="number" id="mainLen" placeholder="길이를 입력하세요" min="1">
@@ -130,7 +130,7 @@
   </div>
   <div class="card" id="card-result">
     <div class="stitle">계산 결과</div>
-    <div id="resultBody"><div style="color:#999;font-size:13px;">LED 종류와 패널 사이즈를 선택하세요</div></div>
+    <div id="resultBody"><div class="hint-text">LED 종류와 패널 사이즈를 선택하세요</div></div>
   </div>
   <div class="card" id="card-sim">
     <div class="stitle">설치 레이아웃 &amp; 랜선 시뮬레이터</div>
@@ -139,7 +139,7 @@
   <div class="card" id="card-memo">
     <div class="stitle">메모</div>
     <div id="memoList"></div>
-    <div class="add-row" style="margin-top:8px;">
+    <div class="add-row">
       <input type="text" id="add-memo" placeholder="메모 추가..." onkeydown="if(event.key==='Enter')addMemo()">
       <button class="add-btn" onclick="addMemo()">추가</button>
     </div>
@@ -180,15 +180,15 @@
     <div id="vmix-pane-vi" style="display:none"></div>
   </div>
   <div class="card" id="vmixDownloadCard" style="display:none">
-    <button class="confirm-btn" style="width:100%;margin-top:0" onclick="vmixDownload()">수정된 .vmix 파일 다운로드</button>
+    <button class="confirm-btn confirm-btn--full" onclick="vmixDownload()">수정된 .vmix 파일 다운로드</button>
   </div>
 </div>
 
 <!-- 탭2: 체크리스트 -->
 <div class="tab-page" id="tab-chk">
   <div class="card" id="card-chk">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div class="stitle" style="margin-bottom:0">장비 체크리스트</div>
+    <div class="card-header">
+      <div class="stitle mb0">장비 체크리스트</div>
       <button class="clr-btn" onclick="clearAllChecks()">전체 해제</button>
     </div>
     <div class="prog-wrap">
@@ -201,7 +201,7 @@
       <input type="text" id="add-common" placeholder="공통 장비 추가..." onkeydown="if(event.key==='Enter')addItem('common')">
       <button class="add-btn" onclick="addItem('common')">추가</button>
     </div>
-    <div class="sec-lbl" style="margin-top:18px">현장 상황별 장비</div>
+    <div class="sec-lbl sec-lbl--mt">현장 상황별 장비</div>
     <div class="checklist" id="condList"></div>
     <div class="add-row">
       <input type="text" id="add-cond" placeholder="현장 장비 추가..." onkeydown="if(event.key==='Enter')addItem('cond')">
@@ -248,11 +248,11 @@
 
 <!-- 확인 다이얼로그 -->
 <div class="modal-bg" id="confirmBg" style="display:none;" onclick="closeConfirmBg(event)">
-  <div class="modal" style="padding:24px 20px;">
+  <div class="modal modal--compact">
     <div class="modal-title" id="confirmTitle"></div>
     <div class="modal-sub" id="confirmMsg"></div>
-    <div style="display:flex;gap:8px;margin-top:20px;">
-      <button class="modal-close" style="flex:1;" onclick="closeConfirm()">취소</button>
+    <div class="modal-actions">
+      <button class="modal-close flex-1" onclick="closeConfirm()">취소</button>
       <button class="confirm-ok-btn" id="confirmOk">확인</button>
     </div>
   </div>
@@ -263,12 +263,12 @@
   <div class="modal">
     <div class="modal-title">저장 / 불러오기</div>
     <div class="modal-sub">현재 상태를 저장하거나 이전 저장을 불러옵니다</div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <input type="text" id="saveNameInput" placeholder="저장 이름 입력..." style="flex:1;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:8px;background:#f8f8f8;">
+    <div class="save-name-row">
+      <input type="text" id="saveNameInput" placeholder="저장 이름 입력..." class="save-name-input">
       <button class="add-btn" onclick="saveState()">저장</button>
     </div>
     <div class="modal-section">저장 목록</div>
-    <div class="save-list" id="saveList" style="max-height:240px;overflow-y:auto;"></div>
+    <div class="save-list save-list--scroll" id="saveList"></div>
     <button class="modal-close" onclick="closeSaveModal()">닫기</button>
   </div>
 </div>
@@ -280,9 +280,9 @@
     <div class="modal-sub">저장할 항목을 선택하세요</div>
     <div class="modal-section">저장 항목</div>
     <div class="save-list">
-      <div class="save-item" style="background:#E1F5EE;border-color:#1D9E75;">
-        <span class="si-label" style="color:#085041;font-weight:500;">계산 결과 (면적 · 장비 · 해상도 · 케이블)</span>
-        <button class="si-btn" style="background:#085041;" onclick="saveCalcPng();closeModal()">저장</button>
+      <div class="save-item save-item--featured">
+        <span class="si-label si-label--primary">계산 결과 (면적 · 장비 · 해상도 · 케이블)</span>
+        <button class="si-btn si-btn--primary" onclick="saveCalcPng();closeModal()">저장</button>
       </div>
       <div class="save-item">
         <span class="si-label">장비 체크리스트</span>
@@ -298,18 +298,18 @@
   <div class="modal preview-modal">
     <div class="modal-title">저장 미리보기</div>
     <div class="modal-sub">이미지를 확인 후 다운로드하세요</div>
-    <div id="resVersionTabs" style="display:none;margin-bottom:12px;">
-      <div style="display:flex;gap:6px;">
+    <div id="resVersionTabs" style="display:none;">
+      <div class="res-tab-row">
         <button id="tabNormal" class="res-tab active" onclick="selectResVersion('normal')">기본</button>
         <button id="tabWm"     class="res-tab"        onclick="selectResVersion('wm')">워터마크</button>
       </div>
     </div>
     <div class="preview-scroll">
-      <img id="previewImg" src="" alt="preview" style="width:100%;display:block;border-radius:6px;">
+      <img id="previewImg" src="" alt="preview" class="preview-img">
     </div>
-    <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="modal-close" style="flex:1;" onclick="closePreviewModal()">취소</button>
-      <button class="confirm-dl-btn" style="background:#378ADD;" onclick="shareImage()">공유</button>
+    <div class="modal-actions">
+      <button class="modal-close flex-1" onclick="closePreviewModal()">취소</button>
+      <button class="confirm-dl-btn confirm-dl-btn--share" onclick="shareImage()">공유</button>
       <button class="confirm-dl-btn" onclick="confirmDownload()">다운로드</button>
     </div>
   </div>
