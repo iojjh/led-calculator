@@ -77,6 +77,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 > script.js 전체를 처음부터 읽는 것은 금지. CLAUDE.md 섹션 맵에 없는 내용이 필요할 때만 Grep으로 위치를 찾은 뒤 해당 범위만 읽는다.
 
+**CLAUDE.md 동기화 원칙**: 코드 수정 후 섹션 맵(줄 번호·함수 목록)이나 State 테이블, 스타일 규칙 등 변경된 내용이 있으면 커밋 전에 CLAUDE.md도 함께 업데이트한다.
+
 ---
 
 ## 프로젝트 구조 (LED 설치 계산기 PWA)
