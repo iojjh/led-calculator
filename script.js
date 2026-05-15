@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.49';
-const APP_SW_VERSION = 'v62';
+const APP_VERSION = '1.0.50';
+const APP_SW_VERSION = 'v63';
 
 const CHANGELOG = [
+  { v: '1.0.50', items: ['전체화면 시뮬레이터 위에서 확인 팝업 가려짐 수정 — modal-bg z-index 200→400', '단일 모드 워터마크 로고 크기를 캔버스 가로·세로 비율 모두 고려하도록 수정(tW*0.23 vs tH*0.26 중 작은 값)'] },
   { v: '1.0.49', items: ['랜선 시뮬레이터 전체화면 — 가로화면 자동 전환, 포트·픽셀정보·자동할당·초기화 표시, 캔버스 중앙 배치, 화면 너비 제한 해제'] },
   { v: '1.0.48', items: ['워터마크 로고 8% 확대(0.213→0.230), y 위치 상단 플러시', '랜선 시뮬레이터 전체화면 — 캔버스만 표시, 닫기 버튼 우상단 고정, 전체화면 시 너비 제한 해제'] },
   { v: '1.0.47', items: ['멀티 섹션 세로 통일 버튼 추가, 좌우 동일 버튼 제거', '워터마크 로고 7% 확대(0.199→0.213), 멀티모드 로고 중앙 패널 좌상단 기준으로 위치·크기 동기화'] },
@@ -513,7 +514,7 @@ async function _buildWmCanvas(sp, tW, tH) {
   // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(tW * 0.230);
+    const logoW = Math.round(Math.min(tW * 0.230, tH * 0.26));
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(tW * 0.01);
     ctx.save();

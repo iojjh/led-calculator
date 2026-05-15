@@ -209,7 +209,7 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .confirm-ok-btn:hover{background:#c43a39;}
 
 /* 모달 */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:flex;align-items:flex-end;justify-content:center;}
 .modal{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;}
 .preview-modal{max-height:88vh;display:flex;flex-direction:column;}
 .preview-scroll{flex:1;min-height:0;overflow:hidden;background:#f0f0f0;border-radius:10px;padding:8px;margin-top:4px;display:flex;align-items:center;justify-content:center;}
