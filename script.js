@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.55';
-const APP_SW_VERSION = 'v68';
+const APP_VERSION = '1.0.56';
+const APP_SW_VERSION = 'v69';
 
 const CHANGELOG = [
+  { v: '1.0.56', items: ['전체화면 픽셀 제한 표시를 자동할당 버튼 행 우측으로 이동(한 줄 컴팩트), LED 캔버스 영역 확보', '워터마크 로고 크기 4m×4m 기준으로 수정(sp.px500.w × 1.84)'] },
   { v: '1.0.55', items: ['전체화면 시뮬레이터 터치 시 포트 자동 전환 버그 수정 — openSimFs·_refreshSimFs에서 attachEv 중복 호출 제거(캔버스 이동 시 리스너 유지됨)'] },
   { v: '1.0.54', items: ['워터마크 로고 크기 고정 — 4x4 px500 패널 기준값(sp.px500.w × 1.04)으로 단일·멀티 모드 동일 고정, tH 캡 제거'] },
   { v: '1.0.53', items: ['워터마크 로고 배수 1.2→2.4 확대'] },
@@ -519,7 +520,7 @@ async function _buildWmCanvas(sp, tW, tH) {
   // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(sp.px500.w * 1.04);
+    const logoW = Math.round(sp.px500.w * 1.84);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(tW * 0.01);
     ctx.save();
@@ -692,7 +693,7 @@ async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
     const lSec = secInfo.left;
     const baseTW = cSec ? cSec.tW : (lSec ? lSec.tW : totalTW);
     const logoXOff = cSec && lSec ? lSec.tW : 0;
-    const logoW = Math.round(sp.px500.w * 1.04);
+    const logoW = Math.round(sp.px500.w * 1.84);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
     const margin = Math.round(baseTW * 0.01);
     ctx.save(); ctx.globalAlpha = 0.90;
@@ -1870,11 +1871,11 @@ function openSimFs() {
     </div>
     <div class="sim-fs-canvas-wrap" id="simFsCanvasWrap"></div>
     <div class="sim-fs-bottom">
-      <div class="port-info-bar" id="portInfo"></div>
       <div class="reset-row">
         ${autoButtons}
         <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
         <button class="reset-btn" id="rstPBtn" onclick="doRstPort()">포트 초기화</button>
+        <div class="port-info-bar" id="portInfo"></div>
       </div>
     </div>`;
 
@@ -1956,16 +1957,24 @@ function renderPorts() {
   const pct = Math.min(100, Math.round(px / MAX_PX * 100));
   const ov = px > MAX_PX;
   const pi = document.getElementById('portInfo');
-  if (pi) { pi.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:13px;font-weight:500;color:${PC[State.aPort]}">포트 ${State.aPort+1}</span>
-      <span style="font-size:13px;color:#333;">${State.pA[State.aPort].size}장 · ${px.toLocaleString()} px</span>
-      <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
-      ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
-    </div>
-    <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
-      <div style="height:5px;width:${pct}%;background:${ov?'#E24B4A':PC[State.aPort]};border-radius:3px;"></div>
-    </div>`; }
+  if (pi) {
+    const fsMode = !!document.getElementById('simFsBg');
+    pi.innerHTML = fsMode
+      ? `<div style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+          <span style="font-size:12px;font-weight:600;color:${PC[State.aPort]}">P${State.aPort+1}</span>
+          <span style="font-size:12px;color:#333;">${State.pA[State.aPort].size}장 · ${px.toLocaleString()} px</span>
+          <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
+          ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+        </div>`
+      : `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:500;color:${PC[State.aPort]}">포트 ${State.aPort+1}</span>
+          <span style="font-size:13px;color:#333;">${State.pA[State.aPort].size}장 · ${px.toLocaleString()} px</span>
+          <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
+          ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+        </div>
+        <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
+          <div style="height:5px;width:${pct}%;background:${ov?'#E24B4A':PC[State.aPort]};border-radius:3px;"></div>
+        </div>`; }
 
   const rb = document.getElementById('rstPBtn');
   if (rb) { rb.textContent = `포트 ${State.aPort+1} 초기화`; }
