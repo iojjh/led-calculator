@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.48';
-const APP_SW_VERSION = 'v61';
+const APP_VERSION = '1.0.49';
+const APP_SW_VERSION = 'v62';
 
 const CHANGELOG = [
+  { v: '1.0.49', items: ['랜선 시뮬레이터 전체화면 — 가로화면 자동 전환, 포트·픽셀정보·자동할당·초기화 표시, 캔버스 중앙 배치, 화면 너비 제한 해제'] },
   { v: '1.0.48', items: ['워터마크 로고 8% 확대(0.213→0.230), y 위치 상단 플러시', '랜선 시뮬레이터 전체화면 — 캔버스만 표시, 닫기 버튼 우상단 고정, 전체화면 시 너비 제한 해제'] },
   { v: '1.0.47', items: ['멀티 섹션 세로 통일 버튼 추가, 좌우 동일 버튼 제거', '워터마크 로고 7% 확대(0.199→0.213), 멀티모드 로고 중앙 패널 좌상단 기준으로 위치·크기 동기화'] },
   { v: '1.0.46', items: ['워터마크 이미지 탭 사라짐 수정 — _loadImg crossOrigin:anonymous 추가로 canvas taint SecurityError 방지'] },
@@ -1830,21 +1831,51 @@ function buildSim() {
     <div id="simSum"></div>`;
   attachEv();
   renderPorts(); buildCv(); renderLeg(); renderSum();
+  if (document.getElementById('simFsBg')) { _refreshSimFs(); }
 }
 
 function openSimFs() {
   if (document.getElementById('simFsBg')) { return; }
-  const cv = document.getElementById('simCanvas');
-  if (!cv) { return; }
+
+  // simArea의 기존 ID 제거 (오버레이 ID와 충돌 방지)
+  ['portStrip', 'portInfo', 'rstPBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.removeAttribute('id'); }
+  });
+
+  const isMulti = State.areaMode === 'multi';
+  const autoButtons = isMulti
+    ? `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 섹션별</button>
+       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합</button>`
+    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>`;
+
   const bg = document.createElement('div');
   bg.id = 'simFsBg';
   bg.className = 'sim-fs-bg';
-  bg.innerHTML = '<button class="sim-fs-close" onclick="closeSimFs()">✕</button>';
-  bg.appendChild(cv);
+  bg.innerHTML = `
+    <div class="sim-fs-topbar">
+      <div class="port-strip" id="portStrip"></div>
+      <button class="sim-fs-close" onclick="closeSimFs()">✕</button>
+    </div>
+    <div class="sim-fs-canvas-wrap" id="simFsCanvasWrap"></div>
+    <div class="sim-fs-bottom">
+      <div class="port-info-bar" id="portInfo"></div>
+      <div class="reset-row">
+        ${autoButtons}
+        <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
+        <button class="reset-btn" id="rstPBtn" onclick="doRstPort()">포트 초기화</button>
+      </div>
+    </div>`;
+
+  const cv = document.getElementById('simCanvas');
+  if (cv) { bg.querySelector('#simFsCanvasWrap').appendChild(cv); }
   document.body.appendChild(bg);
-  bg.requestFullscreen().catch(() => {});
-  buildCv();
-  attachEv();
+
+  bg.requestFullscreen()
+    .then(() => screen.orientation.lock('landscape').catch(() => {}))
+    .catch(() => {});
+
+  renderPorts(); buildCv(); attachEv();
 }
 
 function closeSimFs() {
@@ -1855,8 +1886,20 @@ function closeSimFs() {
   buildSim();
 }
 
+function _refreshSimFs() {
+  const wrap = document.getElementById('simFsCanvasWrap');
+  if (!wrap) { return; }
+  const cv = document.getElementById('simCanvas');
+  if (cv) { wrap.innerHTML = ''; wrap.appendChild(cv); }
+  renderPorts(); buildCv(); attachEv();
+}
+
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) { closeSimFs(); }
+});
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('simFsBg')) { buildCv(); }
 });
 
 function _execRstAll() {
