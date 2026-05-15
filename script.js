@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.44';
-const APP_SW_VERSION = 'v57';
+const APP_VERSION = '1.0.45';
+const APP_SW_VERSION = 'v58';
 
 const CHANGELOG = [
+  { v: '1.0.45', items: ['워터마크 로고 크기 15% 축소(0.234→0.199), 좌상단 구석 배치(margin 3%→1%), 단일·멀티 모드 동기화'] },
   { v: '1.0.44', items: ['미리보기 이미지 스크롤 없이 한 화면에 맞게 조정', '워터마크 로고 크기 30% 확대(0.18→0.234)', '랜선 시뮬레이터 전체화면 버튼 추가 — 전체화면에서 모든 할당 기능 동작'] },
   { v: '1.0.43', items: ['PWA 업데이트 감지 개선 — updateViaCache:none 적용(GitHub Pages 캐시 우회), updatefound/statechange 핸들러 추가', '멀티 섹션 이미지 탭 가시성 수정 — wmUrl 없을 때 워터마크 탭 숨김, 단일↔멀티 전환 시 탭 상태 올바르게 리셋'] },
   { v: '1.0.42', items: ['멀티 섹션 모드 이름 변경 (좌·중·우 → 멀티 섹션)', '멀티 섹션 해상도 이미지 생성 추가 — 기본·워터마크·섹션별·워터마크+섹션별 4종'] },
@@ -507,9 +508,9 @@ async function _buildWmCanvas(sp, tW, tH) {
   // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(tW * 0.234);
+    const logoW = Math.round(tW * 0.199);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin = Math.round(tW * 0.03);
+    const margin = Math.round(tW * 0.01);
     ctx.save();
     ctx.globalAlpha = 0.90;
     ctx.drawImage(logoImg, margin, margin, logoW, logoH);
@@ -676,9 +677,9 @@ async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
   _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes);
   try {
     const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(totalTW * 0.234);
+    const logoW = Math.round(totalTW * 0.199);
     const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin = Math.round(totalTW * 0.03);
+    const margin = Math.round(totalTW * 0.01);
     ctx.save(); ctx.globalAlpha = 0.90;
     ctx.drawImage(logoImg, margin, margin, logoW, logoH);
     ctx.restore();
