@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.50';
-const APP_SW_VERSION = 'v63';
+const APP_VERSION = '1.0.51';
+const APP_SW_VERSION = 'v64';
 
 const CHANGELOG = [
+  { v: '1.0.51', items: ['전체화면 시뮬레이터 안에서 확인 팝업이 보이지 않는 문제 근본 수정 — openConfirm 호출 시 confirmBg를 fullscreen 컨테이너(simFsBg) 안으로 이동, 닫을 때 body로 복원'] },
   { v: '1.0.50', items: ['전체화면 시뮬레이터 위에서 확인 팝업 가려짐 수정 — modal-bg z-index 200→400', '단일 모드 워터마크 로고 크기를 캔버스 가로·세로 비율 모두 고려하도록 수정(tW*0.23 vs tH*0.26 중 작은 값)'] },
   { v: '1.0.49', items: ['랜선 시뮬레이터 전체화면 — 가로화면 자동 전환, 포트·픽셀정보·자동할당·초기화 표시, 캔버스 중앙 배치, 화면 너비 제한 해제'] },
   { v: '1.0.48', items: ['워터마크 로고 8% 확대(0.213→0.230), y 위치 상단 플러시', '랜선 시뮬레이터 전체화면 — 캔버스만 표시, 닫기 버튼 우상단 고정, 전체화면 시 너비 제한 해제'] },
@@ -915,15 +916,20 @@ async function saveChkPng() {
 
 // 범용 확인 팝업 — title·msg 표시 후 확인 시 onOk() 호출
 function openConfirm(title, msg, onOk) {
+  const bg = document.getElementById('confirmBg');
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmOk').onclick = () => {
-    document.getElementById('confirmBg').style.display = 'none';
-    onOk();
-  };
-  document.getElementById('confirmBg').style.display = 'flex';
+  document.getElementById('confirmOk').onclick = () => { closeConfirm(); onOk(); };
+  // fullscreen 모드일 때 confirmBg를 fullscreen 컨테이너 안으로 이동해야 보임
+  const fsEl = document.getElementById('simFsBg');
+  if (fsEl) { fsEl.appendChild(bg); }
+  bg.style.display = 'flex';
 }
-function closeConfirm()    { document.getElementById('confirmBg').style.display = 'none'; }
+function closeConfirm() {
+  const bg = document.getElementById('confirmBg');
+  bg.style.display = 'none';
+  if (bg.parentElement !== document.body) { document.body.appendChild(bg); }
+}
 function closeConfirmBg(e) { if (e.target === document.getElementById('confirmBg')) closeConfirm(); }
 
 function tryResetAll() {
