@@ -355,22 +355,54 @@
 <!-- 업데이트 배너 -->
 <div id="updateBanner" class="update-banner" style="display:none;">
   <span>새 버전으로 업데이트되었습니다</span>
-  <button onclick="location.reload()">새로고침</button>
+  <button onclick="_swReload()">새로고침</button>
 </div>
 
 <!-- Service Worker 등록 -->
 <script>
   if ('serviceWorker' in navigator) {
-    const _showBanner = () => { document.getElementById('updateBanner').style.display = 'flex'; };
-    navigator.serviceWorker.addEventListener('controllerchange', _showBanner);
+    let _deployChecking = false;
+
+    // script.js를 no-store fetch로 폴링 — 새 APP_VERSION이 확인되면 배너 표시
+    // 쿼리스트링이 붙은 URL은 SW 캐시에 없어 반드시 네트워크로 나감
+    async function _pollDeploy() {
+      if (_deployChecking) { return; }
+      _deployChecking = true;
+      for (let i = 0; i < 12; i++) {
+        try {
+          const res = await fetch('./script.js?_=' + Date.now(), { cache: 'no-store' });
+          const text = await res.text();
+          const m = /APP_VERSION\s*=\s*'([^']+)'/.exec(text);
+          if (m && m[1] !== APP_VERSION) {
+            document.getElementById('updateBanner').style.display = 'flex';
+            return;
+          }
+        } catch (_) {}
+        if (i < 11) { await new Promise(r => setTimeout(r, 15000)); }
+      }
+      _deployChecking = false; // 타임아웃 — 추후 재시도 허용
+    }
+
+    // 새로고침 버튼: 핵심 에셋 재캐시 후 reload
+    async function _swReload() {
+      const sw = navigator.serviceWorker.controller;
+      if (sw) {
+        sw.postMessage('RECACHE_CORE');
+        await new Promise(r => setTimeout(r, 1500)); // 재캐시 완료 대기
+      }
+      location.reload();
+    }
+
+    navigator.serviceWorker.addEventListener('controllerchange', _pollDeploy);
+
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
         .then(reg => {
-          if (reg.waiting) { _showBanner(); }
+          if (reg.waiting) { _pollDeploy(); }
           reg.addEventListener('updatefound', () => {
             const w = reg.installing;
             w.addEventListener('statechange', () => {
-              if (w.state === 'installed' && navigator.serviceWorker.controller) { _showBanner(); }
+              if (w.state === 'installed' && navigator.serviceWorker.controller) { _pollDeploy(); }
             });
           });
         })
