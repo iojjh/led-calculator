@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.57';
-const APP_SW_VERSION = 'v70';
+const APP_VERSION = '1.0.58';
+const APP_SW_VERSION = 'v71';
 
 const CHANGELOG = [
+  { v: '1.0.58', items: ['포지션 복사 탭 "undefined번" 버그 수정 — Map.get() 미존재 키가 undefined를 반환할 때 !==null 조건 통과하는 문제를 !==undefined로 교체'] },
   { v: '1.0.57', items: ['기능 소개 이미지 생성 추가 — 이스터에그 팝업에서 앱 주요 기능 6종을 담은 1080×1920 PNG 다운로드'] },
   { v: '1.0.56', items: ['전체화면 픽셀 제한 표시를 자동할당 버튼 행 우측으로 이동(한 줄 컴팩트), LED 캔버스 영역 확보', '워터마크 로고 크기 4m×4m 기준으로 수정(sp.px500.w × 1.84)'] },
   { v: '1.0.55', items: ['전체화면 시뮬레이터 터치 시 포트 자동 전환 버그 수정 — openSimFs·_refreshSimFs에서 attachEv 중복 호출 제거(캔버스 이동 시 리스너 유지됨)'] },
@@ -3034,7 +3035,7 @@ function vmixRenderPosList() {
       ? `<label class="vmix-cb"><input type="checkbox" class="vmix-pos-cb" data-key="${key}"></label>`
       : `<span class="vmix-cb-ph"></span>`;
     let badge = '';
-    if (pastedFrom !== null) { badge = `<span class="vmix-pos-badge pasted">← ${pastedFrom}번</span>`; } else if (hasCustom) { badge = `<span class="vmix-pos-badge custom">커스텀</span>`; } else { badge = `<span class="vmix-pos-badge"></span>`; }
+    if (pastedFrom !== undefined) { badge = `<span class="vmix-pos-badge pasted">← ${pastedFrom}번</span>`; } else if (hasCustom) { badge = `<span class="vmix-pos-badge custom">커스텀</span>`; } else { badge = `<span class="vmix-pos-badge"></span>`; }
     return `<div class="vmix-source-row">
       ${cbCell}
       <span class="vmix-num">${_vmixNum(inp)}</span>
