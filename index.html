@@ -25,7 +25,10 @@
   <button class="tab-btn on" onclick="swTab('calc',this)">계산기</button>
   <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
   <button class="tab-btn" onclick="swTab('vmix',this)">vMix 소스 매크로</button>
-  <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
+  <div class="tab-right">
+    <button class="update-log-btn" onclick="openUpdateLog()">업데이트</button>
+    <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
+  </div>
 </div>
 
 <!-- 탭1: 계산기 -->
@@ -325,6 +328,16 @@
     <div class="pdf-scroll-outer" id="pdfScrollOuter">
       <div class="pdf-pages-inner" id="pdfPagesInner"></div>
     </div>
+  </div>
+</div>
+
+<!-- 업데이트 내역 모달 -->
+<div class="modal-bg" id="updateLogBg" style="display:none;" onclick="closeUpdateLog(event)">
+  <div class="modal">
+    <div class="modal-title">업데이트 내역</div>
+    <div class="modal-sub">주요 기능 추가 이력</div>
+    <div id="updateLogList" style="max-height:60vh;overflow-y:auto;"></div>
+    <button class="modal-close" style="margin-top:16px;" onclick="closeUpdateLog()">닫기</button>
   </div>
 </div>
 

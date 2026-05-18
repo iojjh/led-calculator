@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.59';
-const APP_SW_VERSION = 'v72';
+const APP_VERSION = '1.0.60';
+const APP_SW_VERSION = 'v73';
 
 const CHANGELOG = [
+  { v: '1.0.60', items: ['업데이트 내역 버튼 추가 — 탭 우측 상단에 기능 추가 이력만 날짜와 함께 표시하는 모달 버튼, 이스터에그 패치 내역과 분리'] },
   { v: '1.0.59', items: ['PWA 업데이트 배너 타이밍 수정 — 배포 완료 전 알림 방지: script.js no-store 폴링으로 새 APP_VERSION 확인 후 배너 표시, 새로고침 시 SW에 RECACHE_CORE 메시지로 핵심 에셋 강제 재캐시 후 reload'] },
   { v: '1.0.58', items: ['포지션 복사 탭 "undefined번" 버그 수정 — Map.get() 미존재 키가 undefined를 반환할 때 !==null 조건 통과하는 문제를 !==undefined로 교체'] },
   { v: '1.0.57', items: ['기능 소개 이미지 생성 추가 — 이스터에그 팝업에서 앱 주요 기능 6종을 담은 1080×1920 PNG 다운로드'] },
@@ -84,6 +85,20 @@ const CHANGELOG = [
   { v: '1.0.2', items: ['콘솔 칩 순서 변경 (EC90 → J6 우선)', '케이블 수량 표시 UI 전면 개선 (카드형 컴팩트 레이아웃)', '1번 랜 계산 메인+백업 2배 적용', '전 케이블 여유분 자동 포함 및 표시', '숏랜 20개/숏파워 10개 묶음 수 표시', '뱀경로 화살표 시인성 개선 (흰 외곽선 추가)'] },
   { v: '1.0.1', items: ['SW 캐시 버전 관리 개선', 'PDF 뷰어 풀스크린 · 연속 스크롤', '핀치 줌 · 줌아웃 최솟값 적용', 'Samsung Internet 다운로드 버그 수정', '앱 업데이트 자동감지 배너 추가', 'PDF 뷰어 뒤로가기 버튼 앱 종료 버그 수정', 'EC90 메뉴얼 파일명 공백 오류 수정', 'manifest id 추가 — Google Play Protect 경고 해소', '랜선 시뮬레이터 자동 포트 할당 기능 추가'] },
   { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
+];
+
+const FEATURE_LOG = [
+  { date: '2026-05-18', title: '기능 소개 이미지',          desc: '이스터에그 팝업에서 앱 주요 기능 소개 이미지 생성' },
+  { date: '2026-05-16', title: '랜선 시뮬레이터 전체화면',  desc: '가로화면 자동 전환, 포트·픽셀 정보·할당 컨트롤 표시' },
+  { date: '2026-05-15', title: '멀티 섹션 해상도 이미지',   desc: '기본·워터마크·섹션별+워터마크 4종 이미지 생성' },
+  { date: '2026-05-15', title: 'vMix 버츄얼 인풋 생성',     desc: '소스 선택·생성 수 입력 후 VI 일괄 생성, 레이어 편집' },
+  { date: '2026-05-15', title: 'vMix 소스 포지션 복사',     desc: '소스별 위치값을 복사해 다른 소스에 일괄 붙여넣기' },
+  { date: '2026-05-15', title: 'vMix 소스 매크로 탭',       desc: '.vmix 파일 소스 화면비율 원본→와이드스크린 일괄 변환' },
+  { date: '2026-05-13', title: '멀티 섹션 모드',            desc: '좌·중·우 3구간 분리 입력, 복합 LED 구성 동시 계산' },
+  { date: '2026-05-13', title: '랜선 시뮬레이터 멀티 모드', desc: '멀티 섹션 통합 캔버스, 섹션 간 포트 연결 시각화' },
+  { date: '2026-05-09', title: '해상도 이미지 워터마크',    desc: '회사 로고·사명 워터마크 버전 이미지 생성' },
+  { date: '2026-05-08', title: '해상도 이미지 생성',        desc: 'LED 피치별 픽셀 해상도를 PNG 이미지로 저장·공유' },
+  { date: '2026-05-08', title: '랜선 시뮬레이터 자동 할당', desc: '뱀 경로·픽셀 균형 기반 포트 자동 배선 할당' },
 ];
 
 // LED 피치별 패널 해상도 (px) — px500: 500×500mm 패널, px1000: 500×1000mm 패널
@@ -282,6 +297,22 @@ function _onVersionTap() {
 }
 function closeEaster()    { document.getElementById('easterBg').style.display = 'none'; }
 function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')) closeEaster(); }
+
+function openUpdateLog() {
+  document.getElementById('updateLogList').innerHTML = FEATURE_LOG.map(f =>
+    `<div class="ulog-row">
+      <div class="ulog-date">${f.date.replace(/-/g, '.')}</div>
+      <div class="ulog-title">${f.title}</div>
+      <div class="ulog-desc">${f.desc}</div>
+    </div>`
+  ).join('');
+  document.getElementById('updateLogBg').style.display = 'flex';
+}
+function closeUpdateLog(e) {
+  if (!e || e.target === document.getElementById('updateLogBg')) {
+    document.getElementById('updateLogBg').style.display = 'none';
+  }
+}
 
 
 // ── §5  콘솔 & 샌딩카드 ──────────────────────────────────
