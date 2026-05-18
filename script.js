@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.56';
-const APP_SW_VERSION = 'v69';
+const APP_VERSION = '1.0.57';
+const APP_SW_VERSION = 'v70';
 
 const CHANGELOG = [
+  { v: '1.0.57', items: ['기능 소개 이미지 생성 추가 — 이스터에그 팝업에서 앱 주요 기능 6종을 담은 1080×1920 PNG 다운로드'] },
   { v: '1.0.56', items: ['전체화면 픽셀 제한 표시를 자동할당 버튼 행 우측으로 이동(한 줄 컴팩트), LED 캔버스 영역 확보', '워터마크 로고 크기 4m×4m 기준으로 수정(sp.px500.w × 1.84)'] },
   { v: '1.0.55', items: ['전체화면 시뮬레이터 터치 시 포트 자동 전환 버그 수정 — openSimFs·_refreshSimFs에서 attachEv 중복 호출 제거(캔버스 이동 시 리스너 유지됨)'] },
   { v: '1.0.54', items: ['워터마크 로고 크기 고정 — 4x4 px500 패널 기준값(sp.px500.w × 1.04)으로 단일·멀티 모드 동일 고정, tH 캡 제거'] },
@@ -916,6 +917,103 @@ async function saveChkPng() {
   }
 }
 
+
+function genIntroImage() {
+  const W = 1080, H = 1920;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#1c2e28');
+  bgGrad.addColorStop(0.12, '#141414');
+  bgGrad.addColorStop(1, '#0c0c0c');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.035)';
+  for (let x = 54; x < W; x += 54) {
+    for (let y = 54; y < H; y += 54) {
+      ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  ctx.fillStyle = '#0F6E56';
+  ctx.fillRect(0, 0, W, 8);
+
+  ctx.font = '700 72px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('LED 설치 계산기', 64, 52);
+
+  ctx.font = '400 38px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
+  ctx.fillStyle = '#1D9E75';
+  ctx.fillText('주요 기능 소개', 64, 148);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(64, 214); ctx.lineTo(W - 64, 214); ctx.stroke();
+
+  const features = [
+    { color: '#0F6E56', num: '01', title: '면적 자동 계산',     desc1: '가로·세로 입력만으로 패널 수,',      desc2: '랜선·전원선 수량을 즉시 산출' },
+    { color: '#1D9E75', num: '02', title: '멀티 섹션 모드',     desc1: '좌·중·우 3구간을 분리 입력해',       desc2: '복합 구성도 한 번에 계산' },
+    { color: '#FF7A2A', num: '03', title: '해상도 이미지 생성', desc1: 'LED 피치별 픽셀 해상도를',           desc2: '이미지로 저장·공유' },
+    { color: '#4A90D9', num: '04', title: '랜선 시뮬레이터',    desc1: '포트별 배선 경로를 시각화하고',      desc2: '자동 할당으로 최적 배선 산출' },
+    { color: '#9B59B6', num: '05', title: '장비 체크리스트',    desc1: '현장 투입 장비 목록을 항목별 관리,', desc2: '현황을 한눈에 확인' },
+    { color: '#E05252', num: '06', title: 'vMix 소스 매크로',   desc1: '.vmix 파일 소스 배치를 일괄 변환,', desc2: '매크로 XML 파일 생성' },
+  ];
+
+  const startY = 228;
+  const blockH = Math.floor((H - startY - 72) / features.length);
+
+  features.forEach((f, i) => {
+    const y = startY + i * blockH;
+
+    if (i % 2 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.018)';
+      ctx.fillRect(0, y, W, blockH);
+    }
+
+    ctx.fillStyle = f.color;
+    ctx.fillRect(0, y + 20, 6, blockH - 40);
+
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.font = '700 88px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
+    ctx.fillStyle = f.color;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(f.num, W - 48, y + 24);
+    ctx.restore();
+
+    ctx.font = '600 50px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(f.title, 64, y + 34);
+
+    ctx.font = '400 33px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillText(f.desc1, 64, y + 106);
+    ctx.fillText(f.desc2, 64, y + 152);
+
+    if (i < features.length - 1) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(64, y + blockH); ctx.lineTo(W - 64, y + blockH); ctx.stroke();
+    }
+  });
+
+  ctx.font = '400 26px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`v${APP_VERSION}`, W / 2, H - 28);
+
+  return cv.toDataURL('image/png');
+}
 
 // ── §7  확인 다이얼로그 & 전체 초기화 ────────────────────
 

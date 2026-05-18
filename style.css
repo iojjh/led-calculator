@@ -20,7 +20,8 @@ input[type=number]:focus{outline:none;border-color:#0F6E56;}
 .easter-sub{font-size:12px;color:#999;line-height:1.8;margin-bottom:14px;}
 .easter-meta{margin-bottom:10px;}
 .easter-sw-ver{font-size:11px;font-weight:600;color:#fff;background:#555;border-radius:6px;padding:2px 8px;}
-.easter-changelog{text-align:left;background:#f5f5f5;border-radius:12px;padding:10px 14px;margin-bottom:20px;max-height:160px;overflow-y:auto;}
+.easter-changelog{text-align:left;background:#f5f5f5;border-radius:12px;padding:10px 14px;margin-bottom:12px;max-height:160px;overflow-y:auto;}
+.easter-intro-btn{width:100%;padding:13px;background:#0F6E56;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;margin-bottom:8px;}
 .e-log-row{margin-bottom:8px;}
 .e-log-row:last-child{margin-bottom:0;}
 .e-log-v{display:inline-block;font-size:10px;font-weight:700;color:#0F6E56;background:#E1F5EE;border-radius:4px;padding:1px 6px;margin-bottom:3px;}

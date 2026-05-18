@@ -99,8 +99,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §3 | 233 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
 | §4 | 253 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) |
 | §5 | 284 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
-| §6 | 310 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`) |
-| §7 | 920 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
+| §6 | 310 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`) |
+| §7 | 1018 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
 | §8 | 973 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
 | §9 | 1126 | 소형 계산기 위젯 (`calcInput`, `calcOper`, `calcEquals`, `toggleCalc`) |
 | §9.5 | 1172 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
