@@ -396,12 +396,19 @@
       _deployChecking = false; // 타임아웃 — 추후 재시도 허용
     }
 
-    // 새로고침 버튼: 핵심 에셋 재캐시 후 reload
+    // 새로고침 버튼: 새 SW가 페이지를 제어할 때까지 기다린 뒤 reload
     async function _swReload() {
-      const sw = navigator.serviceWorker.controller;
-      if (sw) {
-        sw.postMessage('RECACHE_CORE');
-        await new Promise(r => setTimeout(r, 1500)); // 재캐시 완료 대기
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg?.waiting) {
+        // 새 SW가 대기 중 — SKIP_WAITING 메시지로 강제 활성화 후 controllerchange 대기
+        reg.waiting.postMessage('SKIP_WAITING');
+        await new Promise(r =>
+          navigator.serviceWorker.addEventListener('controllerchange', r, { once: true })
+        );
+      } else if (navigator.serviceWorker.controller) {
+        // 새 SW가 이미 제어 중 — 핵심 에셋 재캐시 후 대기 (GitHub Pages 전파 지연 대비)
+        navigator.serviceWorker.controller.postMessage('RECACHE_CORE');
+        await new Promise(r => setTimeout(r, 1500));
       }
       location.reload();
     }

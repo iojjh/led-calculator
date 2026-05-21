@@ -4,7 +4,7 @@
 //  버전 업데이트 시 CACHE_VERSION 숫자를 올리면 구 캐시가 자동 삭제됨
 // ════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'v75';
+const CACHE_VERSION = 'v76';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
 // 앱 구동에 필수인 에셋 — 캐시 실패 시 SW 설치가 중단됨
@@ -74,6 +74,7 @@ self.addEventListener('fetch', e => {
 // ── 페이지 → SW 메시지 ────────────────────────────────────
 // RECACHE_CORE: 핵심 에셋을 네트워크에서 강제 재캐시 (배포 완료 후 호출)
 self.addEventListener('message', e => {
+  if (e.data === 'SKIP_WAITING') { self.skipWaiting(); return; }
   if (e.data !== 'RECACHE_CORE') { return; }
   e.waitUntil(
     caches.open(CORE_CACHE).then(cache =>
