@@ -84,7 +84,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 프로젝트 구조 (LED 설치 계산기 PWA)
 
 **파일 구성**
-- `script.js` — 약 3227줄, 앱 전체 로직
+- `script.js` — 약 3358줄, 앱 전체 로직
 - `index.html` — UI 마크업
 - `style.css` — 스타일
 - `service-worker.js` — PWA 캐시 (버전: `CACHE_VERSION`)
@@ -95,18 +95,18 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | 섹션 | 시작 줄 | 내용 |
 |------|---------|------|
 | §1 | 21 | 상수·스펙 데이터 (`APP_VERSION`, `APP_SW_VERSION`, `CHANGELOG`, `SPECS`, `CSPEC`, `SSPEC`, `PC`, `MAX_PX`, `State`) |
-| §2 | 192 | 장비 체크리스트 (`renderCL`, `tog`, `addItem`, `delItem`) |
-| §3 | 233 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
-| §4 | 253 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) |
-| §5 | 284 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
-| §6 | 310 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`) |
-| §7 | 1018 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
-| §8 | 973 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
-| §9 | 1126 | 소형 계산기 위젯 (`calcInput`, `calcOper`, `calcEquals`, `toggleCalc`) |
-| §9.5 | 1172 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 1316 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
-| §11 | 1795 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지) |
-| §12 | 2723 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
+| §2 | 211 | 장비 체크리스트 (`renderCL`, `tog`, `addItem`, `delItem`) |
+| §3 | 252 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
+| §4 | 272 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) |
+| §5 | 319 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
+| §6 | 345 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`, `_cvToUrl`) |
+| §7 | 1063 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
+| §8 | 1116 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
+| §9 | 1269 | 소형 계산기 위젯 (`calcInput`, `calcOper`, `calcEquals`, `toggleCalc`) — calcOper는 기존 연산 중간 결과 먼저 계산 후 다음 연산 설정(다항식 지원) |
+| §9.5 | 1324 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
+| §10 | 1468 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
+| §11 | 1947 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지), buildCv는 fsMode 시 height 방향 제약도 적용 |
+| §12 | 2893 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
 
 **핵심 전역 상태 — `const State` (§1, line 126)**
 

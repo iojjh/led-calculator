@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.60';
-const APP_SW_VERSION = 'v73';
+const APP_VERSION = '1.0.61';
+const APP_SW_VERSION = 'v74';
 
 const CHANGELOG = [
+  { v: '1.0.61', items: ['랜선 시뮬레이터 "전체화면" 버튼 → "가로모드" 이름 변경', '가로모드 캔버스 크기를 상하단 UI 영역 제외한 가용 높이에 맞게 자동 조정(단일·멀티 모드)', 'PNG 미리보기 스크롤 추가 — 긴 이미지 전체 확인 가능', 'PNG 저장 성능 개선 — toDataURL → toBlob+createObjectURL 전환, 저장 후 blob URL revoke로 메모리 누수 방지', '계산기 다항식 지원 — 연산자 연속 입력 시 중간 결과 누적 계산'] },
   { v: '1.0.60', items: ['업데이트 내역 버튼 추가 — 탭 우측 상단에 기능 추가 이력만 날짜와 함께 표시하는 모달 버튼, 이스터에그 패치 내역과 분리'] },
   { v: '1.0.59', items: ['PWA 업데이트 배너 타이밍 수정 — 배포 완료 전 알림 방지: script.js no-store 폴링으로 새 APP_VERSION 확인 후 배너 표시, 새로고침 시 SW에 RECACHE_CORE 메시지로 핵심 에셋 강제 재캐시 후 reload'] },
   { v: '1.0.58', items: ['포지션 복사 탭 "undefined번" 버그 수정 — Map.get() 미존재 키가 undefined를 반환할 때 !==null 조건 통과하는 문제를 !==undefined로 교체'] },
@@ -359,12 +360,22 @@ function dateStr() {
 
 // ── 미리보기 모달 ─────────────────────────────────────────
 
-let pendingDownload = null; // { dataUrl, filename }
+let pendingDownload = null; // { url, filename }
 let _resVersions = null; // { normal, wm } — 해상도 이미지 이중 버전
+let _blobUrls = []; // 미리보기용 blob URL, 닫을 때 일괄 revoke
 
-function showPreview(dataUrl, filename) {
-  pendingDownload = { dataUrl, filename };
-  document.getElementById('previewImg').src = dataUrl;
+function _cvToUrl(cv) {
+  return new Promise((ok, err) => cv.toBlob(b => {
+    if (!b) { err(new Error('toBlob failed')); return; }
+    const u = URL.createObjectURL(b);
+    _blobUrls.push(u);
+    ok(u);
+  }, 'image/png'));
+}
+
+function showPreview(url, filename) {
+  pendingDownload = { url, filename };
+  document.getElementById('previewImg').src = url;
   document.getElementById('previewBg').style.display = 'flex';
   closeModal();
 }
@@ -372,6 +383,7 @@ function closePreviewModal() {
   document.getElementById('previewBg').style.display = 'none';
   pendingDownload = null;
   _resVersions = null;
+  _blobUrls.forEach(u => URL.revokeObjectURL(u)); _blobUrls = [];
   document.getElementById('previewImg').src = '';
   document.getElementById('resVersionTabs').style.display = 'none';
 }
@@ -379,7 +391,7 @@ function closePreview(e) {
   if (e.target === document.getElementById('previewBg')) { closePreviewModal(); }
 }
 function confirmDownload() {
-  if (pendingDownload) { dl(pendingDownload.dataUrl, pendingDownload.filename); }
+  if (pendingDownload) { dl(pendingDownload.url, pendingDownload.filename); }
   closePreviewModal();
 }
 
@@ -387,7 +399,7 @@ function confirmDownload() {
 async function shareImage() {
   if (!pendingDownload) { return; }
   try {
-    const res = await fetch(pendingDownload.dataUrl);
+    const res = await fetch(pendingDownload.url);
     const blob = await res.blob();
     const file = new File([blob], pendingDownload.filename, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -580,10 +592,10 @@ async function genResImage() {
   let wmUrl = null;
   try {
     const wmCv = await _buildWmCanvas(sp, tW, tH);
-    wmUrl = wmCv.toDataURL('image/png');
+    wmUrl = await _cvToUrl(wmCv);
   } catch { /* 치명적 실패 시 탭 없이 기본 버전만 */ }
 
-  const baseUrl = baseCv.toDataURL('image/png');
+  const baseUrl = await _cvToUrl(baseCv);
   showResPreview(baseUrl, wmUrl, filename);
 }
 
@@ -752,17 +764,17 @@ async function genResImageMulti() {
   });
   if (!totalTW || !maxTH) { return; }
   const filename = `LED_${totalTW}x${maxTH}_${dateStr()}.png`;
-  const baseUrl = _buildMultiResCanvas(sp, secInfo, totalTW, maxTH, false).toDataURL('image/png');
-  const secUrl  = _buildMultiResCanvas(sp, secInfo, totalTW, maxTH, true).toDataURL('image/png');
+  const baseUrl = await _cvToUrl(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, false));
+  const secUrl  = await _cvToUrl(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, true));
   let wmUrl = null, wmSecUrl = null;
   try {
-    wmUrl    = (await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, false)).toDataURL('image/png');
-    wmSecUrl = (await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, true)).toDataURL('image/png');
+    wmUrl    = await _cvToUrl(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, false));
+    wmSecUrl = await _cvToUrl(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, true));
   } catch { /* 치명적 실패 시 기본만 */ }
-  _resVersions = { normal: { dataUrl: baseUrl, filename } };
-  if (wmUrl)    { _resVersions.wm      = { dataUrl: wmUrl,    filename: filename.replace('.png', '_WM.png') }; }
-  if (secUrl)   { _resVersions.secRes  = { dataUrl: secUrl,   filename: filename.replace('.png', '_SEC.png') }; }
-  if (wmSecUrl) { _resVersions.wmSecRes = { dataUrl: wmSecUrl, filename: filename.replace('.png', '_WM_SEC.png') }; }
+  _resVersions = { normal: { url: baseUrl, filename } };
+  if (wmUrl)    { _resVersions.wm      = { url: wmUrl,    filename: filename.replace('.png', '_WM.png') }; }
+  if (secUrl)   { _resVersions.secRes  = { url: secUrl,   filename: filename.replace('.png', '_SEC.png') }; }
+  if (wmSecUrl) { _resVersions.wmSecRes = { url: wmSecUrl, filename: filename.replace('.png', '_WM_SEC.png') }; }
   document.getElementById('tabWm').style.display       = wmUrl    ? '' : 'none';
   document.getElementById('tabSecRes').style.display   = secUrl   ? '' : 'none';
   document.getElementById('tabWmSecRes').style.display = wmSecUrl ? '' : 'none';
@@ -774,8 +786,8 @@ async function genResImageMulti() {
 
 
 function showResPreview(baseUrl, wmUrl, filename) {
-  _resVersions = { normal: { dataUrl: baseUrl, filename } };
-  if (wmUrl) { _resVersions.wm = { dataUrl: wmUrl, filename: filename.replace('.png', '_WM.png') }; }
+  _resVersions = { normal: { url: baseUrl, filename } };
+  if (wmUrl) { _resVersions.wm = { url: wmUrl, filename: filename.replace('.png', '_WM.png') }; }
   document.getElementById('tabWm').style.display       = '';
   document.getElementById('tabSecRes').style.display   = 'none';
   document.getElementById('tabWmSecRes').style.display = 'none';
@@ -788,7 +800,7 @@ function showResPreview(baseUrl, wmUrl, filename) {
 function selectResVersion(v) {
   if (!_resVersions || !_resVersions[v]) { return; }
   pendingDownload = _resVersions[v];
-  document.getElementById('previewImg').src = pendingDownload.dataUrl;
+  document.getElementById('previewImg').src = pendingDownload.url;
   ['normal','wm','secRes','wmSecRes'].forEach(t => {
     const el = document.getElementById('tab' + t[0].toUpperCase() + t.slice(1));
     if (el) { el.classList.toggle('active', t === v); }
@@ -930,7 +942,7 @@ async function saveCalcPng() {
   document.body.appendChild(wrap);
   try {
     const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff', allowTaint: true });
-    showPreview(canvas.toDataURL('image/png'), 'LED_계산결과_' + dateStr() + '.png');
+    showPreview(await _cvToUrl(canvas), 'LED_계산결과_' + dateStr() + '.png');
   } finally {
     document.body.removeChild(wrap);
   }
@@ -944,14 +956,14 @@ async function saveChkPng() {
   document.body.appendChild(wrap);
   try {
     const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-    showPreview(canvas.toDataURL('image/png'), 'LED_체크리스트_' + dateStr() + '.png');
+    showPreview(await _cvToUrl(canvas), 'LED_체크리스트_' + dateStr() + '.png');
   } finally {
     document.body.removeChild(wrap);
   }
 }
 
 
-function genIntroImage() {
+async function genIntroImage() {
   const W = 1080, H = 1920;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -1045,7 +1057,7 @@ function genIntroImage() {
   ctx.textBaseline = 'bottom';
   ctx.fillText(`v${APP_VERSION}`, W / 2, H - 28);
 
-  return cv.toDataURL('image/png');
+  showPreview(await _cvToUrl(cv), 'LED계산기_기능소개.png');
 }
 
 // ── §7  확인 다이얼로그 & 전체 초기화 ────────────────────
@@ -1271,6 +1283,15 @@ function calcDot() {
   _cu();
 }
 function calcOper(op) {
+  if (State.cPrev !== null && !State.cNew) {
+    const cur = parseFloat(State.cDisp);
+    let r = State.cOp === '+' ? State.cPrev + cur
+           : State.cOp === '−' ? State.cPrev - cur
+           : State.cOp === '×' ? State.cPrev * cur
+           : cur !== 0          ? State.cPrev / cur
+           : NaN;
+    State.cDisp = isNaN(r) ? '오류' : String(parseFloat(r.toFixed(10)));
+  }
   State.cPrev = parseFloat(State.cDisp); State.cOp = op; State.cNew = true; State.cExpr = State.cDisp + ' ' + op; _cu();
 }
 function calcEquals() {
@@ -1954,7 +1975,7 @@ function buildSim() {
        <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합 자동할당</button>`
     : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>`;
   const isFs = !!document.getElementById('simFsBg');
-  const fsBtn = isFs ? '' : `<button class="reset-btn sim-fs" onclick="openSimFs()">전체화면</button>`;
+  const fsBtn = isFs ? '' : `<button class="reset-btn sim-fs" onclick="openSimFs()">가로모드</button>`;
   document.getElementById('simArea').innerHTML = `
     <div class="sim-hint">
       <b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp;
@@ -2125,6 +2146,16 @@ function buildCv() {
     const gaps = activeSecs.length - 1;
     const cW = Math.min(cv.parentElement.clientWidth - 32, fsMode ? 9999 : 900);
     State.cellW = Math.max(22, Math.min(60, Math.floor((cW - gaps * SECTION_GAP) / totalCols)));
+    if (fsMode) {
+      const availH = cv.parentElement.clientHeight - 8;
+      if (availH > 0) {
+        const maxFactor = Math.max(...activeSecs.map(k =>
+          State.multiSec[k].layout.reduce((s, r) => s + (r.type === 'full' && State.basePH === 1000 ? 2 : 1), 0)
+        ));
+        const cellWFromH = Math.floor((availH - SEC_LBL_H) / Math.max(1, maxFactor));
+        State.cellW = Math.min(State.cellW, Math.max(22, cellWFromH));
+      }
+    }
     let xOff = 0;
     ['left','center','right'].forEach(k => {
       const sec = State.multiSec[k];
@@ -2146,6 +2177,14 @@ function buildCv() {
   if (!State.cols || !State.layout.length) { return; }
   const cW = Math.min(cv.parentElement.clientWidth - 32, fsMode ? 9999 : 600);
   State.cellW = Math.max(28, Math.min(64, Math.floor(cW / State.cols)));
+  if (fsMode) {
+    const availH = cv.parentElement.clientHeight - 8;
+    if (availH > 0) {
+      const totalFactor = State.layout.reduce((s, r) => s + (r.type === 'full' && State.basePH === 1000 ? 2 : 1), 0);
+      const cellWFromH = Math.floor(availH / Math.max(1, totalFactor));
+      State.cellW = Math.min(State.cellW, Math.max(28, cellWFromH));
+    }
+  }
   State.rH = State.layout.map(r => r.type === 'full' ? (State.basePH === 1000 ? State.cellW * 2 : State.cellW) : State.cellW);
   cv.width = State.cols * State.cellW;
   cv.height = State.rH.reduce((s, h) => s + h, 0);

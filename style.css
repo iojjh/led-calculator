@@ -220,7 +220,7 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:flex;align-items:flex-end;justify-content:center;}
 .modal{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;}
 .preview-modal{max-height:88vh;display:flex;flex-direction:column;}
-.preview-scroll{flex:1;min-height:0;overflow:hidden;background:#f0f0f0;border-radius:10px;padding:8px;margin-top:4px;display:flex;align-items:center;justify-content:center;}
+.preview-scroll{flex:1;min-height:0;overflow-y:auto;background:#f0f0f0;border-radius:10px;padding:8px;margin-top:4px;}
 .confirm-dl-btn{flex:1;padding:13px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;}
 .confirm-dl-btn:hover{background:#085041;}
 .modal-title{font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;}
@@ -364,7 +364,7 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 #resVersionTabs{margin-bottom:12px;}
 
 /* 미리보기 이미지 */
-.preview-img{max-width:100%;max-height:100%;width:auto;display:block;border-radius:6px;object-fit:contain;}
+.preview-img{max-width:100%;width:auto;height:auto;display:block;border-radius:6px;}
 
 /* 공유 버튼 색상 */
 .confirm-dl-btn--share{background:#378ADD;}
