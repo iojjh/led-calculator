@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.66';
-const APP_SW_VERSION = 'v79';
+const APP_VERSION = '1.0.67';
+const APP_SW_VERSION = 'v80';
 
 const CHANGELOG = [
+  { v: '1.0.67', items: ['토스트 IIFE에서 updateToast 미존재 시 TypeError → 이후 let 선언 TDZ 에러 연쇄 수정 — DOMContentLoaded 후 DOM 접근으로 변경'] },
   { v: '1.0.66', items: ['새로고침 버튼 수정 — RECACHE_CORE로 SW 캐시 갱신 후 reload, sessionStorage fail-safe 처리', '계산기 디스플레이 개편 — 식이 큰 폰트로 실시간 표시, 중간 계산 결과가 작은 폰트 미리보기로 표시, = 누를 때만 결과가 큰 폰트로 전환'] },
   { v: '1.0.65', items: ['PWA 자동 업데이트 — 백그라운드 중 새 SW 활성화 시 포그라운드 복귀 때 자동 리로드, 앱 재시작 시 버전 비교로 자동 업데이트 감지. 업데이트 적용 시 토스트 알림 표시'] },
   { v: '1.0.64', items: ['PWA 새로고침 버튼 스코프 버그 수정 — async function 선언은 if 블록 안에서 전역 호이스팅 안 됨, window._swReload 명시 할당으로 onclick 접근 보장'] },
@@ -290,10 +291,14 @@ document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
   localStorage.setItem('sw-app-version', APP_VERSION);
   if (sessionStorage.getItem('sw-just-updated')) {
     sessionStorage.removeItem('sw-just-updated');
-    const t = document.getElementById('updateToast');
-    t.textContent = 'v' + APP_VERSION + '으로 업데이트되었습니다';
-    t.classList.add('show');
-    setTimeout(() => { t.classList.remove('show'); }, 3500);
+    // script.js는 updateToast div보다 먼저 로드되므로 DOMContentLoaded 후 DOM 접근
+    document.addEventListener('DOMContentLoaded', function() {
+      const t = document.getElementById('updateToast');
+      if (!t) { return; }
+      t.textContent = 'v' + APP_VERSION + '으로 업데이트되었습니다';
+      t.classList.add('show');
+      setTimeout(() => { t.classList.remove('show'); }, 3500);
+    });
   }
 })();
 
