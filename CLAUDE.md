@@ -84,7 +84,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 프로젝트 구조 (LED 설치 계산기 PWA)
 
 **파일 구성**
-- `script.js` — 약 3458줄, 앱 전체 로직
+- `script.js` — 약 3520줄, 앱 전체 로직
 - `index.html` — UI 마크업
 - `style.css` — 스타일
 - `service-worker.js` — PWA 캐시 (버전: `CACHE_VERSION`)
@@ -105,8 +105,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §9 | 1291 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
 | §9.5 | 1391 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
 | §10 | 1535 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
-| §11 | 2014 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지), buildCv는 fsMode 시 height 방향 제약도 적용 |
-| §12 | 2960 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
+| §11 | 2014 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지), buildCv는 fsMode 시 height 방향 제약도 적용 |
+| §12 | 3033 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
 
 **핵심 전역 상태 — `const State` (§1, line 126)**
 

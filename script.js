@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.67';
-const APP_SW_VERSION = 'v80';
+const APP_VERSION = '1.0.68';
+const APP_SW_VERSION = 'v81';
 
 const CHANGELOG = [
+  { v: '1.0.68', items: ['랜선 자동할당 "바닥행 분리" 옵션 추가 — 바닥행 전체를 별도 포트에 수평 배선하고 나머지 행을 열 단위 뱀형 배선하여 포트 수 절감'] },
   { v: '1.0.67', items: ['토스트 IIFE에서 updateToast 미존재 시 TypeError → 이후 let 선언 TDZ 에러 연쇄 수정 — DOMContentLoaded 후 DOM 접근으로 변경'] },
   { v: '1.0.66', items: ['새로고침 버튼 수정 — RECACHE_CORE로 SW 캐시 갱신 후 reload, sessionStorage fail-safe 처리', '계산기 디스플레이 개편 — 식이 큰 폰트로 실시간 표시, 중간 계산 결과가 작은 폰트 미리보기로 표시, = 누를 때만 결과가 큰 폰트로 전환'] },
   { v: '1.0.65', items: ['PWA 자동 업데이트 — 백그라운드 중 새 SW 활성화 시 포그라운드 복귀 때 자동 리로드, 앱 재시작 시 버전 비교로 자동 업데이트 감지. 업데이트 적용 시 토스트 알림 표시'] },
@@ -2039,8 +2040,10 @@ function nextEmpty()  { for (let i = 0; i < 8; i++) { if (State.pA[i].size === 0
 function buildSim() {
   const autoButtons = State.areaMode === 'multi'
     ? `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 섹션별 분리</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합 자동할당</button>`
-    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>`;
+       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합 자동할당</button>
+       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`
+    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>
+       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`;
   const isFs = !!document.getElementById('simFsBg');
   const fsBtn = isFs ? '' : `<button class="reset-btn sim-fs" onclick="openSimFs()">가로모드</button>`;
   document.getElementById('simArea').innerHTML = `
@@ -2077,8 +2080,10 @@ function openSimFs() {
   const isMulti = State.areaMode === 'multi';
   const autoButtons = isMulti
     ? `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 섹션별</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합</button>`
-    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>`;
+       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합</button>
+       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`
+    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>
+       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`;
 
   const bg = document.createElement('div');
   bg.id = 'simFsBg';
@@ -2954,6 +2959,74 @@ function doAutoAssignUnified() {
     openConfirm('통합 자동 할당', '기존 할당을 초기화하고 통합 자동 할당을 실행할까요?', autoAssignUnified);
   } else {
     autoAssignUnified();
+  }
+}
+
+// 바닥행 분리 할당 — 바닥행 전체를 별도 포트에 수평 배선, 나머지 행은 열 단위 뱀형 배선
+function _autoAssignSecRowSplit(secName, secLayout, secCols, portOff) {
+  if (secLayout.length < 2) { return _autoAssignSec(secName, secLayout, secCols, portOff); }
+  const bottomIdx = secLayout.length - 1;
+  const bottomPx = ppx(secLayout[bottomIdx].type).w * ppx(secLayout[bottomIdx].type).h;
+  if (secCols * bottomPx > MAX_PX) { return _autoAssignSec(secName, secLayout, secCols, portOff); }
+  for (let ci = 0; ci < secCols; ci++) {
+    assign(portOff, secName ? `${secName}:${bottomIdx},${ci}` : `${bottomIdx},${ci}`);
+  }
+  const upper = secLayout.slice(0, bottomIdx);
+  if (!upper.length) { return 1; }
+  const colPx = upper.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+  const maxRaw = Math.max(1, Math.floor(MAX_PX / colPx));
+  const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
+  let colStart = 0, portCount = 1;
+  while (colStart < secCols && portOff + portCount < 8) {
+    const rem = secCols - colStart;
+    const take = rem <= maxRaw ? rem : maxEven;
+    const pi = portOff + portCount;
+    for (let ci = 0; ci < take; ci++) {
+      const col = colStart + ci;
+      for (let ri = 0; ri < upper.length; ri++) {
+        const row = ci % 2 === 0 ? upper.length - 1 - ri : ri;
+        assign(pi, secName ? `${secName}:${row},${col}` : `${row},${col}`);
+      }
+    }
+    colStart += take;
+    portCount++;
+  }
+  return portCount;
+}
+
+function autoAssignRowSplit() {
+  if (!isReady()) { return; }
+  if (State.areaMode === 'multi') {
+    State.pA = Array.from({ length: 8 }, () => new Set());
+    State.pH2 = Array.from({ length: 8 }, () => []);
+    State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
+    let portOff = 0;
+    ['left','center','right'].forEach(secName => {
+      const sec = State.multiSec[secName];
+      if (!sec.cols || !sec.layout.length) { return; }
+      portOff += _autoAssignSecRowSplit(secName, sec.layout, sec.cols, portOff);
+    });
+    State.aPort = 0;
+    drawCv(); renderPorts(); renderLeg(); renderSum();
+    return;
+  }
+  if (!State.cols || !State.layout.length) { return; }
+  rst();
+  _autoAssignSecRowSplit(null, State.layout, State.cols, 0);
+  State.aPort = 0;
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
+
+function doAutoAssignRowSplit() {
+  if (!isReady()) { return; }
+  if (State.areaMode === 'multi') {
+    const hasData = ['left','center','right'].some(k => State.multiSec[k].cols > 0 && State.multiSec[k].layout.length > 0);
+    if (!hasData) { return; }
+  } else if (!State.cols || !State.layout.length) { return; }
+  if (State.pA.some(s => s.size > 0)) {
+    openConfirm('바닥행 분리 할당', '기존 할당을 초기화하고 바닥행 분리 할당을 실행할까요?', autoAssignRowSplit);
+  } else {
+    autoAssignRowSplit();
   }
 }
 
