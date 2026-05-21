@@ -95,18 +95,18 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | 섹션 | 시작 줄 | 내용 |
 |------|---------|------|
 | §1 | 21 | 상수·스펙 데이터 (`APP_VERSION`, `APP_SW_VERSION`, `CHANGELOG`, `SPECS`, `CSPEC`, `SSPEC`, `PC`, `MAX_PX`, `State`) |
-| §2 | 215 | 장비 체크리스트 (`renderCL`, `tog`, `addItem`, `delItem`) |
-| §3 | 256 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
-| §4 | 276 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) — 업데이트 완료 토스트 감지 IIFE 포함 |
-| §5 | 335 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
-| §6 | 361 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`, `_cvToUrl`) |
-| §7 | 1079 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
-| §8 | 1132 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
-| §9 | 1285 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
-| §9.5 | 1385 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 1529 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
-| §11 | 2008 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지), buildCv는 fsMode 시 height 방향 제약도 적용 |
-| §12 | 2954 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
+| §2 | 217 | 장비 체크리스트 (`renderCL`, `tog`, `addItem`, `delItem`) |
+| §3 | 258 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
+| §4 | 278 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) — 업데이트 완료 토스트 감지 IIFE 포함(DOMContentLoaded 내 DOM 접근) |
+| §5 | 341 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
+| §6 | 367 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`, `_cvToUrl`) |
+| §7 | 1085 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
+| §8 | 1138 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
+| §9 | 1291 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
+| §9.5 | 1391 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
+| §10 | 1535 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
+| §11 | 2014 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지), buildCv는 fsMode 시 height 방향 제약도 적용 |
+| §12 | 2960 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
 
 **핵심 전역 상태 — `const State` (§1, line 126)**
 
