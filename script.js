@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.61';
-const APP_SW_VERSION = 'v74';
+const APP_VERSION = '1.0.62';
+const APP_SW_VERSION = 'v75';
 
 const CHANGELOG = [
+  { v: '1.0.62', items: ['계산기 수식 표시 개선 — cParts 배열로 수식 누적, = 누를 때만 계산하여 다항식 전체를 cExpr에 표시, DEL로 연산자 취소 가능'] },
   { v: '1.0.61', items: ['랜선 시뮬레이터 "전체화면" 버튼 → "가로모드" 이름 변경', '가로모드 캔버스 크기를 상하단 UI 영역 제외한 가용 높이에 맞게 자동 조정(단일·멀티 모드)', 'PNG 미리보기 스크롤 추가 — 긴 이미지 전체 확인 가능', 'PNG 저장 성능 개선 — toDataURL → toBlob+createObjectURL 전환, 저장 후 blob URL revoke로 메모리 누수 방지', '계산기 다항식 지원 — 연산자 연속 입력 시 중간 결과 누적 계산'] },
   { v: '1.0.60', items: ['업데이트 내역 버튼 추가 — 탭 우측 상단에 기능 추가 이력만 날짜와 함께 표시하는 모달 버튼, 이스터에그 패치 내역과 분리'] },
   { v: '1.0.59', items: ['PWA 업데이트 배너 타이밍 수정 — 배포 완료 전 알림 방지: script.js no-store 폴링으로 새 APP_VERSION 확인 후 배너 표시, 새로고침 시 SW에 RECACHE_CORE 메시지로 핵심 에셋 강제 재캐시 후 reload'] },
@@ -203,7 +204,7 @@ const State = {
   _vmixTW:     0,
 
   // 소형 계산기
-  cDisp: '0', cPrev: null, cOp: null, cNew: true, cExpr: '',
+  cDisp: '0', cParts: [], cNew: true, cExpr: '',
 };
 State.COM.concat(State.COND).forEach(n => { State.chkState[n] = false; });
 
@@ -1283,33 +1284,47 @@ function calcDot() {
   _cu();
 }
 function calcOper(op) {
-  if (State.cPrev !== null && !State.cNew) {
-    const cur = parseFloat(State.cDisp);
-    let r = State.cOp === '+' ? State.cPrev + cur
-           : State.cOp === '−' ? State.cPrev - cur
-           : State.cOp === '×' ? State.cPrev * cur
-           : cur !== 0          ? State.cPrev / cur
-           : NaN;
-    State.cDisp = isNaN(r) ? '오류' : String(parseFloat(r.toFixed(10)));
+  if (State.cNew && State.cParts.length > 0) {
+    State.cParts[State.cParts.length - 1] = op; // 연산자 미입력 상태에서 연산자 변경
+  } else {
+    State.cParts.push(State.cDisp, op);
+    State.cNew = true;
   }
-  State.cPrev = parseFloat(State.cDisp); State.cOp = op; State.cNew = true; State.cExpr = State.cDisp + ' ' + op; _cu();
+  State.cExpr = State.cParts.join(' ');
+  _cu();
 }
 function calcEquals() {
-  if (State.cPrev === null || State.cOp === null) { return; }
-  const cur = parseFloat(State.cDisp);
-  // '−' 는 U+2212 (버튼의 onclick 문자와 동일)
-  let r = State.cOp === '+' ? State.cPrev + cur
-        : State.cOp === '−' ? State.cPrev - cur
-        : State.cOp === '×' ? State.cPrev * cur
-        : cur !== 0   ? State.cPrev / cur
-        : NaN;
-  State.cExpr = State.cExpr + ' ' + State.cDisp + ' =';
-  State.cDisp = isNaN(r) ? '오류' : String(parseFloat(r.toFixed(10)));
-  State.cPrev = null; State.cOp = null; State.cNew = true; _cu();
+  if (!State.cParts.length) { return; }
+  // cNew=true면 마지막 연산자 뒤 숫자 미입력 → 해당 연산자 제거
+  const parts = State.cNew ? State.cParts.slice(0, -1) : [...State.cParts, State.cDisp];
+  if (parts.length < 3) { State.cExpr = ''; State.cParts = []; State.cNew = true; _cu(); return; }
+  // '−' 는 U+2212 (버튼의 onclick 문자와 동일), 좌→우 순서로 계산
+  let result = parseFloat(parts[0]);
+  for (let i = 1; i + 1 < parts.length; i += 2) {
+    const right = parseFloat(parts[i + 1]);
+    result = parts[i] === '+' ? result + right
+           : parts[i] === '−' ? result - right
+           : parts[i] === '×' ? result * right
+           : right !== 0       ? result / right
+           : NaN;
+    if (isNaN(result)) { break; }
+  }
+  State.cExpr = parts.join(' ') + ' =';
+  State.cDisp = isNaN(result) ? '오류' : String(parseFloat(result.toFixed(10)));
+  State.cParts = []; State.cNew = true; _cu();
 }
-function calcClear() { State.cDisp = '0'; State.cPrev = null; State.cOp = null; State.cNew = true; State.cExpr = ''; _cu(); }
+function calcClear() { State.cDisp = '0'; State.cParts = []; State.cNew = true; State.cExpr = ''; _cu(); }
 function calcDel() {
-  if (State.cNew || State.cDisp.length <= 1) { State.cDisp = '0'; State.cNew = true; } else State.cDisp = State.cDisp.slice(0, -1);
+  if (State.cNew && State.cParts.length >= 2) {
+    State.cParts.pop();                      // 연산자 제거
+    State.cDisp = State.cParts.pop();        // 이전 숫자 복원
+    State.cExpr = State.cParts.join(' ');
+    State.cNew = false;
+  } else if (State.cDisp.length <= 1 || State.cNew) {
+    State.cDisp = '0'; State.cNew = true;
+  } else {
+    State.cDisp = State.cDisp.slice(0, -1);
+  }
   _cu();
 }
 function toggleCalc() {
