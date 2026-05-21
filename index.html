@@ -399,9 +399,13 @@
       }
     });
 
-    // 배너 새로고침 버튼 — 새 SW가 이미 제어 중이므로 바로 reload
-    window._swReload = function() {
-      sessionStorage.setItem('sw-just-updated', '1');
+    // 배너 새로고침 버튼 — RECACHE_CORE로 캐시 갱신 후 reload
+    window._swReload = async function() {
+      try { sessionStorage.setItem('sw-just-updated', '1'); } catch(_) {}
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage('RECACHE_CORE');
+        await new Promise(r => setTimeout(r, 1500));
+      }
       location.reload();
     };
 

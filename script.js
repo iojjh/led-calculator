@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.65';
-const APP_SW_VERSION = 'v78';
+const APP_VERSION = '1.0.66';
+const APP_SW_VERSION = 'v79';
 
 const CHANGELOG = [
+  { v: '1.0.66', items: ['새로고침 버튼 수정 — RECACHE_CORE로 SW 캐시 갱신 후 reload, sessionStorage fail-safe 처리', '계산기 디스플레이 개편 — 식이 큰 폰트로 실시간 표시, 중간 계산 결과가 작은 폰트 미리보기로 표시, = 누를 때만 결과가 큰 폰트로 전환'] },
   { v: '1.0.65', items: ['PWA 자동 업데이트 — 백그라운드 중 새 SW 활성화 시 포그라운드 복귀 때 자동 리로드, 앱 재시작 시 버전 비교로 자동 업데이트 감지. 업데이트 적용 시 토스트 알림 표시'] },
   { v: '1.0.64', items: ['PWA 새로고침 버튼 스코프 버그 수정 — async function 선언은 if 블록 안에서 전역 호이스팅 안 됨, window._swReload 명시 할당으로 onclick 접근 보장'] },
   { v: '1.0.63', items: ['PWA 새로고침 버튼 수정 — reg.waiting 존재 시 SKIP_WAITING 메시지로 새 SW 명시 활성화 후 controllerchange 대기, 구 SW에 RECACHE_CORE 보내던 경쟁 조건 해소'] },
@@ -1285,35 +1286,66 @@ function closeSaveBg(e)   { if (e.target === document.getElementById('saveBg')) 
 // ── §9  소형 계산기 위젯 ─────────────────────────────────
 
 
-// 디스플레이 업데이트
+// 현재 입력 중인 식 텍스트 반환
+function _buildExpr() {
+  if (!State.cParts.length) { return State.cDisp; }
+  return State.cNew ? State.cParts.join(' ') : State.cParts.join(' ') + ' ' + State.cDisp;
+}
+
+// 현재 식의 중간 계산 결과 (숫자 2개+연산자 1개 이상일 때만)
+function _computePreview() {
+  const parts = State.cNew ? State.cParts.slice(0, -1) : [...State.cParts, State.cDisp];
+  if (parts.length < 3) { return null; }
+  let r = parseFloat(parts[0]);
+  for (let i = 1; i + 1 < parts.length; i += 2) {
+    const right = parseFloat(parts[i + 1]);
+    r = parts[i] === '+' ? r + right
+      : parts[i] === '−' ? r - right
+      : parts[i] === '×' ? r * right
+      : right !== 0       ? r / right : NaN;
+    if (isNaN(r)) { break; }
+  }
+  return isNaN(r) ? null : String(parseFloat(r.toFixed(10)));
+}
+
+// cExpr非空 = '=' 직후 → 큰 폰트 결과 + 작은 폰트 식
+// 그 외 → 큰 폰트 식 + 작은 폰트 미리보기
 function _cu() {
-  document.getElementById('calcDisplay').textContent = State.cDisp;
-  document.getElementById('calcExpr').textContent = State.cExpr;
+  const eDisp = document.getElementById('calcDisplay');
+  const eExpr = document.getElementById('calcExpr');
+  if (State.cExpr !== '') {
+    eDisp.textContent = State.cDisp;
+    eExpr.textContent = State.cExpr;
+  } else {
+    eDisp.textContent = _buildExpr();
+    const p = _computePreview();
+    eExpr.textContent = p ? '= ' + p : '';
+  }
 }
 function calcInput(v) {
+  State.cExpr = '';
   State.cDisp = State.cNew ? (State.cNew = false, v) : (State.cDisp === '0' ? v : State.cDisp + v);
   _cu();
 }
 function calcDot() {
+  State.cExpr = '';
   if (State.cNew) { State.cDisp = '0.'; State.cNew = false; } else if (!State.cDisp.includes('.')) { State.cDisp += '.'; }
   _cu();
 }
 function calcOper(op) {
+  State.cExpr = '';
   if (State.cNew && State.cParts.length > 0) {
-    State.cParts[State.cParts.length - 1] = op; // 연산자 미입력 상태에서 연산자 변경
+    State.cParts[State.cParts.length - 1] = op;
   } else {
     State.cParts.push(State.cDisp, op);
     State.cNew = true;
   }
-  State.cExpr = State.cParts.join(' ');
   _cu();
 }
 function calcEquals() {
   if (!State.cParts.length) { return; }
-  // cNew=true면 마지막 연산자 뒤 숫자 미입력 → 해당 연산자 제거
   const parts = State.cNew ? State.cParts.slice(0, -1) : [...State.cParts, State.cDisp];
   if (parts.length < 3) { State.cExpr = ''; State.cParts = []; State.cNew = true; _cu(); return; }
-  // '−' 는 U+2212 (버튼의 onclick 문자와 동일), 좌→우 순서로 계산
   let result = parseFloat(parts[0]);
   for (let i = 1; i + 1 < parts.length; i += 2) {
     const right = parseFloat(parts[i + 1]);
@@ -1330,10 +1362,10 @@ function calcEquals() {
 }
 function calcClear() { State.cDisp = '0'; State.cParts = []; State.cNew = true; State.cExpr = ''; _cu(); }
 function calcDel() {
+  State.cExpr = '';
   if (State.cNew && State.cParts.length >= 2) {
-    State.cParts.pop();                      // 연산자 제거
-    State.cDisp = State.cParts.pop();        // 이전 숫자 복원
-    State.cExpr = State.cParts.join(' ');
+    State.cParts.pop();
+    State.cDisp = State.cParts.pop();
     State.cNew = false;
   } else if (State.cDisp.length <= 1 || State.cNew) {
     State.cDisp = '0'; State.cNew = true;
