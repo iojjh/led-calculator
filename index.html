@@ -365,67 +365,48 @@
 
 <script src="script.js"></script>
 
-<!-- 업데이트 배너 -->
+<!-- 업데이트 배너 (포그라운드 중 새 버전 준비 시 표시) -->
 <div id="updateBanner" class="update-banner" style="display:none;">
-  <span>새 버전으로 업데이트되었습니다</span>
+  <span>새 버전이 준비됐습니다</span>
   <button onclick="_swReload()">새로고침</button>
 </div>
+<!-- 업데이트 완료 토스트 (자동 업데이트 후 표시) -->
+<div id="updateToast" class="update-toast"></div>
 
 <!-- Service Worker 등록 -->
 <script>
   if ('serviceWorker' in navigator) {
-    let _deployChecking = false;
+    const _wasControlled = !!navigator.serviceWorker.controller;
+    let _updateReady = false;
 
-    // script.js를 no-store fetch로 폴링 — 새 APP_VERSION이 확인되면 배너 표시
-    // 쿼리스트링이 붙은 URL은 SW 캐시에 없어 반드시 네트워크로 나감
-    async function _pollDeploy() {
-      if (_deployChecking) { return; }
-      _deployChecking = true;
-      for (let i = 0; i < 12; i++) {
-        try {
-          const res = await fetch('./script.js?_=' + Date.now(), { cache: 'no-store' });
-          const text = await res.text();
-          const m = /APP_VERSION\s*=\s*'([^']+)'/.exec(text);
-          if (m && m[1] !== APP_VERSION) {
-            document.getElementById('updateBanner').style.display = 'flex';
-            return;
-          }
-        } catch (_) {}
-        if (i < 11) { await new Promise(r => setTimeout(r, 15000)); }
+    // controllerchange: 새 SW가 페이지를 제어하기 시작함
+    // - 포그라운드 → 배너 표시 (사용자가 새로고침 선택)
+    // - 백그라운드 → 포그라운드 복귀 시 자동 리로드
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!_wasControlled) { return; } // 최초 설치 — 업데이트 아님
+      if (document.hidden) {
+        _updateReady = true;
+      } else {
+        document.getElementById('updateBanner').style.display = 'flex';
       }
-      _deployChecking = false; // 타임아웃 — 추후 재시도 허용
-    }
+    });
 
-    // 새로고침 버튼: 새 SW가 페이지를 제어할 때까지 기다린 뒤 reload
-    window._swReload = async function() {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (reg?.waiting) {
-        // 새 SW가 대기 중 — SKIP_WAITING 메시지로 강제 활성화 후 controllerchange 대기
-        reg.waiting.postMessage('SKIP_WAITING');
-        await new Promise(r =>
-          navigator.serviceWorker.addEventListener('controllerchange', r, { once: true })
-        );
-      } else if (navigator.serviceWorker.controller) {
-        // 새 SW가 이미 제어 중 — 핵심 에셋 재캐시 후 대기 (GitHub Pages 전파 지연 대비)
-        navigator.serviceWorker.controller.postMessage('RECACHE_CORE');
-        await new Promise(r => setTimeout(r, 1500));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && _updateReady) {
+        _updateReady = false;
+        sessionStorage.setItem('sw-just-updated', '1');
+        location.reload();
       }
+    });
+
+    // 배너 새로고침 버튼 — 새 SW가 이미 제어 중이므로 바로 reload
+    window._swReload = function() {
+      sessionStorage.setItem('sw-just-updated', '1');
       location.reload();
-    }
-
-    navigator.serviceWorker.addEventListener('controllerchange', _pollDeploy);
+    };
 
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
-        .then(reg => {
-          if (reg.waiting) { _pollDeploy(); }
-          reg.addEventListener('updatefound', () => {
-            const w = reg.installing;
-            w.addEventListener('statechange', () => {
-              if (w.state === 'installed' && navigator.serviceWorker.controller) { _pollDeploy(); }
-            });
-          });
-        })
         .catch(err => console.warn('SW 등록 실패:', err));
     });
   }

@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.64';
-const APP_SW_VERSION = 'v77';
+const APP_VERSION = '1.0.65';
+const APP_SW_VERSION = 'v78';
 
 const CHANGELOG = [
+  { v: '1.0.65', items: ['PWA 자동 업데이트 — 백그라운드 중 새 SW 활성화 시 포그라운드 복귀 때 자동 리로드, 앱 재시작 시 버전 비교로 자동 업데이트 감지. 업데이트 적용 시 토스트 알림 표시'] },
   { v: '1.0.64', items: ['PWA 새로고침 버튼 스코프 버그 수정 — async function 선언은 if 블록 안에서 전역 호이스팅 안 됨, window._swReload 명시 할당으로 onclick 접근 보장'] },
   { v: '1.0.63', items: ['PWA 새로고침 버튼 수정 — reg.waiting 존재 시 SKIP_WAITING 메시지로 새 SW 명시 활성화 후 controllerchange 대기, 구 SW에 RECACHE_CORE 보내던 경쟁 조건 해소'] },
   { v: '1.0.62', items: ['계산기 수식 표시 개선 — cParts 배열로 수식 누적, = 누를 때만 계산하여 다항식 전체를 cExpr에 표시, DEL로 연산자 취소 가능'] },
@@ -282,6 +283,18 @@ function swTab(id, btn) {
 }
 
 document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
+(function() {
+  const prev = localStorage.getItem('sw-app-version');
+  if (prev && prev !== APP_VERSION) { sessionStorage.setItem('sw-just-updated', '1'); }
+  localStorage.setItem('sw-app-version', APP_VERSION);
+  if (sessionStorage.getItem('sw-just-updated')) {
+    sessionStorage.removeItem('sw-just-updated');
+    const t = document.getElementById('updateToast');
+    t.textContent = 'v' + APP_VERSION + '으로 업데이트되었습니다';
+    t.classList.add('show');
+    setTimeout(() => { t.classList.remove('show'); }, 3500);
+  }
+})();
 
 // 버전 5번 탭 → 이스터에그
 function _onVersionTap() {
