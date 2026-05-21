@@ -397,7 +397,7 @@
     }
 
     // 새로고침 버튼: 새 SW가 페이지를 제어할 때까지 기다린 뒤 reload
-    async function _swReload() {
+    window._swReload = async function() {
       const reg = await navigator.serviceWorker.getRegistration();
       if (reg?.waiting) {
         // 새 SW가 대기 중 — SKIP_WAITING 메시지로 강제 활성화 후 controllerchange 대기
