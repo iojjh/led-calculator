@@ -20,10 +20,38 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.68';
-const APP_SW_VERSION = 'v81';
+const APP_VERSION = '1.0.73';
+const APP_SW_VERSION = 'v86';
 
 const CHANGELOG = [
+  { v: '1.0.73', items: [
+    'PNG 저장 파워콘 포함 여부 선택 — 배선 커스텀 유무·탭 방문 여부 무관하게 체크박스 항상 표시, 미방문 시 기본 배선 임시 생성',
+    'PNG 파워콘 캔버스 simCanvas 직접 캡처 — _buildPwrCanvas 대신 실제 시뮬레이터 화면 그대로 저장',
+  ] },
+  { v: '1.0.72', items: [
+    '바닥행 분리 멀티 모드 픽셀 초과 수정 — 통합 바닥행 포트가 MAX_PX 초과 시 자동 분할 할당',
+    '파워콘 배선 수량 실시간 연동 — 실제 할당 기반 1번 파워·숏파워 개수 계산(_calcPwr), 배선 변경 즉시 반영',
+    '계산 결과 PNG 시뮬레이터 개선 — 활성 탭 무관하게 랜선 캔버스 항상 포함, 커스텀 파워콘 배선도 자동 추가',
+  ] },
+  { v: '1.0.71', items: [
+    '배선 직선화 추가 수정 — 열 전환 시 돌출 꺾임 제거, LED 셀 중앙에서 바로 직선으로 이어지게 변경',
+    '파워콘 탭 전체 초기화 버튼 추가 — 기본값 초기화 왼쪽에 배치, 모든 배선 완전 삭제',
+    'PNG 저장·미리보기 파워콘 캔버스 멀티 모드 지원 — genResImageMulti에 파워콘 배선 레이아웃 추가',
+  ] },
+  { v: '1.0.70', items: [
+    '바닥행분리 유·불리 칩 개선 — 컬러 배경 chip(초록/주황/회색) 으로 더 눈에 띄게 변경, 멀티 모드에서도 바닥행분리 버튼에 유·불리 표시',
+    '배선 연결선 직선화 — quadraticCurveTo 곡선 제거, 꺾임 부분도 직각 꺾임선(lineTo 3단계)으로 변경',
+    '파워콘 기본배선 스네이크 패턴 — 짝수 열 아래→위, 홀수 열 위→아래로 수정하여 바닥행에서 시작·끝 보장',
+    '멀티 모드 파워콘 시뮬레이터 정상 동작 — _isDefaultPwrWiring 멀티 모드 지원 추가',
+    '파워콘 포트 18개로 확장 — PWR_PORT_COUNT = 18, PC 색상 18개',
+    'simSum 상시 랜선+파워콘 표시 — 파워콘 탭에서도 LAN 배선 현황과 파워콘 배선 현황 함께 표시',
+  ] },
+  { v: '1.0.69', items: [
+    '자동할당 버튼 그룹 UI — 랜선 탭에서 "자동할당" 라벨 아래 기본·바닥행분리 버튼 묶음 표시, 단일 모드에 유·불리 뱃지 표시',
+    '멀티 모드 자동할당 — 기본(통합)/섹션별분리/바닥행분리 3버튼 구성, 바닥행분리는 섹션 경계 무시 통합 방식 적용',
+    '파워콘 시뮬레이터 탭 추가 — 랜선 시뮬 영역에 "파워콘" 탭 신설, 기본 2열당 1개 자동 배선, 자동할당·픽셀 제한 미표시',
+    'PNG 저장 시 파워콘 커스텀 배선이면 LED 그리드 아래에 파워콘 배선 레이아웃 자동 추가',
+  ] },
   { v: '1.0.68', items: ['랜선 자동할당 "바닥행 분리" 옵션 추가 — 바닥행 전체를 별도 포트에 수평 배선하고 나머지 행을 열 단위 뱀형 배선하여 포트 수 절감'] },
   { v: '1.0.67', items: ['토스트 IIFE에서 updateToast 미존재 시 TypeError → 이후 let 선언 TDZ 에러 연쇄 수정 — DOMContentLoaded 후 DOM 접근으로 변경'] },
   { v: '1.0.66', items: ['새로고침 버튼 수정 — RECACHE_CORE로 SW 캐시 갱신 후 reload, sessionStorage fail-safe 처리', '계산기 디스플레이 개편 — 식이 큰 폰트로 실시간 표시, 중간 계산 결과가 작은 폰트 미리보기로 표시, = 누를 때만 결과가 큰 폰트로 전환'] },
@@ -120,8 +148,14 @@ const MAX_PX = 650000; // 포트당 최대 픽셀 수 상한
 const LP_MS = 380;    // 마우스 롱프레스 임계값 (ms)
 const LP_TOUCH = 600;   // 터치 롱프레스 임계값 (ms) — 일반 탭과 명확히 구분하기 위해 더 길게 설정
 
-// 포트 8개에 대응하는 색상
-const PC = ['#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#D85A30','#5DCAA5','#D4537E'];
+const PWR_PORT_COUNT = 18;
+
+// 포트 색상 (18개 — LAN: 8개, 파워콘: 최대 18개)
+const PC = [
+  '#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#D85A30','#5DCAA5','#D4537E',
+  '#2196F3','#9C27B0','#FF5722','#00BCD4','#8BC34A','#FF9800','#607D8B','#E91E63',
+  '#795548','#009688',
+];
 
 // 콘솔 장비 스펙
 const CSPEC = {
@@ -211,6 +245,11 @@ const State = {
 
   // 소형 계산기
   cDisp: '0', cParts: [], cNew: true, cExpr: '',
+
+  // 시뮬레이터 탭 ('lan' | 'pwr')
+  simTab: 'lan',
+  _savedLan: null,  // 파워콘 탭 활성 중 저장해 둔 랜선 상태
+  _savedPwr: null,  // 랜선 탭 활성 중 저장해 둔 파워콘 상태
 };
 State.COM.concat(State.COND).forEach(n => { State.chkState[n] = false; });
 
@@ -367,7 +406,11 @@ function selSending(el) {
 
 // ── §6  PNG 저장 · 미리보기 · 공유 ───────────────────────
 
-function openModal()     { document.getElementById('modalBg').style.display = 'flex'; }
+function openModal() {
+  const opt = document.getElementById('pngPwrOpt');
+  if (opt) { opt.style.display = 'flex'; }
+  document.getElementById('modalBg').style.display = 'flex';
+}
 function closeModal()    { document.getElementById('modalBg').style.display = 'none'; }
 function closeModalBg(e) { if (e.target === document.getElementById('modalBg')) closeModal(); }
 
@@ -601,6 +644,118 @@ async function _buildWmCanvas(sp, tW, tH) {
   return cv;
 }
 
+// 파워콘 배선 캔버스 (단일 모드) — 메인 이미지 아래에 이어 붙이기용
+function _buildPwrCanvas(sp, tW, tH, pwrPA) {
+  const hdr = Math.max(48, Math.round(tH * 0.09));
+  const cv = document.createElement('canvas');
+  cv.width = tW; cv.height = hdr + tH;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, tW, hdr + tH);
+  // 구분선
+  ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = Math.max(2, Math.round(tH / 400));
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tW, 0); ctx.stroke();
+  // 헤더
+  const fs = Math.round(hdr * 0.38);
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 ${fs}px 'Inter','Helvetica Neue',sans-serif`;
+  ctx.fillStyle = '#FF7A2A';
+  ctx.textAlign = 'left';
+  ctx.fillText('파워콘 배선', Math.round(tW * 0.025), hdr / 2);
+  const usedPorts = pwrPA.filter(s => s.size > 0).length;
+  ctx.fillStyle = '#ccc';
+  ctx.textAlign = 'right';
+  ctx.fillText(`1번 파워콘 ${usedPorts}개`, Math.round(tW * 0.975), hdr / 2);
+  // 셀 그리기
+  const C = State.cols, layout = State.layout;
+  const cellW = sp.px500.w;
+  let y = hdr;
+  layout.forEach((row, ri) => {
+    const cellH = ppx(row.type).h;
+    for (let ci = 0; ci < C; ci++) {
+      const key = `${ri},${ci}`;
+      const pi = pwrPA.findIndex(s => s.has(key));
+      ctx.fillStyle = pi >= 0 ? PC[pi] : '#2e2e2e';
+      ctx.fillRect(ci * cellW + 1, y + 1, cellW - 2, cellH - 2);
+    }
+    y += cellH;
+  });
+  // 격자선
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.setLineDash([]);
+  for (let ci = 1; ci < C; ci++) {
+    ctx.beginPath(); ctx.moveTo(ci * cellW, hdr); ctx.lineTo(ci * cellW, hdr + tH); ctx.stroke();
+  }
+  y = hdr;
+  layout.forEach(row => {
+    y += ppx(row.type).h;
+    if (y < hdr + tH) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tW, y); ctx.stroke(); }
+  });
+  return cv;
+}
+
+// 파워콘 배선 캔버스 (멀티 모드) — 메인 이미지 아래에 이어 붙이기용
+function _buildPwrCanvasMulti(sp, secInfo, totalTW, maxTH, pwrPA) {
+  const hdr = Math.max(48, Math.round(maxTH * 0.09));
+  const cv = document.createElement('canvas');
+  cv.width = totalTW; cv.height = hdr + maxTH;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, totalTW, hdr + maxTH);
+  ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = Math.max(2, Math.round(maxTH / 400));
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(totalTW, 0); ctx.stroke();
+  const fs = Math.round(hdr * 0.38);
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 ${fs}px 'Inter','Helvetica Neue',sans-serif`;
+  ctx.fillStyle = '#FF7A2A'; ctx.textAlign = 'left';
+  ctx.fillText('파워콘 배선', Math.round(totalTW * 0.025), hdr / 2);
+  const usedPorts = pwrPA.filter(s => s.size > 0).length;
+  ctx.fillStyle = '#ccc'; ctx.textAlign = 'right';
+  ctx.fillText(`1번 파워콘 ${usedPorts}개`, Math.round(totalTW * 0.975), hdr / 2);
+  const cellW = sp.px500.w;
+  let xOff = 0;
+  ['left','center','right'].forEach(sn => {
+    const sec = secInfo[sn]; if (!sec) { return; }
+    const { cols, layout } = sec;
+    let y = hdr;
+    layout.forEach((row, ri) => {
+      const cellH = ppx(row.type).h;
+      for (let ci = 0; ci < cols; ci++) {
+        const pi = pwrPA.findIndex(s => s.has(`${sn}:${ri},${ci}`));
+        ctx.fillStyle = pi >= 0 ? PC[pi] : '#2e2e2e';
+        ctx.fillRect(xOff + ci * cellW + 1, y + 1, cellW - 2, cellH - 2);
+      }
+      y += cellH;
+    });
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
+    for (let ci = 1; ci < cols; ci++) {
+      ctx.beginPath(); ctx.moveTo(xOff + ci * cellW, hdr); ctx.lineTo(xOff + ci * cellW, hdr + sec.tH); ctx.stroke();
+    }
+    let yr = hdr;
+    layout.forEach(row => {
+      yr += ppx(row.type).h;
+      if (yr < hdr + sec.tH) { ctx.beginPath(); ctx.moveTo(xOff, yr); ctx.lineTo(xOff + cols * cellW, yr); ctx.stroke(); }
+    });
+    xOff += cols * cellW;
+  });
+  return cv;
+}
+
+// 두 캔버스를 수직으로 이어 붙이기
+function _stitchV(cvTop, cvBot) {
+  const cv = document.createElement('canvas');
+  cv.width = cvTop.width; cv.height = cvTop.height + cvBot.height;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(cvTop, 0, 0);
+  ctx.drawImage(cvBot, 0, cvTop.height);
+  return cv;
+}
+
+// 현재 파워콘 상태(저장된 값 포함) 반환
+function _getPwrPA() {
+  if (State.simTab === 'pwr') { return State.pA.map(s => new Set(s)); }
+  return State._savedPwr ? State._savedPwr.pA.map(s => new Set(s)) : null;
+}
+
 async function genResImage() {
   if (!isReady()) { return; }
   const sp = SPECS[State.curLed];
@@ -608,13 +763,21 @@ async function genResImage() {
   let tH = 0;
   State.layout.forEach(r => { tH += ppx(r.type).h; });
 
-  const baseCv = _buildResCanvas(sp, tW, tH);
+  let baseCv = _buildResCanvas(sp, tW, tH);
+  // 파워콘 커스텀 배선이면 아래에 이어 붙이기
+  const pwrPA = _getPwrPA();
+  if (pwrPA && !_isDefaultPwrWiring(pwrPA)) {
+    baseCv = _stitchV(baseCv, _buildPwrCanvas(sp, tW, tH, pwrPA));
+  }
   const filename = `LED_${tW}x${tH}_${dateStr()}.png`;
 
   // _buildWmCanvas는 throw하지 않으므로 탭이 항상 표시됨
   let wmUrl = null;
   try {
-    const wmCv = await _buildWmCanvas(sp, tW, tH);
+    let wmCv = await _buildWmCanvas(sp, tW, tH);
+    if (pwrPA && !_isDefaultPwrWiring(pwrPA)) {
+      wmCv = _stitchV(wmCv, _buildPwrCanvas(sp, tW, tH, pwrPA));
+    }
     wmUrl = await _cvToUrl(wmCv);
   } catch { /* 치명적 실패 시 탭 없이 기본 버전만 */ }
 
@@ -787,12 +950,15 @@ async function genResImageMulti() {
   });
   if (!totalTW || !maxTH) { return; }
   const filename = `LED_${totalTW}x${maxTH}_${dateStr()}.png`;
-  const baseUrl = await _cvToUrl(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, false));
-  const secUrl  = await _cvToUrl(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, true));
+  const pwrPA = _getPwrPA();
+  const hasCustPwr = pwrPA && !_isDefaultPwrWiring(pwrPA);
+  const _stitch = cv => hasCustPwr ? _stitchV(cv, _buildPwrCanvasMulti(sp, secInfo, totalTW, maxTH, pwrPA)) : cv;
+  const baseUrl = await _cvToUrl(_stitch(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, false)));
+  const secUrl  = await _cvToUrl(_stitch(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, true)));
   let wmUrl = null, wmSecUrl = null;
   try {
-    wmUrl    = await _cvToUrl(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, false));
-    wmSecUrl = await _cvToUrl(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, true));
+    wmUrl    = await _cvToUrl(_stitch(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, false)));
+    wmSecUrl = await _cvToUrl(_stitch(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, true)));
   } catch { /* 치명적 실패 시 기본만 */ }
   _resVersions = { normal: { url: baseUrl, filename } };
   if (wmUrl)    { _resVersions.wm      = { url: wmUrl,    filename: filename.replace('.png', '_WM.png') }; }
@@ -848,7 +1014,7 @@ async function saveCalcPng() {
   // 케이블 수량
   const asgn = new Set(); State.pA.forEach(s => s.forEach(k => asgn.add(k)));
   const tot = State.layout.length * State.cols, una = tot - asgn.size;
-  const _lan = _calcLan(), _pw = calcPW();
+  const _lan = _calcLan(), _pw = _calcPwr(State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA);
 
   // 입력 필드 값 수집
   const W = document.getElementById('iW').value;
@@ -861,11 +1027,44 @@ async function saveCalcPng() {
   const consoleSpec = consoleName ? CSPEC[consoleName] : null;
   const sendingSpec = State.curSending  ? SSPEC[State.curSending]  : null;
 
-  // 시뮬레이터 캔버스 → img 태그 (cloneNode는 캔버스 픽셀을 복사하지 않으므로 dataURL로 변환)
+  // 파워콘 포함 여부: 체크박스 선택 여부만 확인
+  const includePwr = document.getElementById('pngIncludePwr')?.checked !== false;
+
+  // 랜선·파워콘 캔버스: simCanvas 직접 캡처 (임시 상태 전환으로 양쪽 모두 확보)
   const simCv = document.getElementById('simCanvas');
-  const simImgHtml = simCv && simCv.width > 0
-    ? `<img src="${simCv.toDataURL('image/png')}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">`
-    : '';
+  let lanDataUrl = null, pwrDataUrl = null;
+  if (simCv && simCv.width > 0) {
+    if (State.simTab === 'lan') {
+      lanDataUrl = simCv.toDataURL('image/png');
+      if (includePwr) {
+        const cur = { pA: State.pA, pH2: State.pH2, aPort: State.aPort, fCell: State.fCell, drag: State.drag, dStk: State.dStk, dHov: State.dHov };
+        if (State._savedPwr) {
+          State.pA = State._savedPwr.pA; State.pH2 = State._savedPwr.pH2; State.aPort = State._savedPwr.aPort;
+        } else {
+          // 파워콘 탭 미방문 — 기본 배선 임시 생성
+          State.pA = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
+          State.pH2 = Array.from({ length: PWR_PORT_COUNT }, () => []);
+          _applyDefaultPwrWiring();
+        }
+        State.simTab = 'pwr'; drawCv();
+        pwrDataUrl = simCv.toDataURL('image/png');
+        State.simTab = 'lan';
+        State.pA = cur.pA; State.pH2 = cur.pH2; State.aPort = cur.aPort;
+        State.fCell = cur.fCell; State.drag = cur.drag; State.dStk = cur.dStk; State.dHov = cur.dHov;
+        drawCv();
+      }
+    } else {
+      if (includePwr) { pwrDataUrl = simCv.toDataURL('image/png'); }
+      if (State._savedLan) {
+        const cur = { pA: State.pA, pH2: State.pH2, aPort: State.aPort };
+        State.pA = State._savedLan.pA; State.pH2 = State._savedLan.pH2; State.aPort = State._savedLan.aPort;
+        State.simTab = 'lan'; drawCv();
+        lanDataUrl = simCv.toDataURL('image/png');
+        State.simTab = 'pwr'; State.pA = cur.pA; State.pH2 = cur.pH2; State.aPort = cur.aPort;
+        drawCv();
+      }
+    }
+  }
 
   // 스냅샷 HTML 헬퍼
   const S = (t, v) => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:13px;"><span style="color:#888">${t}</span><span style="color:#1a1a1a;font-weight:500">${v}</span></div>`;
@@ -909,7 +1108,8 @@ async function saveCalcPng() {
       <div style="font-size:20px;font-weight:600;color:#085041;">${tW} × ${tH} px</div>
     </div>
     ${coverHtml}
-    ${simImgHtml ? SEC('랜선 시뮬레이터') + simImgHtml : ''}
+    ${lanDataUrl ? SEC('랜선 시뮬레이터') + `<img src="${lanDataUrl}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">` : ''}
+    ${pwrDataUrl ? SEC('파워콘 배선') + `<img src="${pwrDataUrl}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">` : ''}
     ${SEC('케이블')}
     <div style="background:#E6F1FB;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;">
       <div style="font-weight:600;color:#0C447C;margin-bottom:8px;">랜선</div>
@@ -1163,6 +1363,8 @@ function getAppState(name) {
     chkState: { ...State.chkState },
     COM:  [...State.COM],
     COND: [...State.COND],
+    pwrPA: (State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA)?.map(s => [...s]) || null,
+    pwrPH: (State.simTab === 'pwr' ? State.pH2 : State._savedPwr?.pH2)?.map(a => [...a]) || null,
   };
 }
 
@@ -1240,6 +1442,14 @@ function loadAppState(st) {
       State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
       drawCv(); renderPorts(); renderLeg(); renderSum();
     }
+  }
+  // 파워콘 배선 복원 (LAN 상태로 복원된 뒤 _savedPwr에 저장)
+  if (st.pwrPA && isReady()) {
+    State._savedPwr = {
+      pA: st.pwrPA.map(a => new Set(a)),
+      pH2: (st.pwrPH || st.pwrPA).map(a => [...a]),
+      aPort: 0,
+    };
   }
 }
 
@@ -2025,6 +2235,7 @@ function rst() {
   State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
   State.multiSec = { left:_mkSec(), center:_mkSec(), right:_mkSec() };
   State.activeSimSec = 'center';
+  State.simTab = 'lan'; State._savedLan = null; State._savedPwr = null;
 }
 function rstPort(pi) {
   State.pA[pi] = new Set(); State.pH2[pi] = [];
@@ -2032,40 +2243,212 @@ function rstPort(pi) {
   State.aPort = firstEmpty();
 }
 // 데이터가 없는 첫 번째 포트 인덱스 반환
-function firstEmpty() { for (let i = 0; i < 8; i++) { if (State.pA[i].size === 0) return i; } return 0; }
-function nextEmpty()  { for (let i = 0; i < 8; i++) { if (State.pA[i].size === 0) return i; } return State.aPort; }
+function firstEmpty() { for (let i = 0; i < State.pA.length; i++) { if (State.pA[i].size === 0) return i; } return 0; }
+function nextEmpty()  { for (let i = 0; i < State.pA.length; i++) { if (State.pA[i].size === 0) return i; } return State.aPort; }
+
+// ── 시뮬레이터 탭 전환 & 파워콘 헬퍼 ────────────────────────
+
+// 단일 모드에서 바닥행 분리 유·불리 계산
+function _rowSplitHint() {
+  if (!isReady() || !State.cols || State.layout.length < 2) { return null; }
+  const C = State.cols, layout = State.layout;
+  const bPx = ppx(layout[layout.length - 1].type);
+  const bottomPx = bPx.w * bPx.h;
+  if (C * bottomPx > MAX_PX) { return '불가'; }
+  const colPx = layout.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+  const m = Math.floor(MAX_PX / colPx);
+  const mP = Math.floor(MAX_PX / (colPx - bottomPx));
+  if (mP <= m) { return '불리'; }
+  return C > (m * mP) / (mP - m) ? '유리' : '불리';
+}
+
+// 멀티 모드에서 바닥행 분리 유·불리 계산 (섹션 독립 판정)
+function _rowSplitHintMulti() {
+  if (!isReady()) { return null; }
+  const secs = ['left','center','right'].map(k => State.multiSec[k]).filter(s => s.cols && s.layout.length >= 2);
+  if (!secs.length) { return null; }
+  let anyGood = false;
+  for (const sec of secs) {
+    const C = sec.cols, layout = sec.layout;
+    const bPx = ppx(layout[layout.length - 1].type);
+    const bottomPx = bPx.w * bPx.h;
+    if (C * bottomPx > MAX_PX) { return '불가'; }
+    const colPx = layout.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+    const m = Math.floor(MAX_PX / colPx);
+    const mP = Math.floor(MAX_PX / (colPx - bottomPx));
+    if (mP <= m) { continue; }
+    if (C > (m * mP) / (mP - m)) { anyGood = true; }
+  }
+  return anyGood ? '유리' : '불리';
+}
+
+// 파워콘 기본 배선 적용 (2열당 1개, 스네이크: 짝수열 아래→위, 홀수열 위→아래)
+function _applyDefaultPwrWiring() {
+  for (let i = 0; i < PWR_PORT_COUNT; i++) { State.pA[i].clear(); State.pH2[i] = []; }
+  State.aPort = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
+  let pi = 0;
+  if (State.areaMode === 'multi') {
+    ['left','center','right'].forEach(sn => {
+      const sec = State.multiSec[sn];
+      if (!sec.cols || !sec.layout.length) { return; }
+      const C = sec.cols, R = sec.layout.length;
+      for (let ci = 0; ci < C && pi < PWR_PORT_COUNT; ci += 2) {
+        for (let ri = R - 1; ri >= 0; ri--) { assign(pi, `${sn}:${ri},${ci}`); }
+        if (ci + 1 < C) { for (let ri = 0; ri < R; ri++) { assign(pi, `${sn}:${ri},${ci + 1}`); } }
+        pi++;
+      }
+    });
+  } else {
+    const C = State.cols, R = State.layout.length;
+    for (let ci = 0; ci < C && pi < PWR_PORT_COUNT; ci += 2) {
+      for (let ri = R - 1; ri >= 0; ri--) { assign(pi, `${ri},${ci}`); }
+      if (ci + 1 < C) { for (let ri = 0; ri < R; ri++) { assign(pi, `${ri},${ci + 1}`); } }
+      pi++;
+    }
+  }
+}
+
+// 파워콘 배선이 기본값(2열당 1개)인지 확인
+function _isDefaultPwrWiring(pwrPA) {
+  if (State.areaMode === 'multi') {
+    let p = 0;
+    for (const sn of ['left','center','right']) {
+      const sec = State.multiSec[sn];
+      if (!sec.cols || !sec.layout.length) { continue; }
+      const C = sec.cols, R = sec.layout.length;
+      for (let ci = 0; ci < C; ci += 2) {
+        if (p >= pwrPA.length || pwrPA[p].size === 0) { return false; }
+        const ci2 = ci + 1;
+        const sz = R * (ci2 < C ? 2 : 1);
+        if (pwrPA[p].size !== sz) { return false; }
+        for (let ri = 0; ri < R; ri++) {
+          if (!pwrPA[p].has(`${sn}:${ri},${ci}`)) { return false; }
+          if (ci2 < C && !pwrPA[p].has(`${sn}:${ri},${ci2}`)) { return false; }
+        }
+        p++;
+      }
+    }
+    for (let i = p; i < pwrPA.length; i++) { if (pwrPA[i].size > 0) { return false; } }
+    return true;
+  }
+  const C = State.cols, R = State.layout.length;
+  if (!C || !R) { return true; }
+  const expected = Math.ceil(C / 2);
+  if (pwrPA.filter(s => s.size > 0).length !== expected) { return false; }
+  for (let p = 0; p < expected; p++) {
+    const ci1 = p * 2, ci2 = ci1 + 1;
+    const sz = R * (ci2 < C ? 2 : 1);
+    if (pwrPA[p].size !== sz) { return false; }
+    for (let ri = 0; ri < R; ri++) {
+      if (!pwrPA[p].has(`${ri},${ci1}`)) { return false; }
+      if (ci2 < C && !pwrPA[p].has(`${ri},${ci2}`)) { return false; }
+    }
+  }
+  return true;
+}
+
+function _execRstAllPwr() {
+  _applyDefaultPwrWiring();
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
+function doRstAllPwr() { openConfirm('파워콘 기본값 초기화', '파워콘 배선을 기본값(2열당 1개)으로 초기화할까요?', _execRstAllPwr); }
+
+function _execRstAllPwrClear() {
+  for (let i = 0; i < PWR_PORT_COUNT; i++) { State.pA[i].clear(); State.pH2[i] = []; }
+  State.aPort = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
+function doRstAllPwrClear() { openConfirm('파워콘 전체 초기화', '파워콘 배선 전체를 초기화할까요?', _execRstAllPwrClear); }
+
+// 랜선 ↔ 파워콘 탭 전환
+function setSimTab(tab) {
+  if (State.simTab === tab) { return; }
+  // 현재 탭 상태 저장
+  if (State.simTab === 'lan') {
+    State._savedLan = { pA: State.pA.map(s => new Set(s)), pH2: State.pH2.map(a => [...a]), aPort: State.aPort };
+  } else {
+    State._savedPwr = { pA: State.pA.map(s => new Set(s)), pH2: State.pH2.map(a => [...a]), aPort: State.aPort };
+  }
+  State.simTab = tab;
+  // 새 탭 상태 복원
+  const saved = tab === 'lan' ? State._savedLan : State._savedPwr;
+  if (saved) {
+    State.pA = saved.pA; State.pH2 = saved.pH2; State.aPort = saved.aPort;
+  } else {
+    State.pA = Array.from({ length: tab === 'pwr' ? PWR_PORT_COUNT : 8 }, () => new Set());
+    State.pH2 = Array.from({ length: tab === 'pwr' ? PWR_PORT_COUNT : 8 }, () => []);
+    State.aPort = 0;
+    if (tab === 'pwr') { _applyDefaultPwrWiring(); }
+  }
+  buildSim();
+}
 
 // ── 시뮬레이터 UI 빌드 ────────────────────────────────────
 
 function buildSim() {
-  const autoButtons = State.areaMode === 'multi'
-    ? `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 섹션별 분리</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합 자동할당</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`
-    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`;
+  const isPwr = State.simTab === 'pwr';
   const isFs = !!document.getElementById('simFsBg');
   const fsBtn = isFs ? '' : `<button class="reset-btn sim-fs" onclick="openSimFs()">가로모드</button>`;
+  const tabRow = `<div class="sim-tab-row">
+    <button class="sim-tab${!isPwr ? ' active' : ''}" onclick="setSimTab('lan')">랜선</button>
+    <button class="sim-tab${isPwr ? ' active' : ''}" onclick="setSimTab('pwr')">파워콘</button>
+  </div>`;
+
+  let controlRow;
+  if (isPwr) {
+    controlRow = `<div class="reset-row">
+      <button class="reset-btn all" onclick="doRstAllPwrClear()">전체 초기화</button>
+      <button class="reset-btn" onclick="doRstAllPwr()">기본값 초기화</button>
+      <button class="reset-btn" id="rstPBtn" onclick="doRstPort()">포트 초기화</button>
+      ${fsBtn}
+    </div>`;
+  } else if (State.areaMode === 'multi') {
+    const hintM = _rowSplitHintMulti();
+    const chipClsM = hintM === '유리' ? 'good' : hintM === '불가' ? 'na' : 'bad';
+    const chipM = hintM ? `<span class="rs-chip ${chipClsM}">${hintM}</span>` : '';
+    controlRow = `<div class="reset-row">
+      <div class="auto-assign-group">
+        <span class="aag-lbl">자동할당</span>
+        <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">기본</button>
+        <button class="reset-btn auto-assign" onclick="doAutoAssign()">섹션별 분리</button>
+        <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplitUnified()">↕ 바닥행 분리${chipM}</button>
+      </div>
+      <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
+      <button class="reset-btn" id="rstPBtn" onclick="doRstPort()">포트 초기화</button>
+      ${fsBtn}
+    </div>`;
+  } else {
+    const hint = _rowSplitHint();
+    const chipCls = hint === '유리' ? 'good' : hint === '불가' ? 'na' : 'bad';
+    const chip = hint ? `<span class="rs-chip ${chipCls}">${hint}</span>` : '';
+    controlRow = `<div class="reset-row">
+      <div class="auto-assign-group">
+        <span class="aag-lbl">자동할당</span>
+        <button class="reset-btn auto-assign" onclick="doAutoAssign()">기본</button>
+        <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리${chip}</button>
+      </div>
+      <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
+      <button class="reset-btn" id="rstPBtn" onclick="doRstPort()">포트 초기화</button>
+      ${fsBtn}
+    </div>`;
+  }
+
+  const hint2 = isPwr
+    ? '<b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp; <b style="color:#333">꾹+드래그</b> 연속 할당 &nbsp;·&nbsp; <b style="color:#333">기본값</b> 2열당 1개'
+    : '<b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp; <b style="color:#333">꾹+드래그</b> 자동 포트 선택 후 연속 할당 &nbsp;·&nbsp; <b style="color:#333">역방향</b> 취소';
+
   document.getElementById('simArea').innerHTML = `
-    <div class="sim-hint">
-      <b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp;
-      <b style="color:#333">꾹+드래그</b> 자동 포트 선택 후 연속 할당 &nbsp;·&nbsp;
-      <b style="color:#333">역방향</b> 취소
-    </div>
+    ${tabRow}
+    <div class="sim-hint">${hint2}</div>
     <div class="port-strip" id="portStrip"></div>
     <div class="port-info-bar" id="portInfo"></div>
-    <div class="reset-row">
-      ${autoButtons}
-      <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
-      <button class="reset-btn" id="rstPBtn"   onclick="doRstPort()">포트 초기화</button>
-      ${fsBtn}
-    </div>
+    ${controlRow}
     <canvas id="simCanvas" tabindex="0" style="outline:none;cursor:crosshair;border-radius:6px;"></canvas>
     <div class="legend" id="legend"></div>
     <div id="simSum"></div>`;
   attachEv();
   renderPorts(); buildCv(); renderLeg(); renderSum();
-  if (document.getElementById('simFsBg')) { _refreshSimFs(); }
+  if (isFs) { _refreshSimFs(); }
 }
 
 function openSimFs() {
@@ -2077,13 +2460,40 @@ function openSimFs() {
     if (el) { el.removeAttribute('id'); }
   });
 
+  const isPwr = State.simTab === 'pwr';
   const isMulti = State.areaMode === 'multi';
-  const autoButtons = isMulti
-    ? `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 섹션별</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">⚡ 통합</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`
-    : `<button class="reset-btn auto-assign" onclick="doAutoAssign()">⚡ 자동 할당</button>
-       <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행 분리</button>`;
+  const tabRowFs = `<div class="sim-tab-row" style="margin-bottom:6px;">
+    <button class="sim-tab${!isPwr?' active':''}" onclick="setSimTab('lan')">랜선</button>
+    <button class="sim-tab${isPwr?' active':''}" onclick="setSimTab('pwr')">파워콘</button>
+  </div>`;
+  let autoButtons;
+  if (isPwr) {
+    autoButtons = `<button class="reset-btn all" onclick="doRstAllPwrClear()">전체 초기화</button>
+      <button class="reset-btn" onclick="doRstAllPwr()">기본값 초기화</button>`;
+  } else if (isMulti) {
+    const hintMFs = _rowSplitHintMulti();
+    const chipClsMFs = hintMFs === '유리' ? 'good' : hintMFs === '불가' ? 'na' : 'bad';
+    const chipMFs = hintMFs ? `<span class="rs-chip ${chipClsMFs}">${hintMFs}</span>` : '';
+    autoButtons = `<div class="auto-assign-group">
+      <span class="aag-lbl">자동할당</span>
+      <button class="reset-btn auto-assign" onclick="doAutoAssignUnified()">기본</button>
+      <button class="reset-btn auto-assign" onclick="doAutoAssign()">섹션별</button>
+      <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplitUnified()">↕ 바닥행${chipMFs}</button>
+    </div>`;
+  } else {
+    const hint = _rowSplitHint();
+    const chipCls = hint === '유리' ? 'good' : hint === '불가' ? 'na' : 'bad';
+    const chip = hint ? `<span class="rs-chip ${chipCls}">${hint}</span>` : '';
+    autoButtons = `<div class="auto-assign-group">
+      <span class="aag-lbl">자동할당</span>
+      <button class="reset-btn auto-assign" onclick="doAutoAssign()">기본</button>
+      <button class="reset-btn auto-assign" onclick="doAutoAssignRowSplit()">↕ 바닥행${chip}</button>
+    </div>`;
+  }
+
+  const rstAllBtn = isPwr
+    ? `<button class="reset-btn all" onclick="doRstAllPwr()">기본값 초기화</button>`
+    : `<button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>`;
 
   const bg = document.createElement('div');
   bg.id = 'simFsBg';
@@ -2095,9 +2505,10 @@ function openSimFs() {
     </div>
     <div class="sim-fs-canvas-wrap" id="simFsCanvasWrap"></div>
     <div class="sim-fs-bottom">
+      ${tabRowFs}
       <div class="reset-row">
         ${autoButtons}
-        <button class="reset-btn all" onclick="doRstAll()">전체 초기화</button>
+        ${rstAllBtn}
         <button class="reset-btn" id="rstPBtn" onclick="doRstPort()">포트 초기화</button>
         <div class="port-info-bar" id="portInfo"></div>
       </div>
@@ -2177,28 +2588,39 @@ function renderPorts() {
       onclick="setP(${i})">P${i+1}</button>`;
   }).join('');
 
-  const px = pxOf(State.aPort);
-  const pct = Math.min(100, Math.round(px / MAX_PX * 100));
-  const ov = px > MAX_PX;
   const pi = document.getElementById('portInfo');
   if (pi) {
     const fsMode = !!document.getElementById('simFsBg');
-    pi.innerHTML = fsMode
-      ? `<div style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
-          <span style="font-size:12px;font-weight:600;color:${PC[State.aPort]}">P${State.aPort+1}</span>
-          <span style="font-size:12px;color:#333;">${State.pA[State.aPort].size}장 · ${px.toLocaleString()} px</span>
-          <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
-          ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
-        </div>`
-      : `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="font-size:13px;font-weight:500;color:${PC[State.aPort]}">포트 ${State.aPort+1}</span>
-          <span style="font-size:13px;color:#333;">${State.pA[State.aPort].size}장 · ${px.toLocaleString()} px</span>
-          <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
-          ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
-        </div>
-        <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
-          <div style="height:5px;width:${pct}%;background:${ov?'#E24B4A':PC[State.aPort]};border-radius:3px;"></div>
-        </div>`; }
+    const cnt = State.pA[State.aPort].size;
+    if (State.simTab === 'pwr') {
+      const label = fsMode ? `P${State.aPort+1}` : `파워콘 ${State.aPort+1}`;
+      pi.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:${fsMode?12:13}px;font-weight:${fsMode?600:500};color:${PC[State.aPort]}">${label}</span>
+        <span style="font-size:${fsMode?12:13}px;color:#333;">${cnt}장</span>
+        ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+      </div>`;
+    } else {
+      const px = pxOf(State.aPort);
+      const pct = Math.min(100, Math.round(px / MAX_PX * 100));
+      const ov = px > MAX_PX;
+      pi.innerHTML = fsMode
+        ? `<div style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+            <span style="font-size:12px;font-weight:600;color:${PC[State.aPort]}">P${State.aPort+1}</span>
+            <span style="font-size:12px;color:#333;">${cnt}장 · ${px.toLocaleString()} px</span>
+            <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
+            ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+          </div>`
+        : `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:13px;font-weight:500;color:${PC[State.aPort]}">포트 ${State.aPort+1}</span>
+            <span style="font-size:13px;color:#333;">${cnt}장 · ${px.toLocaleString()} px</span>
+            <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
+            ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+          </div>
+          <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
+            <div style="height:5px;width:${pct}%;background:${ov?'#E24B4A':PC[State.aPort]};border-radius:3px;"></div>
+          </div>`;
+    }
+  }
 
   const rb = document.getElementById('rstPBtn');
   if (rb) { rb.textContent = `포트 ${State.aPort+1} 초기화`; }
@@ -2319,25 +2741,11 @@ function drawPortPaths(ctx, secName) {
 
     // 마지막 세그먼트 방향 사전 계산 (화살촉 각도용)
     const pL0 = pts[pts.length - 2], pL1 = pts[pts.length - 1];
-    let ldx, ldy;
-    if (pL0.c !== pL1.c && pL0.r === pL1.r) {
-      const isTop = pL0.r < rows / 2;
-      const ctY = isTop ? pL0.y - State.rH[pL0.r] * 0.7 : pL0.y + State.rH[pL0.r] * 0.7;
-      ldx = pL1.x - (pL0.x + pL1.x) / 2; ldy = pL1.y - ctY;
-    } else {
-      ldx = pL1.x - pL0.x; ldy = pL1.y - pL0.y;
-    }
+    const ldx = pL1.x - pL0.x, ldy = pL1.y - pL0.y;
 
     const strokePath = (style, lw) => {
       ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i-1], b = pts[i];
-        if (a.c !== b.c && a.r === b.r) {
-          const isTop = a.r < rows / 2;
-          const ctY = isTop ? a.y - State.rH[a.r] * 0.7 : a.y + State.rH[a.r] * 0.7;
-          ctx.quadraticCurveTo((a.x + b.x) / 2, ctY, b.x, b.y);
-        } else { ctx.lineTo(b.x, b.y); }
-      }
+      for (let i = 1; i < pts.length; i++) { ctx.lineTo(pts[i].x, pts[i].y); }
       ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
     };
 
@@ -2494,19 +2902,7 @@ function _drawPortPathsMulti(ctx) {
 
     const strokePath = (style, lw) => {
       ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i - 1], b = pts[i];
-        // 같은 섹션 내 같은 행에서 열 이동 → 베지어 호
-        if (a.sec === b.sec && a.c !== b.c && a.r === b.r) {
-          const secRows = State.multiSec[a.sec].layout.length;
-          const isTop = a.r < secRows / 2;
-          const rh = (State.multiSec[a.sec].rH[a.r] || State.cellW);
-          const ctY = isTop ? a.y - rh * 0.7 : a.y + rh * 0.7;
-          ctx.quadraticCurveTo((a.x + b.x) / 2, ctY, b.x, b.y);
-        } else {
-          ctx.lineTo(b.x, b.y);
-        }
-      }
+      for (let i = 1; i < pts.length; i++) { ctx.lineTo(pts[i].x, pts[i].y); }
       ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
     };
 
@@ -2596,13 +2992,23 @@ function renderLeg() {
 // 계산된 랜선 수량 반환
 // 1번 랜: 포트당 메인+백업 각 1개씩 2배, 여유 2개 추가
 // 숏랜: 패널 간 연결 + 여유 20개, 20개 단위 묶음 수
-function _calcLan() {
-  const ports = State.pA.filter(s => s.size > 0).length;
+function _calcLan(pA = State.pA) {
+  const ports = pA.filter(s => s.size > 0).length;
   const l1Main = ports, l1Back = ports, l1Spare = State.spareAdj.l1;
   const l1 = l1Main + l1Back + l1Spare;
-  let slNet = 0; State.pA.forEach(s => { if (s.size > 0) slNet += (s.size - 1); });
+  let slNet = 0; pA.forEach(s => { if (s.size > 0) slNet += (s.size - 1); });
   const slSpare = State.spareAdj.sl, sl = slNet + slSpare, slBundle = Math.ceil(sl / 20);
   return { l1, l1Main, l1Back, l1Spare, slNet, sl, slSpare, slBundle };
+}
+
+// 실제 파워콘 배선 기반 수량 계산 (pwrPA 없으면 레이아웃 공식으로 폴백)
+function _calcPwr(pwrPA) {
+  if (!pwrPA) { return State.areaMode === 'multi' ? calcPWMulti() : calcPW(); }
+  const c1Net = pwrPA.filter(s => s.size > 0).length;
+  let spNet = 0; pwrPA.forEach(s => { if (s.size > 0) { spNet += s.size - 1; } });
+  const c1Spare = State.spareAdj.c1, c1 = c1Net + c1Spare;
+  const spSpare = State.spareAdj.sp, sp = spNet + spSpare, spBundle = Math.ceil(sp / 10);
+  return { c1, c1Net, c1Spare, spNet, sp, spSpare, spBundle };
 }
 
 function calcPWMulti() {
@@ -2622,21 +3028,31 @@ function calcPWMulti() {
 
 function renderSum() {
   const el = document.getElementById('simSum'); if (!el) return;
+
+  // 랜선 pA: pwr 탭이면 저장된 LAN 상태 사용
+  const lanPA = State.simTab === 'pwr' && State._savedLan ? State._savedLan.pA : State.pA;
+  // 파워콘 pA: lan 탭이면 저장된 PWR 상태 사용
+  const pwrState = State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA;
+
   const asgn = new Set(); State.pA.forEach(s => s.forEach(k => asgn.add(k)));
-  let tot = 0, pw;
+  let tot = 0;
   if (State.areaMode === 'multi') {
     ['left','center','right'].forEach(k => {
       const sec = State.multiSec[k];
       if (sec.cols && sec.layout.length) { tot += sec.cols * sec.layout.length; }
     });
-    pw = calcPWMulti();
   } else {
     tot = State.layout.length * State.cols;
-    pw = calcPW();
   }
+  const pw = _calcPwr(pwrState);
   const una = tot - asgn.size;
-  const lan = _calcLan();
-  const ov = State.pA.filter((_, i) => pxOf(i) > MAX_PX).length;
+  const lan = _calcLan(lanPA);
+  const ov = State.simTab === 'pwr' ? 0 : State.pA.filter((_, i) => pxOf(i) > MAX_PX).length;
+
+  // 파워콘 배선 상태
+  const isDefault = pwrState ? _isDefaultPwrWiring(pwrState) : null;
+  const pwrNote = isDefault === true ? '<div class="cc-note" style="color:#888">기본 배선</div>'
+    : isDefault === false ? '<div class="cc-note" style="color:#B35C00;font-weight:600">커스텀 배선</div>' : '';
 
   const si = (k, v) =>
     `<input class="spare-inp" type="number" min="0" value="${v}" oninput="setSpare('${k}',this.value)">`;
@@ -2666,6 +3082,7 @@ function renderSum() {
           <div class="cc-lbl">1번 파워</div>
           <div class="cc-total pwr" id="cc-c1-total">${pw.c1} 개</div>
           <div class="cc-qty-row">필요 <b>${pw.c1Net}</b> · 여유 ${si('c1', State.spareAdj.c1)}</div>
+          ${pwrNote}
         </div>
         <div class="cc-card">
           <div class="cc-lbl">숏 파워</div>
@@ -2684,7 +3101,9 @@ function renderSum() {
 function setSpare(k, v) {
   const n = parseInt(v);
   State.spareAdj[k] = (v === '' || isNaN(n) || n < 0) ? 0 : n;
-  const lan = _calcLan(), pw = calcPW();
+  const lanPA = State.simTab === 'pwr' && State._savedLan ? State._savedLan.pA : State.pA;
+  const pwrPA = State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA;
+  const lan = _calcLan(lanPA), pw = _calcPwr(pwrPA);
   const s = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
   s('cc-l1-total', lan.l1 + ' 개');
   s('cc-sl-total', lan.sl + ' 개');
@@ -2962,6 +3381,74 @@ function doAutoAssignUnified() {
   }
 }
 
+// 멀티 모드 바닥행 분리 통합 할당 — 섹션 경계 무시, 전체 바닥행을 포트0에 수평 배선, 나머지 상위 행을 통합 뱀형 배선
+function autoAssignRowSplitUnified() {
+  if (!isReady()) { return; }
+  const vCols = [];
+  ['left','center','right'].forEach(sn => {
+    const sec = State.multiSec[sn];
+    if (!sec.cols || !sec.layout.length) { return; }
+    for (let ci = 0; ci < sec.cols; ci++) { vCols.push({ sn, ci, lay: sec.layout }); }
+  });
+  if (!vCols.length) { return; }
+  State.pA = Array.from({ length: 8 }, () => new Set());
+  State.pH2 = Array.from({ length: 8 }, () => []);
+  State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
+  // 바닥행: 픽셀 한도 고려, 초과 시 다음 포트로 분할
+  let pi = 0, accBottom = 0;
+  for (const { sn, ci, lay } of vCols) {
+    const bPx = ppx(lay[lay.length - 1].type);
+    const px = bPx.w * bPx.h;
+    if (accBottom + px > MAX_PX && accBottom > 0) { pi++; accBottom = 0; }
+    assign(pi, `${sn}:${lay.length - 1},${ci}`);
+    accBottom += px;
+  }
+  pi++;
+  // 상위 행 통합 뱀형
+  const upperOf = lay => lay.slice(0, lay.length - 1);
+  const colPxOf = lay => lay.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
+  let gi = 0, curPort = pi;
+  while (gi < vCols.length && curPort < 8) {
+    const uLay0 = upperOf(vCols[gi].lay);
+    if (!uLay0.length) { gi++; continue; }
+    let nFit = 0, accPx = 0;
+    while (gi + nFit < vCols.length) {
+      const uL = upperOf(vCols[gi + nFit].lay);
+      if (!uL.length) { break; }
+      const px = colPxOf(uL);
+      if (accPx + px > MAX_PX && nFit > 0) { break; }
+      accPx += px; nFit++;
+    }
+    if (nFit === 0) { gi++; continue; }
+    const rem = vCols.length - gi;
+    const maxEven = nFit >= 2 ? (nFit % 2 === 0 ? nFit : nFit - 1) : nFit;
+    const take = rem <= nFit ? rem : maxEven;
+    for (let ci = 0; ci < take; ci++) {
+      const { sn, ci: lci, lay } = vCols[gi + ci];
+      const uL = upperOf(lay);
+      const isEven = (gi + ci) % 2 === 0;
+      for (let ri = 0; ri < uL.length; ri++) {
+        const row = isEven ? uL.length - 1 - ri : ri;
+        assign(curPort, `${sn}:${row},${lci}`);
+      }
+    }
+    gi += take; curPort++;
+  }
+  State.aPort = 0;
+  drawCv(); renderPorts(); renderLeg(); renderSum();
+}
+
+function doAutoAssignRowSplitUnified() {
+  if (!isReady()) { return; }
+  const hasData = ['left','center','right'].some(k => State.multiSec[k].cols > 0 && State.multiSec[k].layout.length > 0);
+  if (!hasData) { return; }
+  if (State.pA.some(s => s.size > 0)) {
+    openConfirm('바닥행 분리 할당', '기존 할당을 초기화하고 바닥행 분리 할당을 실행할까요?', autoAssignRowSplitUnified);
+  } else {
+    autoAssignRowSplitUnified();
+  }
+}
+
 // 바닥행 분리 할당 — 바닥행 전체를 별도 포트에 수평 배선, 나머지 행은 열 단위 뱀형 배선
 function _autoAssignSecRowSplit(secName, secLayout, secCols, portOff) {
   if (secLayout.length < 2) { return _autoAssignSec(secName, secLayout, secCols, portOff); }
@@ -2995,22 +3482,7 @@ function _autoAssignSecRowSplit(secName, secLayout, secCols, portOff) {
 }
 
 function autoAssignRowSplit() {
-  if (!isReady()) { return; }
-  if (State.areaMode === 'multi') {
-    State.pA = Array.from({ length: 8 }, () => new Set());
-    State.pH2 = Array.from({ length: 8 }, () => []);
-    State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
-    let portOff = 0;
-    ['left','center','right'].forEach(secName => {
-      const sec = State.multiSec[secName];
-      if (!sec.cols || !sec.layout.length) { return; }
-      portOff += _autoAssignSecRowSplit(secName, sec.layout, sec.cols, portOff);
-    });
-    State.aPort = 0;
-    drawCv(); renderPorts(); renderLeg(); renderSum();
-    return;
-  }
-  if (!State.cols || !State.layout.length) { return; }
+  if (!isReady() || !State.cols || !State.layout.length) { return; }
   rst();
   _autoAssignSecRowSplit(null, State.layout, State.cols, 0);
   State.aPort = 0;

@@ -84,7 +84,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 프로젝트 구조 (LED 설치 계산기 PWA)
 
 **파일 구성**
-- `script.js` — 약 3520줄, 앱 전체 로직
+- `script.js` — 약 3700줄, 앱 전체 로직
 - `index.html` — UI 마크업
 - `style.css` — 스타일
 - `service-worker.js` — PWA 캐시 (버전: `CACHE_VERSION`)
@@ -94,19 +94,19 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 | 섹션 | 시작 줄 | 내용 |
 |------|---------|------|
-| §1 | 21 | 상수·스펙 데이터 (`APP_VERSION`, `APP_SW_VERSION`, `CHANGELOG`, `SPECS`, `CSPEC`, `SSPEC`, `PC`, `MAX_PX`, `State`) |
-| §2 | 217 | 장비 체크리스트 (`renderCL`, `tog`, `addItem`, `delItem`) |
-| §3 | 258 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
-| §4 | 278 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) — 업데이트 완료 토스트 감지 IIFE 포함(DOMContentLoaded 내 DOM 접근) |
-| §5 | 341 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
-| §6 | 367 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`, `_cvToUrl`) |
-| §7 | 1085 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
-| §8 | 1138 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
-| §9 | 1291 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
-| §9.5 | 1391 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 1535 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
-| §11 | 2014 | 랜선 시뮬레이터 (`buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — attachEv는 buildSim에서만 호출(openSimFs·_refreshSimFs에서 중복 호출 금지), buildCv는 fsMode 시 height 방향 제약도 적용 |
-| §12 | 3033 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
+| §1 | 21 | 상수·스펙 데이터 (`APP_VERSION`, `APP_SW_VERSION`, `CHANGELOG`, `PWR_PORT_COUNT`, `PC`, `SPECS`, `CSPEC`, `SSPEC`, `MAX_PX`, `State`) |
+| §2 | 225 | 장비 체크리스트 (`renderCL`, `tog`, `addItem`, `delItem`) |
+| §3 | 266 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
+| §4 | 286 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`) — 업데이트 완료 토스트 감지 IIFE 포함(DOMContentLoaded 내 DOM 접근) |
+| §5 | 349 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
+| §6 | 375 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `_buildPwrCanvas`, `_stitchV`, `_getPwrPA`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `genIntroImage`, `_cvToUrl`) |
+| §7 | 1093 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
+| §8 | 1146 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
+| §9 | 1299 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
+| §9.5 | 1399 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
+| §10 | 1543 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
+| §11 | 2022 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — 파워콘 탭: PWR_PORT_COUNT=18 포트, 스네이크 기본배선, LAN/PWR 탭 전환 시 pA 스왑 |
+| §12 | 3390 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload` 등) |
 
 **핵심 전역 상태 — `const State` (§1, line 126)**
 
@@ -117,9 +117,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | `State.curLed` | 선택 LED 피치 (`'2mm'`/`'3mm'`/`'4mm'`) |
 | `State.basePH` | 기준 패널 높이 (`500` 또는 `1000`) |
 | `State.areaMode` | `'single'` 또는 `'multi'` |
-| `State.aPort` | 현재 선택 포트 번호 (0–7) |
-| `State.pA[8]` | 포트별 Set (셀 키 저장) |
-| `State.pH2[8]` | 포트별 배선 경로 배열 |
+| `State.aPort` | 현재 선택 포트 번호 (LAN: 0–7, PWR: 0–17) |
+| `State.pA` | 포트별 Set 배열 (LAN: 8개, PWR 탭: 18개) |
+| `State.pH2` | 포트별 배선 경로 배열 (pA와 동일 크기) |
 | `State.multiSec` | 멀티 섹션 `{ left, center, right }` 각각 `{ cols, rows, layout[] }` |
 | `State.curSending` | 선택 샌딩카드 키 |
 | `State.cols` / `State.layout` | 단일 모드 열 수 / 행 배열 |
