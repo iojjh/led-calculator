@@ -26,7 +26,6 @@
   <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
   <button class="tab-btn" onclick="swTab('vmix',this)">vMix 소스 매크로</button>
   <div class="tab-right">
-    <button class="update-log-btn" onclick="openUpdateLog()">업데이트</button>
     <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
   </div>
 </div>
@@ -360,15 +359,6 @@
   </div>
 </div>
 
-<!-- 업데이트 내역 모달 -->
-<div class="modal-bg" id="updateLogBg" style="display:none;" onclick="closeUpdateLog(event)">
-  <div class="modal">
-    <div class="modal-title">업데이트 내역</div>
-    <div class="modal-sub">주요 기능 추가 이력</div>
-    <div id="updateLogList" style="max-height:60vh;overflow-y:auto;"></div>
-    <button class="modal-close" style="margin-top:16px;" onclick="closeUpdateLog()">닫기</button>
-  </div>
-</div>
 
 <!-- 이스터에그 -->
 <div class="easter-bg" id="easterBg" style="display:none;" onclick="closeEasterBg(event)">
@@ -386,7 +376,6 @@
       <span class="easter-sw-ver" id="easterSwVer"></span>
     </div>
     <div class="easter-changelog" id="easterLog"></div>
-    <button class="easter-intro-btn" onclick="closeEaster();genIntroImage()">기능 소개 이미지 만들기</button>
     <button class="modal-close" onclick="closeEaster()">닫기</button>
   </div>
 </div>

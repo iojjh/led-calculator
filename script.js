@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.88';
-const APP_SW_VERSION = 'v101';
+const APP_VERSION = '1.0.89';
+const APP_SW_VERSION = 'v102';
 
 const CHANGELOG = [
+  { v: '1.0.89', items: [
+    '상단 업데이트 버튼 및 이스터에그 기능소개 이미지 만들기 기능 제거',
+  ] },
   { v: '1.0.88', items: [
     '멀티섹션 계산 결과에서 vMix 픽셀 검증 기능 제거',
   ] },
@@ -171,19 +174,6 @@ const CHANGELOG = [
   { v: '1.0.0', items: ['최초 릴리스 — 면적/패널 계산, 체크리스트, 메모, PNG 저장'] },
 ];
 
-const FEATURE_LOG = [
-  { date: '2026-05-18', title: '기능 소개 이미지',          desc: '이스터에그 팝업에서 앱 주요 기능 소개 이미지 생성' },
-  { date: '2026-05-16', title: '랜선 시뮬레이터 전체화면',  desc: '가로화면 자동 전환, 포트·픽셀 정보·할당 컨트롤 표시' },
-  { date: '2026-05-15', title: '멀티 섹션 해상도 이미지',   desc: '기본·워터마크·섹션별+워터마크 4종 이미지 생성' },
-  { date: '2026-05-15', title: 'vMix 버츄얼 인풋 생성',     desc: '소스 선택·생성 수 입력 후 VI 일괄 생성, 레이어 편집' },
-  { date: '2026-05-15', title: 'vMix 소스 포지션 복사',     desc: '소스별 위치값을 복사해 다른 소스에 일괄 붙여넣기' },
-  { date: '2026-05-15', title: 'vMix 소스 매크로 탭',       desc: '.vmix 파일 소스 화면비율 원본→와이드스크린 일괄 변환' },
-  { date: '2026-05-13', title: '멀티 섹션 모드',            desc: '좌·중·우 3구간 분리 입력, 복합 LED 구성 동시 계산' },
-  { date: '2026-05-13', title: '랜선 시뮬레이터 멀티 모드', desc: '멀티 섹션 통합 캔버스, 섹션 간 포트 연결 시각화' },
-  { date: '2026-05-09', title: '해상도 이미지 워터마크',    desc: '회사 로고·사명 워터마크 버전 이미지 생성' },
-  { date: '2026-05-08', title: '해상도 이미지 생성',        desc: 'LED 피치별 픽셀 해상도를 PNG 이미지로 저장·공유' },
-  { date: '2026-05-08', title: '랜선 시뮬레이터 자동 할당', desc: '뱀 경로·픽셀 균형 기반 포트 자동 배선 할당' },
-];
 
 // LED 피치별 패널 해상도 (px) — px500: 500×500mm 패널, px1000: 500×1000mm 패널
 const SPECS = {
@@ -560,21 +550,6 @@ function _onVersionTap() {
 function closeEaster()    { document.getElementById('easterBg').style.display = 'none'; }
 function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')) closeEaster(); }
 
-function openUpdateLog() {
-  document.getElementById('updateLogList').innerHTML = FEATURE_LOG.map(f =>
-    `<div class="ulog-row">
-      <div class="ulog-date">${f.date.replace(/-/g, '.')}</div>
-      <div class="ulog-title">${f.title}</div>
-      <div class="ulog-desc">${f.desc}</div>
-    </div>`
-  ).join('');
-  document.getElementById('updateLogBg').style.display = 'flex';
-}
-function closeUpdateLog(e) {
-  if (!e || e.target === document.getElementById('updateLogBg')) {
-    document.getElementById('updateLogBg').style.display = 'none';
-  }
-}
 
 
 // ── §5  콘솔 & 샌딩카드 ──────────────────────────────────
@@ -1413,102 +1388,6 @@ async function saveChkPng() {
 }
 
 
-async function genIntroImage() {
-  const W = 1080, H = 1920;
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const ctx = cv.getContext('2d');
-
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrad.addColorStop(0, '#1c2e28');
-  bgGrad.addColorStop(0.12, '#141414');
-  bgGrad.addColorStop(1, '#0c0c0c');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = 'rgba(255,255,255,0.035)';
-  for (let x = 54; x < W; x += 54) {
-    for (let y = 54; y < H; y += 54) {
-      ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-
-  ctx.fillStyle = '#0F6E56';
-  ctx.fillRect(0, 0, W, 8);
-
-  ctx.font = '700 72px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('LED 설치 계산기', 64, 52);
-
-  ctx.font = '400 38px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
-  ctx.fillStyle = '#1D9E75';
-  ctx.fillText('주요 기능 소개', 64, 148);
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(64, 214); ctx.lineTo(W - 64, 214); ctx.stroke();
-
-  const features = [
-    { color: '#0F6E56', num: '01', title: '면적 자동 계산',     desc1: '가로·세로 입력만으로 패널 수,',      desc2: '랜선·전원선 수량을 즉시 산출' },
-    { color: '#1D9E75', num: '02', title: '멀티 섹션 모드',     desc1: '좌·중·우 3구간을 분리 입력해',       desc2: '복합 구성도 한 번에 계산' },
-    { color: '#FF7A2A', num: '03', title: '해상도 이미지 생성', desc1: 'LED 피치별 픽셀 해상도를',           desc2: '이미지로 저장·공유' },
-    { color: '#4A90D9', num: '04', title: '랜선 시뮬레이터',    desc1: '포트별 배선 경로를 시각화하고',      desc2: '자동 할당으로 최적 배선 산출' },
-    { color: '#9B59B6', num: '05', title: '장비 체크리스트',    desc1: '현장 투입 장비 목록을 항목별 관리,', desc2: '현황을 한눈에 확인' },
-    { color: '#E05252', num: '06', title: 'vMix 소스 매크로',   desc1: '.vmix 파일 소스 배치를 일괄 변환,', desc2: '매크로 XML 파일 생성' },
-  ];
-
-  const startY = 228;
-  const blockH = Math.floor((H - startY - 72) / features.length);
-
-  features.forEach((f, i) => {
-    const y = startY + i * blockH;
-
-    if (i % 2 === 0) {
-      ctx.fillStyle = 'rgba(255,255,255,0.018)';
-      ctx.fillRect(0, y, W, blockH);
-    }
-
-    ctx.fillStyle = f.color;
-    ctx.fillRect(0, y + 20, 6, blockH - 40);
-
-    ctx.save();
-    ctx.globalAlpha = 0.16;
-    ctx.font = '700 88px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
-    ctx.fillStyle = f.color;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText(f.num, W - 48, y + 24);
-    ctx.restore();
-
-    ctx.font = '600 50px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(f.title, 64, y + 34);
-
-    ctx.font = '400 33px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
-    ctx.fillStyle = '#aaaaaa';
-    ctx.fillText(f.desc1, 64, y + 106);
-    ctx.fillText(f.desc2, 64, y + 152);
-
-    if (i < features.length - 1) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(64, y + blockH); ctx.lineTo(W - 64, y + blockH); ctx.stroke();
-    }
-  });
-
-  ctx.font = '400 26px -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(`v${APP_VERSION}`, W / 2, H - 28);
-
-  showPreview(await _cvToUrl(cv), 'LED계산기_기능소개.png');
-}
 
 // ── §7  확인 다이얼로그 & 전체 초기화 ────────────────────
 
