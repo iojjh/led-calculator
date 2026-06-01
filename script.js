@@ -20,10 +20,19 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.81';
-const APP_SW_VERSION = 'v94';
+const APP_VERSION = '1.0.84';
+const APP_SW_VERSION = 'v97';
 
 const CHANGELOG = [
+  { v: '1.0.84', items: [
+    'vMix 레이어 설정 검색 분리 — 이름 검색(텍스트)·번호 검색(숫자) 입력창 분리, AND 조건 필터',
+  ] },
+  { v: '1.0.83', items: [
+    'vMix 레이어 설정 탭 신설 — 소스 이름·번호 검색, 소스별 레이어 1~3 직접 편집, 수정됨 뱃지·초기화 지원',
+  ] },
+  { v: '1.0.82', items: [
+    'vMix 분할 장표 생성 탭 개선 — 메인/사이드/템플릿 카테고리를 색상 스와치로 직접 지정, 분석 결과(템플릿명·메인 장표 수) 실시간 표시',
+  ] },
   { v: '1.0.81', items: [
     'vMix 자동 분할 탭 추가 — Cat3 통합 템플릿 기반으로 Cat1 메인 장표 수만큼 VI 자동 생성, 메인 슬롯 자동 탐지',
   ] },
@@ -3708,6 +3717,15 @@ let _vmixOrigText = '';         // 로드 시 원본 텍스트 보관 (초기화
 let _vmixInputCount = 0;          // 원본 파일의 최상위 Input 수 (VI 순번 계산용)
 
 const _VMIX_AR = { '0': '출력 비율', '1': '와이드스크린', '100': '원본' };
+const _VMIX_CAT_COLORS = ['#2a2a2a','#cc1111','#117711','#dd6600','#7700aa','#00aadd','#0022bb'];
+
+let _vmixSplitMainCat = '1';
+let _vmixSplitSideCat = '2';
+let _vmixSplitTmplCat = '3';
+
+let _vmixLayerEdits = new Map(); // key → true (레이어 편집된 소스 추적)
+let _vmixLayerNameSearch = '';    // 레이어 설정 탭 이름 검색어
+let _vmixLayerNumSearch = '';     // 레이어 설정 탭 번호 검색어
 
 function vmixLoad(file) {
   if (!file) { return; }
@@ -3715,6 +3733,8 @@ function vmixLoad(file) {
   _vmixCopiedKey = null;
   _vmixNewVIs = [];
   _vmixSplitVIs = [];
+  _vmixSplitMainCat = '1'; _vmixSplitSideCat = '2'; _vmixSplitTmplCat = '3';
+  _vmixLayerEdits = new Map(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
   _vmixPastedFrom = new Map();
   const reader = new FileReader();
   reader.onload = e => {
@@ -3727,7 +3747,7 @@ function vmixLoad(file) {
     document.getElementById('vmixFilename').style.display = 'block';
     vmixRenderArList();
     vmixRenderPosList();
-    vmixRenderVIPane();
+    vmixRenderLayerPane();
     vmixRenderSplitPane();
     document.getElementById('vmixSourceCard').style.display = 'block';
     _vmixUpdateSaveBtn();
@@ -3905,7 +3925,7 @@ function vmixSwitchTab(id, btn) {
   document.getElementById('vmix-pane-pos').style.display = id === 'pos'   ? '' : 'none';
   document.getElementById('vmix-pane-vi').style.display = id === 'vi'    ? '' : 'none';
   document.getElementById('vmix-pane-split').style.display = id === 'split' ? '' : 'none';
-  const resetFns = { ar: vmixResetAR, pos: vmixResetPos, vi: vmixResetVI, split: vmixResetSplit };
+  const resetFns = { ar: vmixResetAR, pos: vmixResetPos, vi: vmixResetLayers, split: vmixResetSplit };
   document.getElementById('vmixSubReset').onclick = resetFns[id];
 }
 
@@ -4025,10 +4045,136 @@ function _vmixGenUUID() {
   });
 }
 
+function vmixRenderLayerPane() {
+  const pane = document.getElementById('vmix-pane-vi');
+  if (!pane) { return; }
+  if (!_vmixDoc) { pane.innerHTML = ''; return; }
+  const allInputs = _vmixInputs();
+  const nullUUID = '00000000-0000-0000-0000-000000000000';
+  const nameTerm = _vmixLayerNameSearch.trim().toLowerCase();
+  const numTerm = _vmixLayerNumSearch.trim();
+  const filtered = allInputs.filter(i => {
+    const nameOk = !nameTerm || i.getAttribute('OriginalTitle').toLowerCase().includes(nameTerm);
+    const numOk  = !numTerm  || String(_vmixNum(i)) === numTerm;
+    return nameOk && numOk;
+  });
+  const baseOpts = allInputs.map(i =>
+    `<option value="${i.getAttribute('Key')}">${_vmixNum(i)}. ${i.getAttribute('OriginalTitle')}</option>`
+  ).join('');
+  const cards = filtered.map(inp => {
+    const key = inp.getAttribute('Key');
+    const title = inp.getAttribute('OriginalTitle');
+    const isEdited = _vmixLayerEdits.has(key);
+    const layers = [0, 1, 2].map(slot => {
+      const rawOv = inp.getAttribute(`Overlay${slot}`) || '';
+      const curKey = (rawOv && rawOv !== nullUUID) ? rawOv : '';
+      const curRef = curKey ? allInputs.find(i => i.getAttribute('Key') === curKey) : null;
+      const curNum = curRef ? _vmixNum(curRef) : '';
+      const opts = '<option value="">없음</option>' +
+        (curKey ? baseOpts.replace(`value="${curKey}"`, `value="${curKey}" selected`) : baseOpts);
+      return `<div class="vmix-vi-layer-row">
+        <span class="vmix-vi-layer-label">레이어 ${slot + 1}</span>
+        <input type="number" class="vmix-vi-layer-num" id="ln-${key}-${slot}"
+          min="1" value="${curNum}" placeholder="-"
+          onchange="vmixLayerNumChange('${key}',${slot},this)">
+        <select class="vmix-vi-layer-sel" id="ls-${key}-${slot}"
+          onchange="vmixLayerSelChange('${key}',${slot},this)">${opts}</select>
+      </div>`;
+    }).join('');
+    const badge = isEdited
+      ? `<span class="vmix-vi-parent-tag" style="background:#fff3e0;color:#e65100;">수정됨</span>` : '';
+    return `<div class="vmix-vi-card">
+      <div class="vmix-vi-card-header">
+        <span class="vmix-num">${_vmixNum(inp)}</span>
+        <span class="vmix-vi-card-title">${title}</span>
+        ${badge}
+      </div>
+      ${layers}
+    </div>`;
+  }).join('');
+  const emptyMsg = filtered.length === 0
+    ? `<div style="color:#999;font-size:13px;text-align:center;padding:20px 0;">검색 결과 없음</div>` : '';
+  pane.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:12px;">
+    <input type="text" class="vmix-layer-search" style="flex:1;" placeholder="이름 검색..."
+      value="${_vmixLayerNameSearch.replace(/"/g, '&quot;')}" oninput="vmixLayerNameSearch(this.value)">
+    <input type="number" class="vmix-layer-search" style="width:72px;" placeholder="번호"
+      value="${_vmixLayerNumSearch}" oninput="vmixLayerNumSearch(this.value)">
+  </div>${cards ? `<div class="vmix-vi-list">${cards}</div>` : emptyMsg}`;
+}
+
+function vmixLayerNameSearch(term) { _vmixLayerNameSearch = term; vmixRenderLayerPane(); }
+function vmixLayerNumSearch(term) { _vmixLayerNumSearch = term; vmixRenderLayerPane(); }
+
+function vmixUpdateLayer(key, slot, sourceKey) {
+  const nullUUID = '00000000-0000-0000-0000-000000000000';
+  const val = sourceKey || nullUUID;
+  const attrName = `Overlay${slot}`;
+  if (_vmixGetRawAttr(key, attrName) !== null) {
+    _vmixSetRawAttr(key, attrName, val);
+  } else {
+    const eol = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+    const lines = _vmixRawText.split(eol);
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].includes(`Key="${key}"`)) { continue; }
+      lines[i] = lines[i].replace(/(\/?>)$/, ` ${attrName}="${val}"$1`);
+      break;
+    }
+    _vmixRawText = lines.join(eol);
+  }
+  const inp = Array.from(_vmixDoc.querySelectorAll('Input')).find(i => i.getAttribute('Key') === key);
+  if (inp) { inp.setAttribute(attrName, val); }
+  _vmixLayerEdits.set(key, true);
+  _vmixUpdateSaveBtn();
+}
+
+function vmixLayerNumChange(key, slot, numEl) {
+  const num = parseInt(numEl.value);
+  const allInputs = _vmixInputs();
+  const target = allInputs.find(i => _vmixNum(i) === num);
+  const sel = document.getElementById(`ls-${key}-${slot}`);
+  if (target) {
+    const k = target.getAttribute('Key');
+    if (sel) { sel.value = k; }
+    vmixUpdateLayer(key, slot, k);
+  } else {
+    numEl.value = '';
+    if (sel) { sel.value = ''; }
+    vmixUpdateLayer(key, slot, '');
+  }
+}
+
+function vmixLayerSelChange(key, slot, selEl) {
+  const sourceKey = selEl.value;
+  const allInputs = _vmixInputs();
+  const numEl = document.getElementById(`ln-${key}-${slot}`);
+  const ref = sourceKey ? allInputs.find(i => i.getAttribute('Key') === sourceKey) : null;
+  if (numEl) { numEl.value = ref ? _vmixNum(ref) : ''; }
+  vmixUpdateLayer(key, slot, sourceKey);
+}
+
+function vmixResetLayers() {
+  if (_vmixLayerEdits.size > 0) {
+    const nullUUID = '00000000-0000-0000-0000-000000000000';
+    _vmixLayerEdits.forEach((_, key) => {
+      for (let s = 0; s < 3; s++) {
+        const attrName = `Overlay${s}`;
+        const origVal = _vmixGetOrigAttr(key, attrName);
+        const restoreVal = origVal !== null ? origVal : nullUUID;
+        _vmixSetRawAttr(key, attrName, restoreVal);
+        const inp = Array.from(_vmixDoc.querySelectorAll('Input')).find(i => i.getAttribute('Key') === key);
+        if (inp) { inp.setAttribute(attrName, restoreVal); }
+      }
+    });
+    _vmixLayerEdits.clear();
+  }
+  vmixRenderLayerPane();
+  _vmixUpdateSaveBtn();
+}
+
+// ── 구 vmixRenderVIPane 제거 후 진입점 유지 (dead code) ───
 function vmixRenderVIPane() {
   const pane = document.getElementById('vmix-pane-vi');
   if (!pane) { return; }
-  // 원본 소스 (새로 생성된 VI 제외)
   const newKeys = new Set(_vmixNewVIs.map(v => v.key));
   const origInputs = _vmixInputs().filter(inp => !newKeys.has(inp.getAttribute('Key')));
 
@@ -4096,42 +4242,62 @@ function vmixRenderSplitPane() {
 
   const allInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
   const nullUUID = '00000000-0000-0000-0000-000000000000';
-  const cat1 = allInputs.filter(i => i.getAttribute('Category') === '1' && i.getAttribute('OriginalTitle')?.trim());
-  const cat3 = allInputs.filter(i => i.getAttribute('Category') === '3' && i.getAttribute('OriginalTitle')?.trim());
+  const locked = _vmixSplitVIs.length > 0;
 
-  const tmpl = cat3[0] || null;
+  // 카테고리 선택 행
+  const roles = [
+    { key: 'main', label: '메인 장표', val: _vmixSplitMainCat },
+    { key: 'side', label: '사이드 장표', val: _vmixSplitSideCat },
+    { key: 'tmpl', label: '템플릿',     val: _vmixSplitTmplCat },
+  ];
+  const catRows = roles.map(r => {
+    const swatches = _VMIX_CAT_COLORS.map((color, i) => {
+      const iSel = String(i) === r.val;
+      const cls = 'vmix-cat-swatch' + (iSel ? ' sel' : '') + (locked ? ' locked' : '');
+      const handler = locked ? '' : `onclick="vmixSetSplitCat('${r.key}','${i}')"`;
+      return `<div class="${cls}" style="background:${color};" ${handler}>${i}</div>`;
+    }).join('');
+    return `<div class="vmix-cat-row">
+      <span class="vmix-split-label">${r.label}</span>
+      <div class="vmix-cat-swatches">${swatches}</div>
+    </div>`;
+  }).join('');
+
+  // 분석
+  const catMain = allInputs.filter(i => i.getAttribute('Category') === _vmixSplitMainCat && i.getAttribute('OriginalTitle')?.trim());
+  const catTmpl = allInputs.filter(i => i.getAttribute('Category') === _vmixSplitTmplCat && i.getAttribute('OriginalTitle')?.trim());
+  const tmpl = catTmpl[0] || null;
   let mainSlot = -1;
   if (tmpl) {
     for (let s = 0; s < 3; s++) {
       const ovKey = tmpl.getAttribute(`Overlay${s}`);
       if (!ovKey || ovKey === nullUUID) { continue; }
       const ref = allInputs.find(i => i.getAttribute('Key') === ovKey);
-      if (ref && ref.getAttribute('Category') === '1') { mainSlot = s; break; }
+      if (ref && ref.getAttribute('Category') === _vmixSplitMainCat) { mainSlot = s; break; }
     }
   }
 
   const statusLines = [];
-  if (!cat3.length) {
-    statusLines.push(`<div class="vmix-split-warn">카테고리 3 템플릿 없음</div>`);
+  if (!catTmpl.length) {
+    statusLines.push(`<div class="vmix-split-warn">카테고리 ${_vmixSplitTmplCat}에 템플릿 없음</div>`);
   } else {
-    const tmplTitle = tmpl.getAttribute('OriginalTitle');
-    statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">템플릿</span><span>${_vmixNum(tmpl)}. ${tmplTitle}</span></div>`);
+    statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">템플릿</span><span>${_vmixNum(tmpl)}. ${tmpl.getAttribute('OriginalTitle')}</span></div>`);
     if (mainSlot === -1) {
-      statusLines.push(`<div class="vmix-split-warn">템플릿에 카테고리 1 레이어 없음</div>`);
-    } else {
-      statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">메인 슬롯</span><span>레이어 ${mainSlot + 1}</span></div>`);
+      statusLines.push(`<div class="vmix-split-warn">템플릿에 카테고리 ${_vmixSplitMainCat} 레이어 없음</div>`);
     }
   }
-  if (!cat1.length) {
-    statusLines.push(`<div class="vmix-split-warn">카테고리 1 소스 없음</div>`);
+  if (!catMain.length) {
+    statusLines.push(`<div class="vmix-split-warn">카테고리 ${_vmixSplitMainCat}에 소스 없음</div>`);
   } else {
-    statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">메인 장표</span><span>${cat1.length}개</span></div>`);
+    statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">메인 장표</span><span>${catMain.length}개</span></div>`);
   }
 
-  const canRun = tmpl && mainSlot >= 0 && cat1.length > 0 && _vmixSplitVIs.length === 0;
+  const canRun = !locked && tmpl && mainSlot >= 0 && catMain.length > 0;
   const setup = `<div class="vmix-vi-setup">
+    ${catRows}
+    <hr class="vmix-split-divider">
     ${statusLines.join('')}
-    <div style="margin-top:12px;">
+    <div style="margin-top:10px;">
       <button class="vmix-act-btn${canRun ? ' accent' : ''}" ${canRun ? '' : 'disabled'} onclick="vmixAutoSplit()">자동 분할 생성</button>
     </div>
   </div>`;
@@ -4151,12 +4317,19 @@ function vmixRenderSplitPane() {
   pane.innerHTML = setup + (cards ? `<div class="vmix-vi-list">${cards}</div>` : '');
 }
 
+function vmixSetSplitCat(role, cat) {
+  if (role === 'main') { _vmixSplitMainCat = cat; }
+  else if (role === 'side') { _vmixSplitSideCat = cat; }
+  else if (role === 'tmpl') { _vmixSplitTmplCat = cat; }
+  vmixRenderSplitPane();
+}
+
 function vmixAutoSplit() {
   if (!_vmixDoc) { return; }
   const allInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
   const nullUUID = '00000000-0000-0000-0000-000000000000';
-  const cat1 = allInputs.filter(i => i.getAttribute('Category') === '1' && i.getAttribute('OriginalTitle')?.trim());
-  const cat3 = allInputs.filter(i => i.getAttribute('Category') === '3' && i.getAttribute('OriginalTitle')?.trim());
+  const cat1 = allInputs.filter(i => i.getAttribute('Category') === _vmixSplitMainCat && i.getAttribute('OriginalTitle')?.trim());
+  const cat3 = allInputs.filter(i => i.getAttribute('Category') === _vmixSplitTmplCat && i.getAttribute('OriginalTitle')?.trim());
   if (!cat3.length || !cat1.length) { return; }
 
   const tmpl = cat3[0];
@@ -4166,7 +4339,7 @@ function vmixAutoSplit() {
     const ovKey = tmpl.getAttribute(`Overlay${s}`);
     if (!ovKey || ovKey === nullUUID) { continue; }
     const ref = allInputs.find(i => i.getAttribute('Key') === ovKey);
-    if (ref && ref.getAttribute('Category') === '1') { mainSlot = s; break; }
+    if (ref && ref.getAttribute('Category') === _vmixSplitMainCat) { mainSlot = s; break; }
   }
   if (mainSlot === -1) { return; }
 
@@ -4338,6 +4511,7 @@ function vmixVILayerSelChange(viKey, slot, selEl) {
 }
 
 function _vmixSplitChanged() { return _vmixSplitVIs.length > 0; }
+function _vmixLayerChanged() { return _vmixLayerEdits.size > 0; }
 function _vmixArChanged() {
   if (!_vmixDoc) { return false; }
   return _vmixInputs().some(inp => {
@@ -4347,7 +4521,7 @@ function _vmixArChanged() {
 }
 function _vmixPosChanged() { return _vmixPastedFrom.size > 0; }
 function _vmixVIChanged()  { return _vmixNewVIs.length > 0; }
-function _vmixAnyChanged() { return _vmixArChanged() || _vmixPosChanged() || _vmixVIChanged() || _vmixSplitChanged(); }
+function _vmixAnyChanged() { return _vmixArChanged() || _vmixPosChanged() || _vmixLayerChanged() || _vmixSplitChanged(); }
 
 function _vmixUpdateSaveBtn() {
   if (!document.getElementById('tab-vmix').classList.contains('on')) { return; }
@@ -4362,7 +4536,7 @@ function openVmixSaveModal() {
   document.getElementById('vmixSaveSummary').innerHTML = [
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixArChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixArChanged())} 화면비율</div>`,
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixPosChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixPosChanged())} 포지션 복사</div>`,
-    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixVIChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixVIChanged())} 버츄얼 인풋 생성</div>`,
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixLayerChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixLayerChanged())} 레이어 설정</div>`,
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;color:${_vmixSplitChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixSplitChanged())} 자동 분할</div>`,
   ].join('');
   document.getElementById('vmixSaveBg').style.display = 'flex';
@@ -4375,7 +4549,9 @@ function vmixFullReset() {
   _vmixRawText = _vmixOrigText;
   _vmixDoc = new DOMParser().parseFromString(_vmixOrigText, 'text/xml');
   _vmixCopiedKey = null; _vmixNewVIs = []; _vmixSplitVIs = []; _vmixPastedFrom = new Map();
-  vmixRenderArList(); vmixRenderPosList(); vmixRenderVIPane(); vmixRenderSplitPane();
+  _vmixSplitMainCat = '1'; _vmixSplitSideCat = '2'; _vmixSplitTmplCat = '3';
+  _vmixLayerEdits = new Map(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
+  vmixRenderArList(); vmixRenderPosList(); vmixRenderLayerPane(); vmixRenderSplitPane();
   _vmixUpdateSaveBtn();
 }
 
