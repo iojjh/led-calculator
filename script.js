@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.84';
-const APP_SW_VERSION = 'v97';
+const APP_VERSION = '1.0.85';
+const APP_SW_VERSION = 'v98';
 
 const CHANGELOG = [
+  { v: '1.0.85', items: [
+    'vMix 레이어 설정 아코디언 — 소스 카드 클릭 시 레이어 설정 펼치기/접기, 번호·이름 검색창 순서 변경',
+  ] },
   { v: '1.0.84', items: [
     'vMix 레이어 설정 검색 분리 — 이름 검색(텍스트)·번호 검색(숫자) 입력창 분리, AND 조건 필터',
   ] },
@@ -3723,9 +3726,10 @@ let _vmixSplitMainCat = '1';
 let _vmixSplitSideCat = '2';
 let _vmixSplitTmplCat = '3';
 
-let _vmixLayerEdits = new Map(); // key → true (레이어 편집된 소스 추적)
-let _vmixLayerNameSearch = '';    // 레이어 설정 탭 이름 검색어
-let _vmixLayerNumSearch = '';     // 레이어 설정 탭 번호 검색어
+let _vmixLayerEdits = new Map();    // key → true (레이어 편집된 소스 추적)
+let _vmixLayerExpanded = new Set(); // 펼쳐진 카드 key 집합
+let _vmixLayerNameSearch = '';      // 레이어 설정 탭 이름 검색어
+let _vmixLayerNumSearch = '';       // 레이어 설정 탭 번호 검색어
 
 function vmixLoad(file) {
   if (!file) { return; }
@@ -3734,7 +3738,7 @@ function vmixLoad(file) {
   _vmixNewVIs = [];
   _vmixSplitVIs = [];
   _vmixSplitMainCat = '1'; _vmixSplitSideCat = '2'; _vmixSplitTmplCat = '3';
-  _vmixLayerEdits = new Map(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
+  _vmixLayerEdits = new Map(); _vmixLayerExpanded = new Set(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
   _vmixPastedFrom = new Map();
   const reader = new FileReader();
   reader.onload = e => {
@@ -4045,6 +4049,16 @@ function _vmixGenUUID() {
   });
 }
 
+function vmixToggleLayerCard(key) {
+  const layerEl = document.getElementById(`vlayers-${key}`);
+  const arrowEl = document.getElementById(`varrow-${key}`);
+  if (!layerEl) { return; }
+  const isOpen = layerEl.style.display !== 'none';
+  layerEl.style.display = isOpen ? 'none' : '';
+  if (arrowEl) { arrowEl.textContent = isOpen ? '▶' : '▼'; }
+  if (isOpen) { _vmixLayerExpanded.delete(key); } else { _vmixLayerExpanded.add(key); }
+}
+
 function vmixRenderLayerPane() {
   const pane = document.getElementById('vmix-pane-vi');
   if (!pane) { return; }
@@ -4083,22 +4097,24 @@ function vmixRenderLayerPane() {
     }).join('');
     const badge = isEdited
       ? `<span class="vmix-vi-parent-tag" style="background:#fff3e0;color:#e65100;">수정됨</span>` : '';
+    const isExpanded = _vmixLayerExpanded.has(key);
     return `<div class="vmix-vi-card">
-      <div class="vmix-vi-card-header">
+      <div class="vmix-vi-card-header" style="cursor:pointer;" onclick="vmixToggleLayerCard('${key}')">
         <span class="vmix-num">${_vmixNum(inp)}</span>
         <span class="vmix-vi-card-title">${title}</span>
         ${badge}
+        <span id="varrow-${key}" style="font-size:11px;color:#999;">${isExpanded ? '▼' : '▶'}</span>
       </div>
-      ${layers}
+      <div id="vlayers-${key}" class="vmix-vi-layers" style="display:${isExpanded ? '' : 'none'};">${layers}</div>
     </div>`;
   }).join('');
   const emptyMsg = filtered.length === 0
     ? `<div style="color:#999;font-size:13px;text-align:center;padding:20px 0;">검색 결과 없음</div>` : '';
   pane.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:12px;">
-    <input type="text" class="vmix-layer-search" style="flex:1;" placeholder="이름 검색..."
-      value="${_vmixLayerNameSearch.replace(/"/g, '&quot;')}" oninput="vmixLayerNameSearch(this.value)">
     <input type="number" class="vmix-layer-search" style="width:72px;" placeholder="번호"
       value="${_vmixLayerNumSearch}" oninput="vmixLayerNumSearch(this.value)">
+    <input type="text" class="vmix-layer-search" style="flex:1;" placeholder="이름 검색..."
+      value="${_vmixLayerNameSearch.replace(/"/g, '&quot;')}" oninput="vmixLayerNameSearch(this.value)">
   </div>${cards ? `<div class="vmix-vi-list">${cards}</div>` : emptyMsg}`;
 }
 
@@ -4550,7 +4566,7 @@ function vmixFullReset() {
   _vmixDoc = new DOMParser().parseFromString(_vmixOrigText, 'text/xml');
   _vmixCopiedKey = null; _vmixNewVIs = []; _vmixSplitVIs = []; _vmixPastedFrom = new Map();
   _vmixSplitMainCat = '1'; _vmixSplitSideCat = '2'; _vmixSplitTmplCat = '3';
-  _vmixLayerEdits = new Map(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
+  _vmixLayerEdits = new Map(); _vmixLayerExpanded = new Set(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
   vmixRenderArList(); vmixRenderPosList(); vmixRenderLayerPane(); vmixRenderSplitPane();
   _vmixUpdateSaveBtn();
 }

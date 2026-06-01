@@ -334,7 +334,8 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .vmix-vi-count{width:60px;font-size:13px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;text-align:center;}
 .vmix-vi-list{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
 .vmix-vi-card{border:1px solid #e8e8e8;border-radius:8px;padding:10px 12px;}
-.vmix-vi-card-header{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.vmix-vi-card-header{display:flex;align-items:center;gap:7px;}
+.vmix-vi-layers{margin-top:8px;}
 .vmix-vi-card-title{font-size:13px;font-weight:600;color:#1a1a1a;flex:1;}
 .vmix-vi-parent-tag{font-size:10px;color:#888;background:#f5f5f5;border-radius:4px;padding:2px 6px;white-space:nowrap;}
 .vmix-vi-layer-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f8f8f8;}
