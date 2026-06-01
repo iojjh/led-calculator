@@ -20,10 +20,34 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.73';
-const APP_SW_VERSION = 'v86';
+const APP_VERSION = '1.0.80';
+const APP_SW_VERSION = 'v93';
 
 const CHANGELOG = [
+  { v: '1.0.80', items: [
+    '전체 초기화 시 체크리스트 항목별 메모(chkNotes)도 함께 초기화',
+  ] },
+  { v: '1.0.79', items: [
+    'EC100 콘솔 추가 — LC 광케이블 · HDMI 리피터, 메뉴얼은 추후 업로드 예정',
+  ] },
+  { v: '1.0.78', items: [
+    '체크리스트 항목별 메모 추가 — ✎ 버튼으로 인라인 입력, 메모 유무가 아이콘 색으로 표시, 앱 재실행 후에도 유지',
+    '체크리스트 PNG 저장 개선 — 체크됐거나 메모가 있는 항목만 표시, 메모 내용 포함 출력',
+  ] },
+  { v: '1.0.77', items: [
+    '체크리스트 순서 변경을 드래그 앤 드롭으로 교체 — 핸들(⠿) 터치/드래그로 재정렬, 데스크톱·모바일 모두 지원',
+  ] },
+  { v: '1.0.76', items: [
+    '체크리스트 개인화 영구 저장 — 항목 추가/제거/순서 변경·체크 상태가 앱 재실행·업데이트 후에도 유지 (ledCalcChkCustom)',
+  ] },
+  { v: '1.0.75', items: [
+    'vMix 저장 버튼 개선 — 수정사항 없으면 비활성(무채색), 있으면 활성화; 클릭 시 수정된 탭 체크 팝업 후 다운로드',
+    'vMix 탭 내 수정된 .vmix 파일 다운로드 버튼 제거 (하단 바 버튼으로 통합)',
+  ] },
+  { v: '1.0.74', items: [
+    '하단 바 탭별 동작 분리 — vMix 탭: 초기화→원본 복원, PNG 저장→.vmix 파일 저장',
+    'vMix 서브탭 초기화 버튼 공통 위치(서브탭 오른쪽)로 통합 — 활성 탭 전환 시 자동으로 해당 초기화 함수 연결',
+  ] },
   { v: '1.0.73', items: [
     'PNG 저장 파워콘 포함 여부 선택 — 배선 커스텀 유무·탭 방문 여부 무관하게 체크박스 항상 표시, 미방문 시 기본 배선 임시 생성',
     'PNG 파워콘 캔버스 simCanvas 직접 캡처 — _buildPwrCanvas 대신 실제 시뮬레이터 화면 그대로 저장',
@@ -159,8 +183,9 @@ const PC = [
 
 // 콘솔 장비 스펙
 const CSPEC = {
-  EC90: { cable: 'LC 광케이블', rep: 'HDMI 리피터', manual: 'MIG-EC90_User_Manual_1.0.pdf' },
-  J6:   { cable: 'SC 광케이블', rep: 'DVI 리피터',  manual: 'J6-Seamless-Switcher-Specifications-V2.2.0.pdf' },
+  EC90:  { cable: 'LC 광케이블', rep: 'HDMI 리피터', manual: 'MIG-EC90_User_Manual_1.0.pdf' },
+  EC100: { cable: 'LC 광케이블', rep: 'HDMI 리피터', manual: null },
+  J6:    { cable: 'SC 광케이블', rep: 'DVI 리피터',  manual: 'J6-Seamless-Switcher-Specifications-V2.2.0.pdf' },
 };
 
 // 샌딩카드 스펙 — modes 배열: Hz 내림차순으로 커버 가능 여부를 판단
@@ -229,6 +254,7 @@ const State = {
     '카메라','삼각대','오인페','SDI 케이블','캡처보드',
   ],
   chkState: {},
+  chkNotes: {},
 
   // 메모
   memoList: [],
@@ -251,37 +277,59 @@ const State = {
   _savedLan: null,  // 파워콘 탭 활성 중 저장해 둔 랜선 상태
   _savedPwr: null,  // 랜선 탭 활성 중 저장해 둔 파워콘 상태
 };
-State.COM.concat(State.COND).forEach(n => { State.chkState[n] = false; });
+(function() {
+  const raw = localStorage.getItem('ledCalcChkCustom');
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved.COM))  { State.COM  = saved.COM; }
+      if (Array.isArray(saved.COND)) { State.COND = saved.COND; }
+      if (saved.chkNotes) { State.chkNotes = saved.chkNotes; }
+      State.COM.concat(State.COND).forEach(n => { State.chkState[n] = saved.chkState?.[n] ?? false; });
+      return;
+    } catch(e) {}
+  }
+  State.COM.concat(State.COND).forEach(n => { State.chkState[n] = false; });
+})();
 
 
 // ── §2  장비 체크리스트 ───────────────────────────────────
 
 // 체크리스트 전체 렌더링
 function renderCL() {
-  function mk(n) {
+  function mk(n, sec, idx) {
     const d = State.chkState[n];
-    const safe = n.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); // onclick 문자열 이스케이프
-    return `<div class="ci${d ? ' done' : ''}" onclick="tog('${safe}')">
-      <input type="checkbox"${d ? ' checked' : ''} onclick="event.stopPropagation();tog('${safe}')">
-      <span class="cil">${n}</span>
-      <button class="del-btn" onclick="event.stopPropagation();delItem('${safe}')">×</button>
+    const note = State.chkNotes[n] || '';
+    const safe = n.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const safeNote = note.replace(/"/g, '&quot;');
+    const hasNote = note.length > 0;
+    return `<div class="ci${d ? ' done' : ''}${hasNote ? ' has-note' : ''}" draggable="true" data-sec="${sec}" data-idx="${idx}">
+      <div class="ci-main" onclick="tog('${safe}')">
+        <span class="ci-drag-handle" onclick="event.stopPropagation()">⠿</span>
+        <input type="checkbox"${d ? ' checked' : ''} onclick="event.stopPropagation();tog('${safe}')">
+        <span class="cil">${n}</span>
+        <button class="ci-note-btn" onclick="event.stopPropagation();_toggleCINote(this)" title="메모">✎</button>
+        <button class="del-btn" onclick="event.stopPropagation();delItem('${safe}')">×</button>
+      </div>
+      <input class="ci-note-input" type="text" placeholder="메모 (종류, 수량, 길이...)" value="${safeNote}" data-name="${safe}" oninput="_onCINote(this)" onclick="event.stopPropagation()">
     </div>`;
   }
-  document.getElementById('commonList').innerHTML = State.COM.map(mk).join('');
-  document.getElementById('condList').innerHTML = State.COND.map(mk).join('');
+  document.getElementById('commonList').innerHTML = State.COM.map((n, i) => mk(n, 'common', i)).join('');
+  document.getElementById('condList').innerHTML = State.COND.map((n, i) => mk(n, 'cond', i)).join('');
+  attachCLDragEvents();
 
   const all = State.COM.length + State.COND.length;
   const done = Object.values(State.chkState).filter(Boolean).length;
   document.getElementById('progFill').style.width = (all ? Math.round(done / all * 100) : 0) + '%';
   document.getElementById('progTxt').textContent = done + ' / ' + all;
 }
-function tog(n) { State.chkState[n] = !State.chkState[n]; renderCL(); }
-function clearAllChecks() { Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); }
+function tog(n) { State.chkState[n] = !State.chkState[n]; renderCL(); _saveChkLayout(); }
+function clearAllChecks() { Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); _saveChkLayout(); }
 function delItem(n) {
   const ci = State.COM.indexOf(n), di = State.COND.indexOf(n);
   if (ci >= 0) { State.COM.splice(ci, 1); } else { if (di >= 0) State.COND.splice(di, 1); }
   delete State.chkState[n];
-  renderCL();
+  renderCL(); _saveChkLayout();
 }
 function addItem(section) {
   const inp = document.getElementById('add-' + section);
@@ -290,7 +338,98 @@ function addItem(section) {
   if (section === 'common') { if (!State.COM.includes(name))  { State.COM.push(name);  State.chkState[name] = false; } }
   else                      { if (!State.COND.includes(name)) { State.COND.push(name); State.chkState[name] = false; } }
   inp.value = '';
-  renderCL();
+  renderCL(); _saveChkLayout();
+}
+function _saveChkLayout() {
+  localStorage.setItem('ledCalcChkCustom', JSON.stringify({ COM: State.COM, COND: State.COND, chkState: State.chkState, chkNotes: State.chkNotes }));
+}
+function _toggleCINote(btn) {
+  const ci = btn.closest('.ci');
+  ci.classList.toggle('note-open');
+  if (ci.classList.contains('note-open')) { ci.querySelector('.ci-note-input').focus(); }
+}
+function _onCINote(el) {
+  const name = el.dataset.name;
+  if (el.value) { State.chkNotes[name] = el.value; } else { delete State.chkNotes[name]; }
+  el.closest('.ci').classList.toggle('has-note', !!el.value);
+  _saveChkLayout();
+}
+
+function attachCLDragEvents() {
+  let dragEl = null;
+
+  const onTouchMove = e => {
+    if (!dragEl) { return; }
+    e.preventDefault();
+    const t = e.touches[0];
+    dragEl.style.pointerEvents = 'none';
+    const target = document.elementFromPoint(t.clientX, t.clientY)?.closest('.ci[data-sec]');
+    dragEl.style.pointerEvents = '';
+    document.querySelectorAll('.ci.drag-over').forEach(x => x.classList.remove('drag-over'));
+    if (target && target !== dragEl && target.dataset.sec === dragEl.dataset.sec) {
+      target.classList.add('drag-over');
+    }
+  };
+  const onTouchEnd = () => {
+    if (!dragEl) { return; }
+    dragEl.classList.remove('dragging');
+    const target = document.querySelector('.ci.drag-over');
+    document.querySelectorAll('.ci.drag-over').forEach(x => x.classList.remove('drag-over'));
+    if (target) {
+      const fromSec = dragEl.dataset.sec, fromIdx = +dragEl.dataset.idx;
+      const toSec   = target.dataset.sec, toIdx   = +target.dataset.idx;
+      if (fromSec === toSec && fromIdx !== toIdx) {
+        const arr = fromSec === 'common' ? State.COM : State.COND;
+        const [item] = arr.splice(fromIdx, 1);
+        arr.splice(toIdx, 0, item);
+        renderCL(); _saveChkLayout();
+      }
+    }
+    dragEl = null;
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', onTouchEnd);
+  };
+
+  document.querySelectorAll('.ci[data-sec]').forEach(el => {
+    // 데스크톱 HTML5 DnD
+    el.addEventListener('dragstart', e => {
+      dragEl = el;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      if (dragEl) { dragEl.classList.remove('dragging'); dragEl = null; }
+      document.querySelectorAll('.ci.drag-over').forEach(x => x.classList.remove('drag-over'));
+    });
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (!dragEl || dragEl === el || dragEl.dataset.sec !== el.dataset.sec) { return; }
+      document.querySelectorAll('.ci.drag-over').forEach(x => x.classList.remove('drag-over'));
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragEl || dragEl === el) { return; }
+      const fromSec = dragEl.dataset.sec, fromIdx = +dragEl.dataset.idx;
+      const toSec   = el.dataset.sec,     toIdx   = +el.dataset.idx;
+      if (fromSec !== toSec) { return; }
+      const arr = fromSec === 'common' ? State.COM : State.COND;
+      const [item] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, item);
+      renderCL(); _saveChkLayout();
+    });
+
+    // 모바일 터치 — 핸들에서만 시작
+    const handle = el.querySelector('.ci-drag-handle');
+    if (!handle) { return; }
+    handle.addEventListener('touchstart', e => {
+      e.preventDefault();
+      dragEl = el;
+      el.classList.add('dragging');
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      document.addEventListener('touchend', onTouchEnd);
+    }, { passive: false });
+  });
 }
 renderCL(); // 페이지 로드 시 초기 렌더링
 
@@ -322,6 +461,25 @@ function swTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('on'));
   document.getElementById('tab-' + id).classList.add('on');
   btn.classList.add('on');
+  _updateBarForTab(id);
+}
+
+function _updateBarForTab(id) {
+  const btnReset = document.getElementById('btnBarReset');
+  const btnMain  = document.getElementById('btnBarMain');
+  if (id === 'vmix') {
+    btnReset.onclick = vmixFullReset;
+    btnReset.title = 'vMix 초기화';
+    btnMain.textContent = '수정된 .vmix 저장';
+    btnMain.onclick = openVmixSaveModal;
+    btnMain.disabled = !_vmixAnyChanged();
+  } else {
+    btnReset.onclick = tryResetAll;
+    btnReset.title = '전체 초기화';
+    btnMain.textContent = 'PNG 저장';
+    btnMain.onclick = openModal;
+    btnMain.disabled = false;
+  }
 }
 
 document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
@@ -387,8 +545,8 @@ function selConsole(el) {
   document.getElementById('cableType').textContent = s.cable;
   document.getElementById('repeaterType').textContent = s.rep;
   const lnk = document.getElementById('consoleManual');
-  lnk.onclick = () => openManual(s.manual, el.dataset.v + ' 메뉴얼');
-  lnk.style.display = 'inline-flex';
+  lnk.onclick = s.manual ? () => openManual(s.manual, el.dataset.v + ' 메뉴얼') : null;
+  lnk.style.display = s.manual ? 'inline-flex' : 'none';
   document.getElementById('consoleInfo').style.display = 'block';
 }
 function selSending(el) {
@@ -1172,10 +1330,38 @@ async function saveCalcPng() {
 }
 
 async function saveChkPng() {
-  const el = document.getElementById('card-chk'); if (!el) return;
+  const filter = arr => arr.filter(n => State.chkState[n] || State.chkNotes[n]);
+  const comItems = filter(State.COM);
+  const condItems = filter(State.COND);
+  if (!comItems.length && !condItems.length) { return; }
+
+  const row = n => {
+    const checked = State.chkState[n];
+    const note = State.chkNotes[n] || '';
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;">
+      <span style="font-size:15px;color:${checked ? '#0F6E56' : '#bbb'};flex-shrink:0;margin-top:1px;">${checked ? '✓' : '○'}</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:${checked ? '#1a1a1a' : '#666'};">${n}</div>
+        ${note ? `<div style="font-size:11px;color:#888;margin-top:2px;">${note}</div>` : ''}
+      </div>
+    </div>`;
+  };
+  const sec = (label, items) => items.length === 0 ? '' :
+    `<div style="font-size:10px;font-weight:600;color:#999;letter-spacing:.05em;text-transform:uppercase;margin:12px 0 4px;">${label}</div>${items.map(row).join('')}`;
+
+  const all = State.COM.length + State.COND.length;
+  const done = Object.values(State.chkState).filter(Boolean).length;
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;background:#fff;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;';
-  wrap.appendChild(el.cloneNode(true));
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;background:#fff;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-sizing:border-box;';
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">장비 체크리스트</div>
+      <div style="font-size:11px;color:#999;">${new Date().toLocaleDateString('ko-KR')}</div>
+    </div>
+    <div style="height:2px;background:#0F6E56;border-radius:1px;margin-bottom:6px;"></div>
+    <div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">${done} / ${all} 완료</div>
+    ${sec('공통 장비', comItems)}${sec('현장 상황별 장비', condItems)}
+    <div style="height:1px;background:#eee;margin-top:12px;"></div>`;
   document.body.appendChild(wrap);
   try {
     const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
@@ -1328,7 +1514,8 @@ function doFullReset() {
   document.getElementById('mainLen').value = '';
   // 메모 & 체크리스트 초기화
   State.memoList = []; renderMemo();
-  Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL();
+  Object.keys(State.chkNotes).forEach(k => delete State.chkNotes[k]);
+  Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); _saveChkLayout();
   // 시뮬레이터 초기화 및 결과 영역 초기화
   rst(); State.cols = 0; State.layout = [];
   document.getElementById('resultBody').innerHTML = '<div class="hint-text">LED 종류와 패널 사이즈를 선택하세요</div>';
@@ -1361,6 +1548,7 @@ function getAppState(name) {
     spareAdj: { ...State.spareAdj },
     memoList: [...State.memoList],
     chkState: { ...State.chkState },
+    chkNotes: { ...State.chkNotes },
     COM:  [...State.COM],
     COND: [...State.COND],
     pwrPA: (State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA)?.map(s => [...s]) || null,
@@ -1404,8 +1592,10 @@ function loadAppState(st) {
   if (st.COM) { State.COM = [...st.COM]; }
   if (st.COND) { State.COND = [...st.COND]; }
   Object.keys(State.chkState).forEach(k => delete State.chkState[k]);
+  Object.keys(State.chkNotes).forEach(k => delete State.chkNotes[k]);
   State.COM.concat(State.COND).forEach(n => { State.chkState[n] = st.chkState?.[n] ?? false; });
-  renderCL();
+  if (st.chkNotes) { Object.assign(State.chkNotes, st.chkNotes); }
+  renderCL(); _saveChkLayout();
 
   State.memoList = st.memoList || []; renderMemo();
 
@@ -3534,7 +3724,7 @@ function vmixLoad(file) {
     vmixRenderPosList();
     vmixRenderVIPane();
     document.getElementById('vmixSourceCard').style.display = 'block';
-    document.getElementById('vmixDownloadCard').style.display = 'none';
+    _vmixUpdateSaveBtn();
   };
   reader.readAsText(file, 'UTF-8');
 }
@@ -3572,6 +3762,7 @@ function vmixResetAR() {
     }
   });
   vmixRenderArList();
+  _vmixUpdateSaveBtn();
 }
 
 // 포지션 복사 초기화 (붙여넣기 대상 원복 + 상태 초기화)
@@ -3598,6 +3789,7 @@ function vmixResetPos() {
   _vmixCopiedKey = null;
   _vmixPastedFrom.clear();
   vmixRenderPosList();
+  _vmixUpdateSaveBtn();
 }
 
 // 버츄얼 인풋 생성 초기화 (생성된 VI 삭제)
@@ -3620,6 +3812,7 @@ function vmixResetVI() {
     _vmixNewVIs = [];
   }
   vmixRenderVIPane();
+  _vmixUpdateSaveBtn();
 }
 
 // raw 텍스트에서 특정 Key를 가진 Input 행의 속성값 교체
@@ -3682,6 +3875,8 @@ function vmixSwitchTab(id, btn) {
   document.getElementById('vmix-pane-ar').style.display = id === 'ar'  ? '' : 'none';
   document.getElementById('vmix-pane-pos').style.display = id === 'pos' ? '' : 'none';
   document.getElementById('vmix-pane-vi').style.display = id === 'vi'  ? '' : 'none';
+  const resetFns = { ar: vmixResetAR, pos: vmixResetPos, vi: vmixResetVI };
+  document.getElementById('vmixSubReset').onclick = resetFns[id];
 }
 
 function vmixRenderArList() {
@@ -3727,10 +3922,7 @@ function vmixRenderPosList() {
       <button class="vmix-btn${isCopied ? ' is-copied' : ''}" onclick="vmixCopyPos('${key}')">${isCopied ? '📋 복사됨' : '포지션 복사'}</button>
     </div>`;
   }).join('');
-  const resetBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
-    <button class="vmix-reset-btn" onclick="vmixResetPos()">초기화</button>
-  </div>`;
-  document.getElementById('vmixPosList').innerHTML = resetBtn + header + rows;
+  document.getElementById('vmixPosList').innerHTML = header + rows;
 }
 
 function vmixApplyWideSelected() {
@@ -3743,14 +3935,14 @@ function vmixApplyWideSelected() {
     _vmixSetRawAttr(cb.dataset.key, 'AspectRatio', '1');
   });
   vmixRenderArList();
-  document.getElementById('vmixDownloadCard').style.display = 'block';
+  _vmixUpdateSaveBtn();
 }
 
 function vmixApplyWide() {
   _vmixInputs().forEach(inp => inp.setAttribute('AspectRatio', '1'));
   _vmixRawText = _vmixRawText.replace(/AspectRatio="100"/g, 'AspectRatio="1"');
   vmixRenderArList();
-  document.getElementById('vmixDownloadCard').style.display = 'block';
+  _vmixUpdateSaveBtn();
 }
 
 function vmixCopyPos(key) {
@@ -3790,7 +3982,7 @@ function vmixPasteToSelected() {
       _vmixPastedFrom.set(cb.dataset.key, srcNum);
     });
     vmixRenderPosList();
-    document.getElementById('vmixDownloadCard').style.display = 'block';
+    _vmixUpdateSaveBtn();
   });
 }
 
@@ -3825,7 +4017,6 @@ function vmixRenderVIPane() {
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
       <button class="vmix-act-btn" onclick="vmixCreateVirtuals()">생성하기</button>
-      <button class="vmix-reset-btn" onclick="vmixResetVI()">초기화</button>
     </div>
   </div>`;
 
@@ -3936,7 +4127,7 @@ function vmixCreateVirtuals() {
   _vmixRawText = lines.join(eol);
 
   vmixRenderVIPane();
-  document.getElementById('vmixDownloadCard').style.display = 'block';
+  _vmixUpdateSaveBtn();
 }
 
 function vmixUpdateVIOverlay(viKey, slot, sourceKey) {
@@ -3981,7 +4172,48 @@ function vmixVILayerSelChange(viKey, slot, selEl) {
   vmixUpdateVIOverlay(viKey, slot, sourceKey);
 }
 
+function _vmixArChanged() {
+  if (!_vmixDoc) { return false; }
+  return _vmixInputs().some(inp => {
+    const orig = _vmixGetOrigAttr(inp.getAttribute('Key'), 'AspectRatio');
+    return orig !== null && inp.getAttribute('AspectRatio') !== orig;
+  });
+}
+function _vmixPosChanged() { return _vmixPastedFrom.size > 0; }
+function _vmixVIChanged()  { return _vmixNewVIs.length > 0; }
+function _vmixAnyChanged() { return _vmixArChanged() || _vmixPosChanged() || _vmixVIChanged(); }
+
+function _vmixUpdateSaveBtn() {
+  if (!document.getElementById('tab-vmix').classList.contains('on')) { return; }
+  document.getElementById('btnBarMain').disabled = !_vmixAnyChanged();
+}
+
+function openVmixSaveModal() {
+  if (!_vmixAnyChanged()) { return; }
+  const chk = v => v
+    ? '<span style="color:#0F6E56;font-weight:600;">✓</span>'
+    : '<span style="color:#ccc;">✓</span>';
+  document.getElementById('vmixSaveSummary').innerHTML = [
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixArChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixArChanged())} 화면비율</div>`,
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixPosChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixPosChanged())} 포지션 복사</div>`,
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;color:${_vmixVIChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixVIChanged())} 버츄얼 인풋 생성</div>`,
+  ].join('');
+  document.getElementById('vmixSaveBg').style.display = 'flex';
+}
+function closeVmixSaveModal() { document.getElementById('vmixSaveBg').style.display = 'none'; }
+function closeVmixSaveBg(e) { if (e.target === document.getElementById('vmixSaveBg')) { closeVmixSaveModal(); } }
+
+function vmixFullReset() {
+  if (!_vmixOrigText) { return; }
+  _vmixRawText = _vmixOrigText;
+  _vmixDoc = new DOMParser().parseFromString(_vmixOrigText, 'text/xml');
+  _vmixCopiedKey = null; _vmixNewVIs = []; _vmixPastedFrom = new Map();
+  vmixRenderArList(); vmixRenderPosList(); vmixRenderVIPane();
+  _vmixUpdateSaveBtn();
+}
+
 function vmixDownload() {
+  if (!_vmixRawText) { return; }
   // XMLSerializer 대신 raw 텍스트 직접 사용 — 인코딩 변환 없이 원본 포맷 유지
   const blob = new Blob([_vmixRawText], { type: 'application/xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);

@@ -90,6 +90,7 @@
       <div class="chip-group" id="consoleChips">
         <button class="chip" data-v="J6" onclick="selConsole(this)">J6</button>
         <button class="chip" data-v="EC90" onclick="selConsole(this)">EC90</button>
+        <button class="chip" data-v="EC100" onclick="selConsole(this)">EC100</button>
       </div>
       <div id="consoleInfo" style="display:none;margin-top:10px;">
         <div class="info-box">
@@ -162,12 +163,12 @@
       <button class="vmix-sub-tab on" onclick="vmixSwitchTab('ar',this)">화면비율</button>
       <button class="vmix-sub-tab" onclick="vmixSwitchTab('pos',this)">포지션 복사</button>
       <button class="vmix-sub-tab" onclick="vmixSwitchTab('vi',this)">버츄얼 인풋 생성</button>
+      <button class="vmix-reset-btn" id="vmixSubReset" style="margin-left:auto;align-self:center;margin-bottom:4px;" onclick="vmixResetAR()">↺ 초기화</button>
     </div>
     <!-- 화면비율 패널 -->
     <div id="vmix-pane-ar">
       <div id="vmixArList"></div>
       <div class="vmix-action-bar">
-        <button class="vmix-reset-btn" onclick="vmixResetAR()">초기화</button>
         <button class="vmix-act-btn" onclick="vmixApplyWideSelected()">선택 → Widescreen</button>
         <button class="vmix-act-btn accent" onclick="vmixApplyWide()">전체 → Widescreen</button>
       </div>
@@ -178,9 +179,6 @@
     </div>
     <!-- 버츄얼 인풋 생성 패널 -->
     <div id="vmix-pane-vi" style="display:none"></div>
-  </div>
-  <div class="card" id="vmixDownloadCard" style="display:none">
-    <button class="confirm-btn confirm-btn--full" onclick="vmixDownload()">수정된 .vmix 파일 다운로드</button>
   </div>
 </div>
 
@@ -213,8 +211,8 @@
 <!-- 하단 바 -->
 <div class="confirm-bar">
   <div class="bar-row">
-    <button class="bar-icon-btn bar-danger" onclick="tryResetAll()" title="전체 초기화">↺ 초기화</button>
-    <button class="confirm-btn" onclick="openModal()">PNG 저장</button>
+    <button class="bar-icon-btn bar-danger" id="btnBarReset" onclick="tryResetAll()" title="전체 초기화">↺ 초기화</button>
+    <button class="confirm-btn" id="btnBarMain" onclick="openModal()">PNG 저장</button>
     <button class="bar-icon-btn" onclick="openSaveModal()" title="저장/불러오기">💾</button>
     <button class="bar-icon-btn" onclick="toggleCalc()" title="계산기">🧮</button>
   </div>
@@ -270,6 +268,16 @@
     <div class="modal-section">저장 목록</div>
     <div class="save-list save-list--scroll" id="saveList"></div>
     <button class="modal-close" onclick="closeSaveModal()">닫기</button>
+  </div>
+</div>
+
+<!-- vmix 저장 모달 -->
+<div class="modal-bg" id="vmixSaveBg" style="display:none;" onclick="closeVmixSaveBg(event)">
+  <div class="modal">
+    <div class="modal-title">수정된 .vmix 저장</div>
+    <div class="modal-sub">아래 항목의 수정사항이 포함됩니다.</div>
+    <div id="vmixSaveSummary"></div>
+    <button class="confirm-btn" style="margin-top:18px;" onclick="vmixDownload();closeVmixSaveModal()">다운로드</button>
   </div>
 </div>
 
