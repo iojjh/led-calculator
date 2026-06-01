@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.0';
-const APP_SW_VERSION = 'v103';
+const APP_VERSION = '2.0.1';
+const APP_SW_VERSION = 'v104';
 
 const CHANGELOG = [
+  { v: '2.0.1', items: [
+    '튜토리얼 이미지 뷰어 추가 — 장비 체크리스트·vMix 탭 상단 ? 버튼으로 탭별 튜토리얼 이미지 슬라이드 뷰어 (좌우 스와이프·핀치 줌)',
+  ] },
   { v: '2.0.0', items: [
     '정식 버전 2.0 출시',
   ] },
@@ -225,6 +228,11 @@ const SSPEC = {
 
 // ── 전역 앱 상태 ──────────────────────────────────────────
 
+const TUTORIAL_IMAGES = {
+  chk:  ['온보딩 이미지/2.png', '온보딩 이미지/3.png', '온보딩 이미지/4.png'],
+  vmix: ['온보딩 이미지/6.png', '온보딩 이미지/7.png', '온보딩 이미지/8.png', '온보딩 이미지/9.png'],
+};
+
 const DEFAULT_COM = [
   '케이블타이','메인선','분전함','샌딩카드 (컨트롤러)','광케이블',
   '셋팅용 노트북','메인 노트북','3구 파워콘','멀티탭',
@@ -282,6 +290,9 @@ const State = {
   // 버전 이스터에그
   _verTaps:  0,
   _verTimer: null,
+
+  // 튜토리얼 뷰어
+  _tutImgs: [], _tutIdx: 0, _tutReady: false, _tutZoom: 1,
 
   // 소형 계산기
   cDisp: '0', cParts: [], cNew: true, cExpr: '',
@@ -495,6 +506,7 @@ function swTab(id, btn) {
 function _updateBarForTab(id) {
   const btnReset = document.getElementById('btnBarReset');
   const btnMain  = document.getElementById('btnBarMain');
+  const btnHelp  = document.getElementById('helpBtn');
   if (id === 'vmix') {
     btnReset.onclick = vmixFullReset;
     btnReset.title = 'vMix 초기화';
@@ -514,6 +526,71 @@ function _updateBarForTab(id) {
     btnMain.onclick = openModal;
     btnMain.disabled = false;
   }
+  if (id === 'chk' || id === 'vmix') {
+    btnHelp.style.display = '';
+    btnHelp.onclick = () => openTutorial(id);
+  } else {
+    btnHelp.style.display = 'none';
+  }
+}
+
+function openTutorial(tabId) {
+  const imgs = TUTORIAL_IMAGES[tabId];
+  if (!imgs) { return; }
+  State._tutImgs = imgs;
+  if (!State._tutReady) { _tutAttachEvents(); State._tutReady = true; }
+  _tutSetImg(0);
+  document.getElementById('tutorialBg').style.display = 'flex';
+}
+function closeTutorial() {
+  document.getElementById('tutorialBg').style.display = 'none';
+  State._tutZoom = 1;
+  const img = document.getElementById('tutImg');
+  if (img) { img.style.transform = ''; }
+}
+function _tutSetImg(idx) {
+  State._tutIdx = idx;
+  State._tutZoom = 1;
+  const img = document.getElementById('tutImg');
+  img.src = State._tutImgs[idx];
+  img.style.transform = '';
+  const n = State._tutImgs.length;
+  document.getElementById('tutDots').innerHTML = State._tutImgs.map((_, i) =>
+    `<span class="tut-dot${i === idx ? ' on' : ''}" onclick="_tutSetImg(${i})"></span>`
+  ).join('');
+  document.getElementById('tutPrev').style.visibility = idx > 0 ? '' : 'hidden';
+  document.getElementById('tutNext').style.visibility = idx < n - 1 ? '' : 'hidden';
+}
+function _tutorialPrev() { if (State._tutIdx > 0) { _tutSetImg(State._tutIdx - 1); } }
+function _tutorialNext() { if (State._tutIdx < State._tutImgs.length - 1) { _tutSetImg(State._tutIdx + 1); } }
+function _tutAttachEvents() {
+  const wrap = document.getElementById('tutImgWrap');
+  let swipeX = null, pinchD = null, pinchZ = 1, lastTap = 0;
+  wrap.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      pinchD = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      pinchZ = State._tutZoom; swipeX = null;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTap < 300) { _tutSetImg(State._tutIdx); lastTap = 0; }
+      else { lastTap = now; swipeX = e.touches[0].clientX; }
+    }
+  }, { passive: true });
+  wrap.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinchD !== null) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      State._tutZoom = Math.min(4, Math.max(1, pinchZ * d / pinchD));
+      document.getElementById('tutImg').style.transform = `scale(${State._tutZoom})`;
+    }
+  }, { passive: true });
+  wrap.addEventListener('touchend', e => {
+    if (e.changedTouches.length === 1 && swipeX !== null && State._tutZoom <= 1.05) {
+      const dx = e.changedTouches[0].clientX - swipeX;
+      if (Math.abs(dx) > 50) { if (dx < 0) { _tutorialNext(); } else { _tutorialPrev(); } }
+    }
+    if (e.touches.length < 2) { pinchD = null; }
+    if (e.touches.length === 0) { swipeX = null; }
+  }, { passive: true });
 }
 
 document.getElementById('appVersion').textContent = 'v' + APP_VERSION;

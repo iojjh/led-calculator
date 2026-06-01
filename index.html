@@ -26,6 +26,7 @@
   <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
   <button class="tab-btn" onclick="swTab('vmix',this)">vMix 소스 매크로</button>
   <div class="tab-right">
+    <button class="help-btn" id="helpBtn" style="display:none;">?</button>
     <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
   </div>
 </div>
@@ -253,6 +254,21 @@
     <div class="modal-actions">
       <button class="modal-close flex-1" onclick="closeConfirm()">취소</button>
       <button class="confirm-ok-btn" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 튜토리얼 이미지 뷰어 -->
+<div class="tut-bg" id="tutorialBg" style="display:none;" onclick="if(event.target===this)closeTutorial()">
+  <div class="tut-modal">
+    <button class="tut-close" onclick="closeTutorial()">✕</button>
+    <div class="tut-img-wrap" id="tutImgWrap">
+      <img class="tut-img" id="tutImg" src="" alt="">
+    </div>
+    <div class="tut-footer">
+      <button class="tut-arrow" id="tutPrev" onclick="_tutorialPrev()">‹</button>
+      <div class="tut-dots" id="tutDots"></div>
+      <button class="tut-arrow" id="tutNext" onclick="_tutorialNext()">›</button>
     </div>
   </div>
 </div>
