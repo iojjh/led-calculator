@@ -348,6 +348,9 @@ input[type=number].vmix-vi-layer-num::-webkit-outer-spin-button,
 input[type=number].vmix-vi-layer-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .vmix-vi-layer-sel{flex:1;font-size:12px;padding:4px 7px;border:1px solid #e0e0e0;border-radius:5px;color:#1a1a1a;background:#fff;}
+.vmix-split-info{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:13px;color:#1a1a1a;}
+.vmix-split-label{font-size:12px;color:#666;min-width:60px;flex-shrink:0;}
+.vmix-split-warn{font-size:12px;color:#c0392b;padding:4px 0;}
 
 /* ── 유틸리티 ── */
 .flex-1{flex:1;}

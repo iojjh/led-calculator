@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.80';
-const APP_SW_VERSION = 'v93';
+const APP_VERSION = '1.0.81';
+const APP_SW_VERSION = 'v94';
 
 const CHANGELOG = [
+  { v: '1.0.81', items: [
+    'vMix 자동 분할 탭 추가 — Cat3 통합 템플릿 기반으로 Cat1 메인 장표 수만큼 VI 자동 생성, 메인 슬롯 자동 탐지',
+  ] },
   { v: '1.0.80', items: [
     '전체 초기화 시 체크리스트 항목별 메모(chkNotes)도 함께 초기화',
   ] },
@@ -3699,6 +3702,7 @@ let _vmixDoc = null; // DOM (속성 읽기·커스텀 뱃지 표시용)
 let _vmixFilename = '';
 let _vmixCopiedKey = null;
 let _vmixNewVIs = [];          // 새로 생성된 버츄얼 인풋 [{ key, parentKey, title, overlays:[k,k,k] }]
+let _vmixSplitVIs = [];        // 자동 분할로 생성된 VI [{ key, parentKey, title, mainSlot }]
 let _vmixPastedFrom = new Map();  // targetKey → 복사 원본 vmix 순번
 let _vmixOrigText = '';         // 로드 시 원본 텍스트 보관 (초기화용)
 let _vmixInputCount = 0;          // 원본 파일의 최상위 Input 수 (VI 순번 계산용)
@@ -3710,6 +3714,7 @@ function vmixLoad(file) {
   _vmixFilename = file.name;
   _vmixCopiedKey = null;
   _vmixNewVIs = [];
+  _vmixSplitVIs = [];
   _vmixPastedFrom = new Map();
   const reader = new FileReader();
   reader.onload = e => {
@@ -3723,6 +3728,7 @@ function vmixLoad(file) {
     vmixRenderArList();
     vmixRenderPosList();
     vmixRenderVIPane();
+    vmixRenderSplitPane();
     document.getElementById('vmixSourceCard').style.display = 'block';
     _vmixUpdateSaveBtn();
   };
@@ -3815,6 +3821,29 @@ function vmixResetVI() {
   _vmixUpdateSaveBtn();
 }
 
+// 자동 분할 초기화 (생성된 분할 VI 삭제)
+function vmixResetSplit() {
+  if (_vmixSplitVIs.length > 0) {
+    const splitKeys = new Set(_vmixSplitVIs.map(v => v.key));
+    const eol = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+    let skipNext = false;
+    const filtered = _vmixRawText.split(eol).filter(line => {
+      if (skipNext) { skipNext = false; return false; }
+      for (const key of splitKeys) {
+        if (line.includes(`Key="${key}"`)) {
+          if (!line.trimEnd().endsWith('/>')) { skipNext = true; }
+          return false;
+        }
+      }
+      return true;
+    });
+    _vmixRawText = filtered.join(eol);
+    _vmixSplitVIs = [];
+  }
+  vmixRenderSplitPane();
+  _vmixUpdateSaveBtn();
+}
+
 // raw 텍스트에서 특정 Key를 가진 Input 행의 속성값 교체
 function _vmixSetRawAttr(key, attrName, rawValue) {
   const eol = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
@@ -3872,10 +3901,11 @@ function _vmixHasCustomPos(inp) {
 function vmixSwitchTab(id, btn) {
   document.querySelectorAll('.vmix-sub-tab').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
-  document.getElementById('vmix-pane-ar').style.display = id === 'ar'  ? '' : 'none';
-  document.getElementById('vmix-pane-pos').style.display = id === 'pos' ? '' : 'none';
-  document.getElementById('vmix-pane-vi').style.display = id === 'vi'  ? '' : 'none';
-  const resetFns = { ar: vmixResetAR, pos: vmixResetPos, vi: vmixResetVI };
+  document.getElementById('vmix-pane-ar').style.display = id === 'ar'    ? '' : 'none';
+  document.getElementById('vmix-pane-pos').style.display = id === 'pos'   ? '' : 'none';
+  document.getElementById('vmix-pane-vi').style.display = id === 'vi'    ? '' : 'none';
+  document.getElementById('vmix-pane-split').style.display = id === 'split' ? '' : 'none';
+  const resetFns = { ar: vmixResetAR, pos: vmixResetPos, vi: vmixResetVI, split: vmixResetSplit };
   document.getElementById('vmixSubReset').onclick = resetFns[id];
 }
 
@@ -4059,6 +4089,141 @@ function vmixRenderVIPane() {
   pane.innerHTML = setup + (cards ? `<div class="vmix-vi-list">${cards}</div>` : '');
 }
 
+function vmixRenderSplitPane() {
+  const pane = document.getElementById('vmix-pane-split');
+  if (!pane) { return; }
+  if (!_vmixDoc) { pane.innerHTML = ''; return; }
+
+  const allInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
+  const nullUUID = '00000000-0000-0000-0000-000000000000';
+  const cat1 = allInputs.filter(i => i.getAttribute('Category') === '1' && i.getAttribute('OriginalTitle')?.trim());
+  const cat3 = allInputs.filter(i => i.getAttribute('Category') === '3' && i.getAttribute('OriginalTitle')?.trim());
+
+  const tmpl = cat3[0] || null;
+  let mainSlot = -1;
+  if (tmpl) {
+    for (let s = 0; s < 3; s++) {
+      const ovKey = tmpl.getAttribute(`Overlay${s}`);
+      if (!ovKey || ovKey === nullUUID) { continue; }
+      const ref = allInputs.find(i => i.getAttribute('Key') === ovKey);
+      if (ref && ref.getAttribute('Category') === '1') { mainSlot = s; break; }
+    }
+  }
+
+  const statusLines = [];
+  if (!cat3.length) {
+    statusLines.push(`<div class="vmix-split-warn">카테고리 3 템플릿 없음</div>`);
+  } else {
+    const tmplTitle = tmpl.getAttribute('OriginalTitle');
+    statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">템플릿</span><span>${_vmixNum(tmpl)}. ${tmplTitle}</span></div>`);
+    if (mainSlot === -1) {
+      statusLines.push(`<div class="vmix-split-warn">템플릿에 카테고리 1 레이어 없음</div>`);
+    } else {
+      statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">메인 슬롯</span><span>레이어 ${mainSlot + 1}</span></div>`);
+    }
+  }
+  if (!cat1.length) {
+    statusLines.push(`<div class="vmix-split-warn">카테고리 1 소스 없음</div>`);
+  } else {
+    statusLines.push(`<div class="vmix-split-info"><span class="vmix-split-label">메인 장표</span><span>${cat1.length}개</span></div>`);
+  }
+
+  const canRun = tmpl && mainSlot >= 0 && cat1.length > 0 && _vmixSplitVIs.length === 0;
+  const setup = `<div class="vmix-vi-setup">
+    ${statusLines.join('')}
+    <div style="margin-top:12px;">
+      <button class="vmix-act-btn${canRun ? ' accent' : ''}" ${canRun ? '' : 'disabled'} onclick="vmixAutoSplit()">자동 분할 생성</button>
+    </div>
+  </div>`;
+
+  const baseCount = _vmixInputCount + _vmixNewVIs.length;
+  const cards = _vmixSplitVIs.map((vi, idx) => {
+    const viNum = baseCount + idx + 1;
+    return `<div class="vmix-vi-card">
+      <div class="vmix-vi-card-header">
+        <span class="vmix-num">${viNum}</span>
+        <span class="vmix-vi-card-title">${vi.title}</span>
+        <span class="vmix-vi-parent-tag">레이어 ${vi.mainSlot + 1}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  pane.innerHTML = setup + (cards ? `<div class="vmix-vi-list">${cards}</div>` : '');
+}
+
+function vmixAutoSplit() {
+  if (!_vmixDoc) { return; }
+  const allInputs = Array.from(_vmixDoc.querySelectorAll('Input'));
+  const nullUUID = '00000000-0000-0000-0000-000000000000';
+  const cat1 = allInputs.filter(i => i.getAttribute('Category') === '1' && i.getAttribute('OriginalTitle')?.trim());
+  const cat3 = allInputs.filter(i => i.getAttribute('Category') === '3' && i.getAttribute('OriginalTitle')?.trim());
+  if (!cat3.length || !cat1.length) { return; }
+
+  const tmpl = cat3[0];
+  const tmplKey = tmpl.getAttribute('Key');
+  let mainSlot = -1;
+  for (let s = 0; s < 3; s++) {
+    const ovKey = tmpl.getAttribute(`Overlay${s}`);
+    if (!ovKey || ovKey === nullUUID) { continue; }
+    const ref = allInputs.find(i => i.getAttribute('Key') === ovKey);
+    if (ref && ref.getAttribute('Category') === '1') { mainSlot = s; break; }
+  }
+  if (mainSlot === -1) { return; }
+
+  const eol = _vmixRawText.includes('\r\n') ? '\r\n' : '\n';
+  const lines = _vmixRawText.split(eol);
+
+  const openIdx = lines.findIndex(l => l.includes(`Key="${tmplKey}"`));
+  if (openIdx === -1) { return; }
+  let tmplBlock;
+  if (lines[openIdx].trimEnd().endsWith('/>')) {
+    tmplBlock = [lines[openIdx]];
+  } else {
+    let closeIdx = openIdx;
+    while (closeIdx < lines.length && !lines[closeIdx].includes('</Input>')) { closeIdx++; }
+    tmplBlock = lines.slice(openIdx, closeIdx + 1);
+  }
+
+  const stateIdx = lines.findIndex(l => l.trimStart().startsWith('<State'));
+  const insertAt = stateIdx === -1 ? lines.length : stateIdx;
+
+  const newRawLines = [];
+  for (let i = 0; i < cat1.length; i++) {
+    const newKey = _vmixGenUUID();
+    const cat1Key = cat1[i].getAttribute('Key');
+    const block = [...tmplBlock];
+    let ln = block[0];
+
+    ln = ln.replace(`Key="${tmplKey}"`, `Key="${newKey}"`);
+    ln = ln.replace(/Type="[^"]*"/, 'Type="22"');
+    if (ln.includes('ShaderSource=')) {
+      ln = ln.replace(/ShaderSource="[^"]*"/, `ShaderSource="${tmplKey}"`);
+    } else {
+      ln = ln.replace(/(\/?>)$/, ` ShaderSource="${tmplKey}"$1`);
+    }
+    if (!ln.includes('VirtualInputKey=')) {
+      ln = ln.replace(/(\/?>)$/, ` VirtualInputKey="${tmplKey}" UseSourceRenderEffects="True"$1`);
+    }
+    ln = ln.replace('VideoShader_ColorCorrectionSourceEnabled="0"',
+                    'VideoShader_ColorCorrectionSourceEnabled="-1"');
+    for (let s = 0; s < 3; s++) {
+      if (!ln.includes(`Overlay${s}="`)) {
+        ln = ln.replace(/(\/?>)$/, ` Overlay${s}="${nullUUID}"$1`);
+      }
+    }
+    ln = ln.replace(new RegExp(`Overlay${mainSlot}="[^"]*"`), `Overlay${mainSlot}="${cat1Key}"`);
+
+    block[0] = ln;
+    newRawLines.push(...block);
+    _vmixSplitVIs.push({ key: newKey, parentKey: tmplKey, title: cat1[i].getAttribute('OriginalTitle'), mainSlot });
+  }
+
+  lines.splice(insertAt, 0, ...newRawLines);
+  _vmixRawText = lines.join(eol);
+  vmixRenderSplitPane();
+  _vmixUpdateSaveBtn();
+}
+
 function vmixCreateVirtuals() {
   const parentKey = document.getElementById('vmixVISrcSel')?.value;
   const count = parseInt(document.getElementById('vmixVICount')?.value) || 1;
@@ -4172,6 +4337,7 @@ function vmixVILayerSelChange(viKey, slot, selEl) {
   vmixUpdateVIOverlay(viKey, slot, sourceKey);
 }
 
+function _vmixSplitChanged() { return _vmixSplitVIs.length > 0; }
 function _vmixArChanged() {
   if (!_vmixDoc) { return false; }
   return _vmixInputs().some(inp => {
@@ -4181,7 +4347,7 @@ function _vmixArChanged() {
 }
 function _vmixPosChanged() { return _vmixPastedFrom.size > 0; }
 function _vmixVIChanged()  { return _vmixNewVIs.length > 0; }
-function _vmixAnyChanged() { return _vmixArChanged() || _vmixPosChanged() || _vmixVIChanged(); }
+function _vmixAnyChanged() { return _vmixArChanged() || _vmixPosChanged() || _vmixVIChanged() || _vmixSplitChanged(); }
 
 function _vmixUpdateSaveBtn() {
   if (!document.getElementById('tab-vmix').classList.contains('on')) { return; }
@@ -4196,7 +4362,8 @@ function openVmixSaveModal() {
   document.getElementById('vmixSaveSummary').innerHTML = [
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixArChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixArChanged())} 화면비율</div>`,
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixPosChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixPosChanged())} 포지션 복사</div>`,
-    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;color:${_vmixVIChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixVIChanged())} 버츄얼 인풋 생성</div>`,
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixVIChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixVIChanged())} 버츄얼 인풋 생성</div>`,
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;color:${_vmixSplitChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixSplitChanged())} 자동 분할</div>`,
   ].join('');
   document.getElementById('vmixSaveBg').style.display = 'flex';
 }
@@ -4207,8 +4374,8 @@ function vmixFullReset() {
   if (!_vmixOrigText) { return; }
   _vmixRawText = _vmixOrigText;
   _vmixDoc = new DOMParser().parseFromString(_vmixOrigText, 'text/xml');
-  _vmixCopiedKey = null; _vmixNewVIs = []; _vmixPastedFrom = new Map();
-  vmixRenderArList(); vmixRenderPosList(); vmixRenderVIPane();
+  _vmixCopiedKey = null; _vmixNewVIs = []; _vmixSplitVIs = []; _vmixPastedFrom = new Map();
+  vmixRenderArList(); vmixRenderPosList(); vmixRenderVIPane(); vmixRenderSplitPane();
   _vmixUpdateSaveBtn();
 }
 
