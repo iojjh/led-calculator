@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.86';
-const APP_SW_VERSION = 'v99';
+const APP_VERSION = '1.0.87';
+const APP_SW_VERSION = 'v100';
 
 const CHANGELOG = [
+  { v: '1.0.87', items: [
+    '체크리스트 초기화 선택 기능 추가 — 체크박스·메모만 초기화 / 장비 목록 및 순서까지 완전 초기화 선택 가능',
+  ] },
   { v: '1.0.86', items: [
     'vMix 화면비율·포지션복사·레이어설정 탭에 카테고리 스와치 필터 추가 — 카테고리0 선택 시 전체 소스 표시',
   ] },
@@ -226,6 +229,20 @@ const SSPEC = {
 
 // ── 전역 앱 상태 ──────────────────────────────────────────
 
+const DEFAULT_COM = [
+  '케이블타이','메인선','분전함','샌딩카드 (컨트롤러)','광케이블',
+  '셋팅용 노트북','메인 노트북','3구 파워콘','멀티탭',
+  '공구통 (쪽가위·드라이버·줄자·개퍼테이프·전동공구·깔판 등)',
+  '모니터','콘솔','리피터',
+];
+const DEFAULT_COND = [
+  '안전모','하네스',
+  '220V 1번 파워','랜선 커플러','파워콘 커플러','프로파일','웨이트',
+  '옐로재킷','고무판','비닐','끈바','깔깔이','접지봉',
+  'HDMI','프롬프터','전기릴선','퍼팩트큐','테이블',
+  '카메라','삼각대','오인페','SDI 케이블','캡처보드',
+];
+
 const State = {
   // 선택 상태
   curLed:      null,
@@ -258,19 +275,8 @@ const State = {
   spareAdj: { l1: 2, sl: 20, c1: 2, sp: 20 },
 
   // 체크리스트
-  COM: [
-    '케이블타이','메인선','분전함','샌딩카드 (컨트롤러)','광케이블',
-    '셋팅용 노트북','메인 노트북','3구 파워콘','멀티탭',
-    '공구통 (쪽가위·드라이버·줄자·개퍼테이프·전동공구·깔판 등)',
-    '모니터','콘솔','리피터',
-  ],
-  COND: [
-    '안전모','하네스',
-    '220V 1번 파워','랜선 커플러','파워콘 커플러','프로파일','웨이트',
-    '옐로재킷','고무판','비닐','끈바','깔깔이','접지봉',
-    'HDMI','프롬프터','전기릴선','퍼팩트큐','테이블',
-    '카메라','삼각대','오인페','SDI 케이블','캡처보드',
-  ],
+  COM: [...DEFAULT_COM],
+  COND: [...DEFAULT_COND],
   chkState: {},
   chkNotes: {},
 
@@ -343,6 +349,20 @@ function renderCL() {
 }
 function tog(n) { State.chkState[n] = !State.chkState[n]; renderCL(); _saveChkLayout(); }
 function clearAllChecks() { Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); _saveChkLayout(); }
+function openChkResetChoice() { document.getElementById('chkResetChoiceBg').style.display = 'flex'; }
+function closeChkResetChoice() { document.getElementById('chkResetChoiceBg').style.display = 'none'; }
+function _doChkResetSoft() {
+  Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; });
+  Object.keys(State.chkNotes).forEach(k => { delete State.chkNotes[k]; });
+  renderCL(); _saveChkLayout(); closeChkResetChoice();
+}
+function _doChkResetFull() {
+  State.COM = [...DEFAULT_COM]; State.COND = [...DEFAULT_COND];
+  Object.keys(State.chkState).forEach(k => { delete State.chkState[k]; });
+  Object.keys(State.chkNotes).forEach(k => { delete State.chkNotes[k]; });
+  State.COM.concat(State.COND).forEach(n => { State.chkState[n] = false; });
+  renderCL(); _saveChkLayout(); closeChkResetChoice();
+}
 function delItem(n) {
   const ci = State.COM.indexOf(n), di = State.COND.indexOf(n);
   if (ci >= 0) { State.COM.splice(ci, 1); } else { if (di >= 0) State.COND.splice(di, 1); }

@@ -190,7 +190,7 @@
   <div class="card" id="card-chk">
     <div class="card-header">
       <div class="stitle mb0">장비 체크리스트</div>
-      <button class="clr-btn" onclick="clearAllChecks()">전체 해제</button>
+      <button class="clr-btn" onclick="openChkResetChoice()">초기화</button>
     </div>
     <div class="prog-wrap">
       <div class="prog-bg"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
@@ -255,6 +255,19 @@
     <div class="modal-actions">
       <button class="modal-close flex-1" onclick="closeConfirm()">취소</button>
       <button class="confirm-ok-btn" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 체크리스트 초기화 선택 다이얼로그 -->
+<div class="modal-bg" id="chkResetChoiceBg" style="display:none;" onclick="if(event.target===this)closeChkResetChoice()">
+  <div class="modal modal--compact">
+    <div class="modal-title">체크리스트 초기화</div>
+    <div class="modal-sub">초기화 범위를 선택하세요</div>
+    <div class="modal-actions" style="flex-direction:column;">
+      <button class="confirm-dl-btn" style="width:100%" onclick="_doChkResetSoft()">체크박스 및 메모 초기화</button>
+      <button class="confirm-ok-btn" style="width:100%;margin-top:8px" onclick="_doChkResetFull()">완전 초기화 (장비 목록 및 순서 초기화)</button>
+      <button class="modal-close" style="margin-top:8px" onclick="closeChkResetChoice()">취소</button>
     </div>
   </div>
 </div>
