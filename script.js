@@ -511,6 +511,12 @@ function _updateBarForTab(id) {
     btnMain.textContent = '수정된 .vmix 저장';
     btnMain.onclick = openVmixSaveModal;
     btnMain.disabled = !_vmixAnyChanged();
+  } else if (id === 'chk') {
+    btnReset.onclick = openChkResetChoice;
+    btnReset.title = '체크리스트 초기화';
+    btnMain.textContent = 'PNG 저장';
+    btnMain.onclick = openModal;
+    btnMain.disabled = false;
   } else {
     btnReset.onclick = tryResetAll;
     btnReset.title = '전체 초기화';
