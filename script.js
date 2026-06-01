@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.85';
-const APP_SW_VERSION = 'v98';
+const APP_VERSION = '1.0.86';
+const APP_SW_VERSION = 'v99';
 
 const CHANGELOG = [
+  { v: '1.0.86', items: [
+    'vMix 화면비율·포지션복사·레이어설정 탭에 카테고리 스와치 필터 추가 — 카테고리0 선택 시 전체 소스 표시',
+  ] },
   { v: '1.0.85', items: [
     'vMix 레이어 설정 아코디언 — 소스 카드 클릭 시 레이어 설정 펼치기/접기, 번호·이름 검색창 순서 변경',
   ] },
@@ -3726,6 +3729,10 @@ let _vmixSplitMainCat = '1';
 let _vmixSplitSideCat = '2';
 let _vmixSplitTmplCat = '3';
 
+let _vmixArCat    = '0';
+let _vmixPosCat   = '0';
+let _vmixLayerCat = '0';
+
 let _vmixLayerEdits = new Map();    // key → true (레이어 편집된 소스 추적)
 let _vmixLayerExpanded = new Set(); // 펼쳐진 카드 key 집합
 let _vmixLayerNameSearch = '';      // 레이어 설정 탭 이름 검색어
@@ -3737,6 +3744,7 @@ function vmixLoad(file) {
   _vmixCopiedKey = null;
   _vmixNewVIs = [];
   _vmixSplitVIs = [];
+  _vmixArCat = '0'; _vmixPosCat = '0'; _vmixLayerCat = '0';
   _vmixSplitMainCat = '1'; _vmixSplitSideCat = '2'; _vmixSplitTmplCat = '3';
   _vmixLayerEdits = new Map(); _vmixLayerExpanded = new Set(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
   _vmixPastedFrom = new Map();
@@ -3933,9 +3941,27 @@ function vmixSwitchTab(id, btn) {
   document.getElementById('vmixSubReset').onclick = resetFns[id];
 }
 
+function _vmixFilterByCat(inputs, cat) {
+  if (cat === '0') { return inputs; }
+  return inputs.filter(i => i.getAttribute('Category') === cat);
+}
+
+function _vmixCatSwatchHtml(selCat, onclickFn) {
+  const swatches = _VMIX_CAT_COLORS.map((color, i) =>
+    `<div class="vmix-cat-swatch${String(i) === selCat ? ' sel' : ''}" style="background:${color};"
+      onclick="${onclickFn}('${i}')">${i}</div>`
+  ).join('');
+  return `<div class="vmix-cat-swatches" style="margin-bottom:10px;">${swatches}</div>`;
+}
+
+function vmixSetArCat(cat)    { _vmixArCat    = cat; vmixRenderArList(); }
+function vmixSetPosCat(cat)   { _vmixPosCat   = cat; vmixRenderPosList(); }
+function vmixSetLayerCat(cat) { _vmixLayerCat = cat; vmixRenderLayerPane(); }
+
 function vmixRenderArList() {
-  const inputs = _vmixInputs();
-  document.getElementById('vmixArList').innerHTML = inputs.map(inp => {
+  const allInputs = _vmixInputs();
+  const inputs = _vmixFilterByCat(allInputs, _vmixArCat);
+  const rows = inputs.map(inp => {
     const title = inp.getAttribute('OriginalTitle');
     const key = inp.getAttribute('Key');
     const ar = inp.getAttribute('AspectRatio') || '-';
@@ -3948,10 +3974,11 @@ function vmixRenderArList() {
       <span class="vmix-ar-badge${isWide ? ' wide' : ''}">${arLabel}</span>
     </div>`;
   }).join('');
+  document.getElementById('vmixArList').innerHTML = _vmixCatSwatchHtml(_vmixArCat, 'vmixSetArCat') + rows;
 }
 
 function vmixRenderPosList() {
-  const inputs = _vmixInputs();
+  const inputs = _vmixFilterByCat(_vmixInputs(), _vmixPosCat);
   const hasCopied = _vmixCopiedKey !== null;
   const header = hasCopied ? `<div class="vmix-action-bar" style="margin-top:0;padding-top:0;border-top:none;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #f0f0f0;">
     <label class="vmix-selall-wrap"><input type="checkbox" id="vmixPosSelAll" onchange="vmixTogglePosAll(this.checked)"><span>전체 선택</span></label>
@@ -3976,7 +4003,7 @@ function vmixRenderPosList() {
       <button class="vmix-btn${isCopied ? ' is-copied' : ''}" onclick="vmixCopyPos('${key}')">${isCopied ? '📋 복사됨' : '포지션 복사'}</button>
     </div>`;
   }).join('');
-  document.getElementById('vmixPosList').innerHTML = header + rows;
+  document.getElementById('vmixPosList').innerHTML = _vmixCatSwatchHtml(_vmixPosCat, 'vmixSetPosCat') + header + rows;
 }
 
 function vmixApplyWideSelected() {
@@ -4067,7 +4094,8 @@ function vmixRenderLayerPane() {
   const nullUUID = '00000000-0000-0000-0000-000000000000';
   const nameTerm = _vmixLayerNameSearch.trim().toLowerCase();
   const numTerm = _vmixLayerNumSearch.trim();
-  const filtered = allInputs.filter(i => {
+  const catFiltered = _vmixFilterByCat(allInputs, _vmixLayerCat);
+  const filtered = catFiltered.filter(i => {
     const nameOk = !nameTerm || i.getAttribute('OriginalTitle').toLowerCase().includes(nameTerm);
     const numOk  = !numTerm  || String(_vmixNum(i)) === numTerm;
     return nameOk && numOk;
@@ -4110,7 +4138,8 @@ function vmixRenderLayerPane() {
   }).join('');
   const emptyMsg = filtered.length === 0
     ? `<div style="color:#999;font-size:13px;text-align:center;padding:20px 0;">검색 결과 없음</div>` : '';
-  pane.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:12px;">
+  pane.innerHTML = _vmixCatSwatchHtml(_vmixLayerCat, 'vmixSetLayerCat') +
+    `<div style="display:flex;gap:8px;margin-bottom:12px;">
     <input type="number" class="vmix-layer-search" style="width:72px;" placeholder="번호"
       value="${_vmixLayerNumSearch}" oninput="vmixLayerNumSearch(this.value)">
     <input type="text" class="vmix-layer-search" style="flex:1;" placeholder="이름 검색..."
@@ -4565,6 +4594,7 @@ function vmixFullReset() {
   _vmixRawText = _vmixOrigText;
   _vmixDoc = new DOMParser().parseFromString(_vmixOrigText, 'text/xml');
   _vmixCopiedKey = null; _vmixNewVIs = []; _vmixSplitVIs = []; _vmixPastedFrom = new Map();
+  _vmixArCat = '0'; _vmixPosCat = '0'; _vmixLayerCat = '0';
   _vmixSplitMainCat = '1'; _vmixSplitSideCat = '2'; _vmixSplitTmplCat = '3';
   _vmixLayerEdits = new Map(); _vmixLayerExpanded = new Set(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
   vmixRenderArList(); vmixRenderPosList(); vmixRenderLayerPane(); vmixRenderSplitPane();
