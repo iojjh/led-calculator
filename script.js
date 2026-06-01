@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '1.0.89';
-const APP_SW_VERSION = 'v102';
+const APP_VERSION = '2.0.0';
+const APP_SW_VERSION = 'v103';
 
 const CHANGELOG = [
+  { v: '2.0.0', items: [
+    '정식 버전 2.0 출시',
+  ] },
   { v: '1.0.89', items: [
     '상단 업데이트 버튼 및 이스터에그 기능소개 이미지 만들기 기능 제거',
   ] },
