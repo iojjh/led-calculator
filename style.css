@@ -269,34 +269,6 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .pdf-pages-inner{padding:8px;width:max-content;min-width:100%;touch-action:pan-x pan-y;}
 .pdf-pages-inner canvas{display:block;margin-bottom:8px;touch-action:pan-x pan-y;}
 
-/* vMix 픽셀 검증 패널 */
-.vmix-toggle-btn{display:block;width:100%;text-align:left;background:#f5f5f5;border:1px solid #e8e8e8;border-radius:6px;padding:7px 12px;font-size:12px;color:#666;cursor:pointer;margin-top:6px;}
-.vmix-toggle-btn:hover{background:#eee;}
-#vmixPanel{margin-top:6px;padding:10px 12px;background:#fafafa;border:1px solid #eee;border-radius:8px;}
-.vmix-header{font-size:11px;color:#888;margin-bottom:8px;}
-.vmix-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;}
-.vmix-tbl thead tr{border-bottom:1.5px solid #e0e0e0;}
-.vmix-tbl th{text-align:left;color:#999;font-weight:500;padding:4px 6px;font-size:11px;}
-.vmix-tbl td{padding:6px 6px;border-bottom:1px solid #f0f0f0;color:#1a1a1a;}
-.vmix-tbl tbody tr:last-child td{border-bottom:none;}
-.vmix-name{font-weight:600;color:#0F6E56;}
-.vmix-int{color:#1D9E75;}
-.vmix-frac{color:#E24B4A;}
-.vmix-warn-sm{color:#c07000;}
-.vmix-absorb{font-size:10px;color:#888;}
-.vmix-zero{color:#bbb;}
-.vmix-note{font-size:11px;padding:5px 8px;border-radius:4px;margin-top:4px;line-height:1.6;}
-.vmix-note.ok{background:#E1F5EE;color:#085041;}
-.vmix-note.warn{background:#FFF3E0;color:#A04000;}
-.vmix-note.info{background:#f5f5f5;color:#555;}
-.vmix-ratio10{font-family:monospace;font-size:11px;color:#333;}
-.vmix-adj-wrap{margin-top:10px;border-top:1px solid #eee;padding-top:8px;}
-.vmix-adj-label{font-size:11px;color:#888;margin-bottom:6px;}
-.vmix-adj-tabs{display:flex;gap:4px;margin-bottom:8px;}
-.vmix-adj-tab{border:1px solid #e0e0e0;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;color:#666;background:#fafafa;transition:all .12s;}
-.vmix-adj-tab.on{background:#0F6E56;border-color:#0F6E56;color:#fff;font-weight:600;}
-.vmix-opt-label{font-size:11px;color:#555;font-weight:600;margin-top:8px;margin-bottom:3px;padding:3px 0;}
-
 /* vMix 소스 매크로 탭 */
 .vmix-drop-area{border:2px dashed #d0d0d0;border-radius:10px;padding:28px 16px;text-align:center;font-size:13px;color:#999;cursor:pointer;transition:border-color .2s,color .2s;user-select:none;}
 .vmix-drop-area:hover,.vmix-drop-area.drag-over{border-color:#0F6E56;color:#0F6E56;}
