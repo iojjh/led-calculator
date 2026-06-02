@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.5';
-const APP_SW_VERSION = 'v108';
+const APP_VERSION = '2.0.6';
+const APP_SW_VERSION = 'v109';
 
 const CHANGELOG = [
+  { v: '2.0.6', items: [
+    '뒤로가기 모달 처리 — PNG저장·상태저장·vMix저장·체크리스트초기화·이스터에그 모달 열린 상태에서 뒤로가기 시 닫힘',
+    '종료 안내 토스트 스타일 통일 — z-index 600, 배경색 #1a1a1a으로 조정',
+  ] },
   { v: '2.0.5', items: [
     '뒤로가기 탭 이동 제거 — 탭 전환은 history 기록 없이 종료 안내 토스트만 작동',
   ] },
@@ -363,8 +367,8 @@ function renderCL() {
 }
 function tog(n) { State.chkState[n] = !State.chkState[n]; renderCL(); _saveChkLayout(); }
 function clearAllChecks() { Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); _saveChkLayout(); }
-function openChkResetChoice() { document.getElementById('chkResetChoiceBg').style.display = 'flex'; }
-function closeChkResetChoice() { document.getElementById('chkResetChoiceBg').style.display = 'none'; }
+function openChkResetChoice() { history.pushState({ overlay: 'chkReset' }, ''); document.getElementById('chkResetChoiceBg').style.display = 'flex'; }
+function closeChkResetChoice() { document.getElementById('chkResetChoiceBg').style.display = 'none'; if (history.state && history.state.overlay === 'chkReset') { _histBack(); } }
 function _doChkResetSoft() {
   Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; });
   Object.keys(State.chkNotes).forEach(k => { delete State.chkNotes[k]; });
@@ -637,12 +641,13 @@ function _onVersionTap() {
     log.innerHTML = CHANGELOG.map(c =>
       `<div class="e-log-row"><span class="e-log-v">v${c.v}</span><ul>${c.items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`
     ).join('');
+    history.pushState({ overlay: 'easter' }, '');
     document.getElementById('easterBg').style.display = 'flex';
   } else {
     State._verTimer = setTimeout(() => { State._verTaps = 0; }, 1800);
   }
 }
-function closeEaster()    { document.getElementById('easterBg').style.display = 'none'; }
+function closeEaster()    { document.getElementById('easterBg').style.display = 'none'; if (history.state && history.state.overlay === 'easter') { _histBack(); } }
 function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')) closeEaster(); }
 
 
@@ -678,9 +683,10 @@ function selSending(el) {
 function openModal() {
   const opt = document.getElementById('pngPwrOpt');
   if (opt) { opt.style.display = 'flex'; }
+  history.pushState({ overlay: 'modal' }, '');
   document.getElementById('modalBg').style.display = 'flex';
 }
-function closeModal()    { document.getElementById('modalBg').style.display = 'none'; }
+function closeModal()    { document.getElementById('modalBg').style.display = 'none'; if (history.state && history.state.overlay === 'modal') { _histBack(); } }
 function closeModalBg(e) { if (e.target === document.getElementById('modalBg')) closeModal(); }
 
 // dataURL → 파일 다운로드 (앵커를 DOM에 추가·제거해야 모든 브라우저에서 동작)
@@ -1705,8 +1711,8 @@ function renderSaveList() {
       </div>
     </div>`).join('');
 }
-function openSaveModal()  { renderSaveList(); document.getElementById('saveBg').style.display = 'flex'; }
-function closeSaveModal() { document.getElementById('saveBg').style.display = 'none'; }
+function openSaveModal()  { renderSaveList(); history.pushState({ overlay: 'save' }, ''); document.getElementById('saveBg').style.display = 'flex'; }
+function closeSaveModal() { document.getElementById('saveBg').style.display = 'none'; if (history.state && history.state.overlay === 'save') { _histBack(); } }
 function closeSaveBg(e)   { if (e.target === document.getElementById('saveBg')) closeSaveModal(); }
 
 
@@ -1929,7 +1935,7 @@ function _showExitToast() {
   if (!t) {
     t = document.createElement('div');
     t.id = '_exitToast';
-    t.style.cssText = 'position:fixed;bottom:72px;left:12px;right:12px;background:#333;color:#fff;border-radius:14px;padding:12px 16px;text-align:center;z-index:9999;font-size:13px;font-weight:500;pointer-events:none;opacity:0;transition:opacity .3s;';
+    t.style.cssText = 'position:fixed;bottom:72px;left:12px;right:12px;background:#1a1a1a;color:#fff;border-radius:14px;padding:12px 16px;text-align:center;z-index:600;font-size:13px;font-weight:500;pointer-events:none;opacity:0;transition:opacity .3s;';
     document.body.appendChild(t);
   }
   t.textContent = '뒤로가기를 한 번 더 누르면 앱이 종료됩니다';
@@ -1971,6 +1977,16 @@ window.addEventListener('popstate', e => {
     if (img) { img.style.transform = ''; }
   } else if (calcPanel && calcPanel.style.display !== 'none') {
     calcPanel.style.display = 'none';
+  } else if (document.getElementById('modalBg').style.display !== 'none') {
+    document.getElementById('modalBg').style.display = 'none';
+  } else if (document.getElementById('saveBg').style.display !== 'none') {
+    document.getElementById('saveBg').style.display = 'none';
+  } else if (document.getElementById('vmixSaveBg').style.display !== 'none') {
+    document.getElementById('vmixSaveBg').style.display = 'none';
+  } else if (document.getElementById('chkResetChoiceBg').style.display !== 'none') {
+    document.getElementById('chkResetChoiceBg').style.display = 'none';
+  } else if (document.getElementById('easterBg').style.display !== 'none') {
+    document.getElementById('easterBg').style.display = 'none';
   } else {
     // 열린 레이어 없음 — 종료 안내
     if (State._exitWarned) { return; }
@@ -4453,9 +4469,10 @@ function openVmixSaveModal() {
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixLayerChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixLayerChanged())} 레이어 설정</div>`,
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;color:${_vmixSplitChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixSplitChanged())} 자동 분할</div>`,
   ].join('');
+  history.pushState({ overlay: 'vmixSave' }, '');
   document.getElementById('vmixSaveBg').style.display = 'flex';
 }
-function closeVmixSaveModal() { document.getElementById('vmixSaveBg').style.display = 'none'; }
+function closeVmixSaveModal() { document.getElementById('vmixSaveBg').style.display = 'none'; if (history.state && history.state.overlay === 'vmixSave') { _histBack(); } }
 function closeVmixSaveBg(e) { if (e.target === document.getElementById('vmixSaveBg')) { closeVmixSaveModal(); } }
 
 function vmixFullReset() {
