@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.2';
-const APP_SW_VERSION = 'v105';
+const APP_VERSION = '2.0.3';
+const APP_SW_VERSION = 'v106';
 
 const CHANGELOG = [
+  { v: '2.0.3', items: [
+    '뒤로가기 종료 안내 — 열린 레이어 없을 때 뒤로가기 시 "한 번 더 누르면 앱이 종료됩니다" 토스트 표시, 2.5초 내 재입력 시 앱 종료',
+  ] },
   { v: '2.0.2', items: [
     '모바일 뒤로가기 버튼으로 앱 종료 방지 — 미리보기·PDF·튜토리얼·시뮬레이터·계산기·확인 다이얼로그 열린 상태에서 뒤로가기 시 레이어만 닫힘',
   ] },
@@ -551,7 +554,7 @@ function closeTutorial() {
   State._tutZoom = 1;
   const img = document.getElementById('tutImg');
   if (img) { img.style.transform = ''; }
-  if (history.state && history.state.overlay === 'tutorial') { history.back(); }
+  if (history.state && history.state.overlay === 'tutorial') { _histBack(); }
 }
 function _tutSetImg(idx) {
   State._tutIdx = idx;
@@ -712,7 +715,7 @@ function closePreviewModal() {
   _blobUrls.forEach(u => URL.revokeObjectURL(u)); _blobUrls = [];
   document.getElementById('previewImg').src = '';
   document.getElementById('resVersionTabs').style.display = 'none';
-  if (history.state && history.state.overlay === 'preview') { history.back(); }
+  if (history.state && history.state.overlay === 'preview') { _histBack(); }
 }
 function closePreview(e) {
   if (e.target === document.getElementById('previewBg')) { closePreviewModal(); }
@@ -1496,7 +1499,7 @@ function closeConfirm() {
   const bg = document.getElementById('confirmBg');
   bg.style.display = 'none';
   if (bg.parentElement !== document.body) { document.body.appendChild(bg); }
-  if (history.state && history.state.overlay === 'confirm') { history.back(); }
+  if (history.state && history.state.overlay === 'confirm') { _histBack(); }
 }
 function closeConfirmBg(e) { if (e.target === document.getElementById('confirmBg')) closeConfirm(); }
 
@@ -1798,7 +1801,7 @@ function toggleCalc() {
     p.style.display = 'block';
   } else {
     p.style.display = 'none';
-    if (history.state && history.state.overlay === 'calc') { history.back(); }
+    if (history.state && history.state.overlay === 'calc') { _histBack(); }
   }
 }
 
@@ -1905,17 +1908,24 @@ function closePdfModal() {
   document.getElementById('pdfBg').style.display = 'none';
   document.getElementById('pdfPagesInner').innerHTML = '';
   _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
-  if (history.state && history.state.modal === 'pdf') { history.back(); }
+  if (history.state && history.state.modal === 'pdf') { _histBack(); }
 }
 
+let _programmaticBack = false;
+function _histBack() { _programmaticBack = true; history.back(); }
+
+// 앱 진입 시 guard 엔트리 삽입 — 열린 레이어 없을 때 뒤로가기 시 popstate 발생 보장
+history.pushState({ app: 'guard' }, '');
+
 window.addEventListener('popstate', () => {
+  if (_programmaticBack) { _programmaticBack = false; return; }
   const confirmBg  = document.getElementById('confirmBg');
   const simFsBg    = document.getElementById('simFsBg');
   const previewBg  = document.getElementById('previewBg');
   const pdfBg      = document.getElementById('pdfBg');
   const tutorialBg = document.getElementById('tutorialBg');
   const calcPanel  = document.getElementById('calcPanel');
-  // 우선순위: 최상위 레이어부터 닫기 (history.back() 없이 UI만 처리)
+  // 우선순위: 최상위 레이어부터 닫기 (UI만, _histBack() 호출 없음)
   if (confirmBg && confirmBg.style.display !== 'none') {
     confirmBg.style.display = 'none';
     if (confirmBg.parentElement !== document.body) { document.body.appendChild(confirmBg); }
@@ -1940,6 +1950,22 @@ window.addEventListener('popstate', () => {
     if (img) { img.style.transform = ''; }
   } else if (calcPanel && calcPanel.style.display !== 'none') {
     calcPanel.style.display = 'none';
+  } else {
+    // 열린 레이어 없음 — 한 번 더 누르면 앱 종료 안내
+    if (State._exitWarned) { return; }
+    State._exitWarned = true;
+    const t = document.getElementById('updateToast');
+    if (t) {
+      t.textContent = '뒤로가기를 한 번 더 누르면 앱이 종료됩니다';
+      t.classList.add('show');
+      setTimeout(() => { t.classList.remove('show'); }, 2500);
+    }
+    // 2.5초 내 다시 뒤로가기 → guard 없으므로 앱 종료
+    // 2.5초 경과 → guard 복원해 실수로 종료 방지
+    State._exitTimer = setTimeout(() => {
+      State._exitWarned = false;
+      history.pushState({ app: 'guard' }, '');
+    }, 2500);
   }
 });
 
@@ -2564,7 +2590,7 @@ function closeSimFs() {
   if (!bg) { return; }
   bg.remove();
   if (document.fullscreenElement) { document.exitFullscreen(); }
-  if (history.state && history.state.overlay === 'simFs') { history.back(); }
+  if (history.state && history.state.overlay === 'simFs') { _histBack(); }
   buildSim();
 }
 
