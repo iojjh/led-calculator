@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.1';
-const APP_SW_VERSION = 'v104';
+const APP_VERSION = '2.0.2';
+const APP_SW_VERSION = 'v105';
 
 const CHANGELOG = [
+  { v: '2.0.2', items: [
+    '모바일 뒤로가기 버튼으로 앱 종료 방지 — 미리보기·PDF·튜토리얼·시뮬레이터·계산기·확인 다이얼로그 열린 상태에서 뒤로가기 시 레이어만 닫힘',
+  ] },
   { v: '2.0.1', items: [
     '튜토리얼 이미지 뷰어 추가 — 장비 체크리스트·vMix 탭 상단 ? 버튼으로 탭별 튜토리얼 이미지 슬라이드 뷰어 (좌우 스와이프·핀치 줌)',
   ] },
@@ -540,6 +543,7 @@ function openTutorial(tabId) {
   State._tutImgs = imgs;
   if (!State._tutReady) { _tutAttachEvents(); State._tutReady = true; }
   _tutSetImg(0);
+  history.pushState({ overlay: 'tutorial' }, '');
   document.getElementById('tutorialBg').style.display = 'flex';
 }
 function closeTutorial() {
@@ -547,6 +551,7 @@ function closeTutorial() {
   State._tutZoom = 1;
   const img = document.getElementById('tutImg');
   if (img) { img.style.transform = ''; }
+  if (history.state && history.state.overlay === 'tutorial') { history.back(); }
 }
 function _tutSetImg(idx) {
   State._tutIdx = idx;
@@ -696,6 +701,7 @@ function _cvToUrl(cv) {
 function showPreview(url, filename) {
   pendingDownload = { url, filename };
   document.getElementById('previewImg').src = url;
+  history.pushState({ overlay: 'preview' }, '');
   document.getElementById('previewBg').style.display = 'flex';
   closeModal();
 }
@@ -706,6 +712,7 @@ function closePreviewModal() {
   _blobUrls.forEach(u => URL.revokeObjectURL(u)); _blobUrls = [];
   document.getElementById('previewImg').src = '';
   document.getElementById('resVersionTabs').style.display = 'none';
+  if (history.state && history.state.overlay === 'preview') { history.back(); }
 }
 function closePreview(e) {
   if (e.target === document.getElementById('previewBg')) { closePreviewModal(); }
@@ -1223,6 +1230,7 @@ async function genResImageMulti() {
   document.getElementById('tabWmSecRes').style.display = wmSecUrl ? '' : 'none';
   document.getElementById('resVersionTabs').style.display = 'block';
   selectResVersion('normal');
+  history.pushState({ overlay: 'preview' }, '');
   document.getElementById('previewBg').style.display = 'flex';
   closeModal();
 }
@@ -1236,6 +1244,7 @@ function showResPreview(baseUrl, wmUrl, filename) {
   document.getElementById('tabWmSecRes').style.display = 'none';
   document.getElementById('resVersionTabs').style.display = wmUrl ? 'block' : 'none';
   selectResVersion('normal');
+  history.pushState({ overlay: 'preview' }, '');
   document.getElementById('previewBg').style.display = 'flex';
   closeModal();
 }
@@ -1480,12 +1489,14 @@ function openConfirm(title, msg, onOk) {
   // fullscreen 모드일 때 confirmBg를 fullscreen 컨테이너 안으로 이동해야 보임
   const fsEl = document.getElementById('simFsBg');
   if (fsEl) { fsEl.appendChild(bg); }
+  history.pushState({ overlay: 'confirm' }, '');
   bg.style.display = 'flex';
 }
 function closeConfirm() {
   const bg = document.getElementById('confirmBg');
   bg.style.display = 'none';
   if (bg.parentElement !== document.body) { document.body.appendChild(bg); }
+  if (history.state && history.state.overlay === 'confirm') { history.back(); }
 }
 function closeConfirmBg(e) { if (e.target === document.getElementById('confirmBg')) closeConfirm(); }
 
@@ -1782,7 +1793,13 @@ function calcDel() {
 }
 function toggleCalc() {
   const p = document.getElementById('calcPanel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'none') {
+    history.pushState({ overlay: 'calc' }, '');
+    p.style.display = 'block';
+  } else {
+    p.style.display = 'none';
+    if (history.state && history.state.overlay === 'calc') { history.back(); }
+  }
 }
 
 
@@ -1891,11 +1908,38 @@ function closePdfModal() {
   if (history.state && history.state.modal === 'pdf') { history.back(); }
 }
 
-window.addEventListener('popstate', e => {
-  if (document.getElementById('pdfBg').style.display !== 'none') {
-    document.getElementById('pdfBg').style.display = 'none';
+window.addEventListener('popstate', () => {
+  const confirmBg  = document.getElementById('confirmBg');
+  const simFsBg    = document.getElementById('simFsBg');
+  const previewBg  = document.getElementById('previewBg');
+  const pdfBg      = document.getElementById('pdfBg');
+  const tutorialBg = document.getElementById('tutorialBg');
+  const calcPanel  = document.getElementById('calcPanel');
+  // 우선순위: 최상위 레이어부터 닫기 (history.back() 없이 UI만 처리)
+  if (confirmBg && confirmBg.style.display !== 'none') {
+    confirmBg.style.display = 'none';
+    if (confirmBg.parentElement !== document.body) { document.body.appendChild(confirmBg); }
+  } else if (simFsBg) {
+    simFsBg.remove();
+    if (document.fullscreenElement) { document.exitFullscreen(); }
+    buildSim();
+  } else if (previewBg && previewBg.style.display !== 'none') {
+    previewBg.style.display = 'none';
+    pendingDownload = null; _resVersions = null;
+    _blobUrls.forEach(u => URL.revokeObjectURL(u)); _blobUrls = [];
+    document.getElementById('previewImg').src = '';
+    document.getElementById('resVersionTabs').style.display = 'none';
+  } else if (pdfBg && pdfBg.style.display !== 'none') {
+    pdfBg.style.display = 'none';
     document.getElementById('pdfPagesInner').innerHTML = '';
     _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
+  } else if (tutorialBg && tutorialBg.style.display !== 'none') {
+    tutorialBg.style.display = 'none';
+    State._tutZoom = 1;
+    const img = document.getElementById('tutImg');
+    if (img) { img.style.transform = ''; }
+  } else if (calcPanel && calcPanel.style.display !== 'none') {
+    calcPanel.style.display = 'none';
   }
 });
 
@@ -2506,6 +2550,7 @@ function openSimFs() {
   const cv = document.getElementById('simCanvas');
   if (cv) { bg.querySelector('#simFsCanvasWrap').appendChild(cv); }
   document.body.appendChild(bg);
+  history.pushState({ overlay: 'simFs' }, '');
 
   bg.requestFullscreen()
     .then(() => screen.orientation.lock('landscape').catch(() => {}))
@@ -2519,6 +2564,7 @@ function closeSimFs() {
   if (!bg) { return; }
   bg.remove();
   if (document.fullscreenElement) { document.exitFullscreen(); }
+  if (history.state && history.state.overlay === 'simFs') { history.back(); }
   buildSim();
 }
 
