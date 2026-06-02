@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.4';
-const APP_SW_VERSION = 'v107';
+const APP_VERSION = '2.0.5';
+const APP_SW_VERSION = 'v108';
 
 const CHANGELOG = [
+  { v: '2.0.5', items: [
+    '뒤로가기 탭 이동 제거 — 탭 전환은 history 기록 없이 종료 안내 토스트만 작동',
+  ] },
   { v: '2.0.4', items: [
     '뒤로가기 탭 이동 — 탭 전환 시 history 기록, 뒤로가기로 이전 탭 복원',
     '뒤로가기 종료 안내 토스트 개선 — 전용 요소로 교체, _showExitToast 안정화',
@@ -307,9 +310,6 @@ const State = {
   // 소형 계산기
   cDisp: '0', cParts: [], cNew: true, cExpr: '',
 
-  // 현재 활성 탭
-  curTab: 'calc',
-
   // 시뮬레이터 탭 ('lan' | 'pwr')
   simTab: 'lan',
   _savedLan: null,  // 파워콘 탭 활성 중 저장해 둔 랜선 상태
@@ -508,20 +508,7 @@ function delMemo(i) { State.memoList.splice(i, 1); renderMemo(); }
 
 // ── §4  탭 전환 & 버전 표시 ──────────────────────────────
 
-// 뒤로가기로 탭 복원할 때 사용 — history push 없이 UI만 전환
-function _popswTab(id) {
-  State.curTab = id;
-  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('on'));
-  document.getElementById('tab-' + id).classList.add('on');
-  const btn = document.querySelector(`[onclick="swTab('${id}',this)"]`);
-  if (btn) { btn.classList.add('on'); }
-  _updateBarForTab(id);
-}
-
 function swTab(id, btn) {
-  if (id !== State.curTab) { history.pushState({ tab: id }, ''); }
-  State.curTab = id;
   document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('on'));
   document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('on'));
   document.getElementById('tab-' + id).classList.add('on');
@@ -1934,8 +1921,8 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
-// 앱 진입 시 guard 엔트리 삽입 — 초기 탭 정보 포함
-history.pushState({ app: 'guard', tab: 'calc' }, '');
+// 앱 진입 시 guard 엔트리 삽입
+history.pushState({ app: 'guard' }, '');
 
 function _showExitToast() {
   let t = document.getElementById('_exitToast');
@@ -1985,21 +1972,16 @@ window.addEventListener('popstate', e => {
   } else if (calcPanel && calcPanel.style.display !== 'none') {
     calcPanel.style.display = 'none';
   } else {
-    // 열린 레이어 없음 — 탭 복원 or 종료 안내
-    const st = e.state;
-    if (st && st.tab && st.tab !== State.curTab) { _popswTab(st.tab); }
-    // guard 상태(앱 최초 진입점)면 종료 안내
-    if (!st || st.app === 'guard') {
-      if (State._exitWarned) { return; }
-      State._exitWarned = true;
-      _showExitToast();
-      // 2.5초 내 재입력 → guard 없으므로 앱 종료
-      // 2.5초 경과 → guard 복원해 실수 종료 방지
-      State._exitTimer = setTimeout(() => {
-        State._exitWarned = false;
-        history.pushState({ app: 'guard', tab: State.curTab }, '');
-      }, 2500);
-    }
+    // 열린 레이어 없음 — 종료 안내
+    if (State._exitWarned) { return; }
+    State._exitWarned = true;
+    _showExitToast();
+    // 2.5초 내 재입력 → guard 없으므로 앱 종료
+    // 2.5초 경과 → guard 복원해 실수 종료 방지
+    State._exitTimer = setTimeout(() => {
+      State._exitWarned = false;
+      history.pushState({ app: 'guard' }, '');
+    }, 2500);
   }
 });
 
