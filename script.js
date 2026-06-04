@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.14';
-const APP_SW_VERSION = 'v117';
+const APP_VERSION = '2.0.15';
+const APP_SW_VERSION = 'v118';
 
 const CHANGELOG = [
+  { v: '2.0.15', items: [
+    'SW 캐시 — msal-browser.min.js 항목 제거',
+  ] },
   { v: '2.0.14', items: [
     '일정 fetch — corsproxy.io 자동 경유 (Outlook CORS 차단 자동 우회)',
   ] },

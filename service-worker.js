@@ -4,7 +4,7 @@
 //  버전 업데이트 시 CACHE_VERSION 숫자를 올리면 구 캐시가 자동 삭제됨
 // ════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'v117';
+const CACHE_VERSION = 'v118';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
 // 앱 구동에 필수인 에셋 — 캐시 실패 시 SW 설치가 중단됨
@@ -18,7 +18,6 @@ const CORE_ASSETS = [
 // 선택적 에셋 — 캐시 실패해도 설치는 계속됨 (PDF는 용량이 커 실패 허용)
 const EXTRA_ASSETS = [
   './',
-  './msal-browser.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './3Y_text.png',
