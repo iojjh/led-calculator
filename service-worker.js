@@ -4,7 +4,7 @@
 //  버전 업데이트 시 CACHE_VERSION 숫자를 올리면 구 캐시가 자동 삭제됨
 // ════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'v111';
+const CACHE_VERSION = 'v112';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
 // 앱 구동에 필수인 에셋 — 캐시 실패 시 SW 설치가 중단됨
@@ -70,6 +70,8 @@ self.addEventListener('activate', e => {
 // ── 요청 가로채기 ─────────────────────────────────────────
 // 캐시 우선, 없으면 네트워크
 self.addEventListener('fetch', e => {
+  // 크로스오리진 요청(외부 CDN 등)은 SW가 개입하지 않고 브라우저에 위임
+  if (!e.request.url.startsWith(self.location.origin)) { return; }
   e.respondWith(
     caches.match(e.request)
       .then(cached => cached || fetch(e.request))

@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.8';
-const APP_SW_VERSION = 'v111';
+const APP_VERSION = '2.0.9';
+const APP_SW_VERSION = 'v112';
 
 const CHANGELOG = [
+  { v: '2.0.9', items: [
+    'SW fetch 핸들러 — 크로스오리진 요청 SW 개입 제거 (외부 CDN 로드 실패 원인 수정)',
+    'MSAL CDN jsDelivr로 변경',
+  ] },
   { v: '2.0.8', items: [
     '일정 모달 — 헤더 설정 버튼 추가, API 키 변경 가능',
     'MSAL CDN을 unpkg로 변경 (Microsoft CDN 로드 실패 대응)',
@@ -4582,7 +4586,7 @@ async function _schedInitMsal(clientId) {
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://unpkg.com/@azure/msal-browser@2.38.3/dist/msal-browser.min.js';
+      s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/dist/msal-browser.min.js';
       s.onload = resolve;
       s.onerror = () => reject(new Error('MSAL CDN 로드 실패'));
       document.head.appendChild(s);
