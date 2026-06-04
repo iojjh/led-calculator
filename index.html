@@ -40,6 +40,7 @@
         <button class="mode-btn on" id="modeBtn-single" onclick="setAreaMode('single')">단일</button>
         <button class="mode-btn"    id="modeBtn-multi"  onclick="setAreaMode('multi')">멀티 섹션</button>
       </div>
+      <button class="sched-btn" onclick="openSchedModal()">일정</button>
     </div>
     <!-- 단일 모드 -->
     <div id="area-single">
@@ -406,6 +407,17 @@
 </div>
 <!-- 업데이트 완료 토스트 (자동 업데이트 후 표시) -->
 <div id="updateToast" class="update-toast"></div>
+
+<!-- 일정 불러오기 모달 -->
+<div id="schedBg" class="sched-bg" style="display:none" onclick="_schedBgClick(event)">
+  <div class="sched-sheet">
+    <div class="sched-hdr">
+      <span class="sched-title">일정 불러오기</span>
+      <button class="sched-close" onclick="closeSchedModal()">✕</button>
+    </div>
+    <div id="sched-body"></div>
+  </div>
+</div>
 
 <!-- Service Worker 등록 -->
 <script>

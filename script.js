@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.6';
-const APP_SW_VERSION = 'v109';
+const APP_VERSION = '2.0.7';
+const APP_SW_VERSION = 'v110';
 
 const CHANGELOG = [
+  { v: '2.0.7', items: [
+    '일정 불러오기 — 계산기 탭에서 Outlook 일정 선택 시 Claude API가 LED 피치·설치 면적을 파싱해 자동 적용',
+  ] },
   { v: '2.0.6', items: [
     '뒤로가기 모달 처리 — PNG저장·상태저장·vMix저장·체크리스트초기화·이스터에그 모달 열린 상태에서 뒤로가기 시 닫힘',
     '종료 안내 토스트 스타일 통일 — z-index 600, 배경색 #1a1a1a으로 조정',
@@ -1977,6 +1980,8 @@ window.addEventListener('popstate', e => {
     if (img) { img.style.transform = ''; }
   } else if (calcPanel && calcPanel.style.display !== 'none') {
     calcPanel.style.display = 'none';
+  } else if (document.getElementById('schedBg') && document.getElementById('schedBg').style.display !== 'none') {
+    document.getElementById('schedBg').style.display = 'none';
   } else if (document.getElementById('modalBg').style.display !== 'none') {
     document.getElementById('modalBg').style.display = 'none';
   } else if (document.getElementById('saveBg').style.display !== 'none') {
@@ -4485,6 +4490,266 @@ function vmixFullReset() {
   _vmixLayerEdits = new Map(); _vmixLayerExpanded = new Set(); _vmixLayerNameSearch = ''; _vmixLayerNumSearch = '';
   vmixRenderArList(); vmixRenderPosList(); vmixRenderLayerPane(); vmixRenderSplitPane();
   _vmixUpdateSaveBtn();
+}
+
+// ── §13  일정 불러오기 ────────────────────────────────────────────────────────
+
+let _msalInst = null;
+let _schedAccount = null;
+let _schedEvents = [];
+
+function openSchedModal() {
+  document.getElementById('schedBg').style.display = 'flex';
+  history.pushState({ overlay: 'sched' }, '');
+  _schedRender();
+}
+
+function closeSchedModal() {
+  document.getElementById('schedBg').style.display = 'none';
+  if (history.state && history.state.overlay === 'sched') { _histBack(); }
+}
+
+function _schedBgClick(e) {
+  if (e.target === document.getElementById('schedBg')) { closeSchedModal(); }
+}
+
+async function _schedRender() {
+  const body = document.getElementById('sched-body');
+  const clientId = localStorage.getItem('bsp_client_id') || '';
+  const claudeKey = localStorage.getItem('bsp_claude_key') || '';
+
+  if (!clientId || !claudeKey) {
+    body.innerHTML = `
+      <p class="sched-hint-sm">Outlook 연동을 위해 한 번만 설정하세요.</p>
+      <label class="sched-lbl">Azure 클라이언트 ID</label>
+      <input id="sched-inp-cid" class="sched-inp" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${_se(clientId)}">
+      <label class="sched-lbl">Claude API 키 <small style="color:#ccc">— 이 기기 localStorage에만 저장됨</small></label>
+      <input id="sched-inp-key" class="sched-inp" type="password" placeholder="sk-ant-api03-...">
+      <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장 후 계속</button>`;
+    return;
+  }
+
+  if (!_msalInst) {
+    body.innerHTML = '<div class="sched-loading">초기화 중...</div>';
+    try {
+      await _schedInitMsal(clientId);
+    } catch (e) {
+      body.innerHTML = `<div class="sched-hint">초기화 실패: ${_se(e.message)}</div>`;
+      return;
+    }
+  }
+
+  const accounts = _msalInst.getAllAccounts();
+  _schedAccount = accounts.length > 0 ? accounts[0] : null;
+
+  if (!_schedAccount) {
+    body.innerHTML = `
+      <p class="sched-hint-sm">Outlook 캘린더 접근을 위해 Microsoft 계정으로 로그인하세요.</p>
+      <button class="sched-primary-btn" onclick="_schedLogin()">Microsoft 계정 연결</button>`;
+    return;
+  }
+
+  _schedRenderEvents();
+}
+
+function _schedSaveSettings() {
+  const cid = (document.getElementById('sched-inp-cid')?.value || '').trim();
+  const key = (document.getElementById('sched-inp-key')?.value || '').trim();
+  if (!cid || !key) { _toast('클라이언트 ID와 API 키를 모두 입력하세요.'); return; }
+  localStorage.setItem('bsp_client_id', cid);
+  localStorage.setItem('bsp_claude_key', key);
+  _msalInst = null;
+  _schedRender();
+}
+
+async function _schedInitMsal(clientId) {
+  if (!window.msal) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('MSAL CDN 로드 실패'));
+      document.head.appendChild(s);
+    });
+  }
+  _msalInst = new msal.PublicClientApplication({
+    auth: {
+      clientId,
+      authority: 'https://login.microsoftonline.com/consumers',
+      redirectUri: window.location.href.split('?')[0].split('#')[0]
+    },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
+  });
+  try { await _msalInst.handleRedirectPromise(); } catch (_) {}
+}
+
+async function _schedLogin() {
+  const body = document.getElementById('sched-body');
+  body.innerHTML = '<div class="sched-loading">로그인 팝업 여는 중...</div>';
+  try {
+    const res = await _msalInst.loginPopup({ scopes: ['User.Read', 'Calendars.Read'] });
+    _schedAccount = res.account;
+    _schedRenderEvents();
+  } catch (e) {
+    body.innerHTML = `<div class="sched-hint">로그인 실패: ${_se(e.message)}</div>
+      <button class="sched-primary-btn" style="margin-top:12px" onclick="_schedLogin()">다시 시도</button>`;
+  }
+}
+
+async function _schedToken() {
+  const req = { scopes: ['User.Read', 'Calendars.Read'], account: _schedAccount };
+  try {
+    return (await _msalInst.acquireTokenSilent(req)).accessToken;
+  } catch (_) {
+    return (await _msalInst.acquireTokenPopup(req)).accessToken;
+  }
+}
+
+async function _schedRenderEvents() {
+  const body = document.getElementById('sched-body');
+  body.innerHTML = '<div class="sched-loading">일정 불러오는 중...</div>';
+  try {
+    const token = await _schedToken();
+    const now = new Date();
+    const startISO = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const endISO = new Date(now.getFullYear(), now.getMonth() + 2, 1).toISOString();
+    const params = new URLSearchParams({
+      startDateTime: startISO, endDateTime: endISO,
+      '$select': 'id,subject,bodyPreview,start',
+      '$orderby': 'start/dateTime', '$top': '30'
+    });
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/calendarView?' + params, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) { throw new Error('Graph API ' + res.status); }
+    const data = await res.json();
+    _schedEvents = data.value || [];
+    _schedRenderList();
+  } catch (e) {
+    body.innerHTML = `<div class="sched-hint">일정 로드 실패: ${_se(e.message)}</div>
+      <button class="sched-primary-btn" style="margin-top:12px;background:#555" onclick="_schedRenderEvents()">재시도</button>`;
+  }
+}
+
+function _schedRenderList() {
+  const body = document.getElementById('sched-body');
+  const userRow = `<div class="sched-user-row">
+    <span class="sched-badge">✓ ${_se(_schedAccount.name || _schedAccount.username)}</span>
+    <button class="sched-refresh" onclick="_schedRenderEvents()">새로고침</button>
+  </div>`;
+
+  if (_schedEvents.length === 0) {
+    body.innerHTML = userRow + '<div class="sched-hint">이번 달 ~ 다음 달 일정이 없습니다.</div>';
+    return;
+  }
+
+  const items = _schedEvents.map((e, i) => {
+    const dt = new Date(e.start.dateTime || e.start.date);
+    const dateStr = dt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+    const preview = e.bodyPreview ? e.bodyPreview.slice(0, 80) : '';
+    return `<div class="sched-ev" onclick="_schedSelectEvent(${i})">
+      <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
+      <div class="sched-ev-date">${dateStr}</div>
+      ${preview ? `<div class="sched-ev-body">${_se(preview)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  body.innerHTML = userRow + items;
+}
+
+async function _schedSelectEvent(idx) {
+  const ev = _schedEvents[idx];
+  if (!ev) { return; }
+  const body = document.getElementById('sched-body');
+  body.innerHTML = '<div class="sched-loading">Claude가 일정을 분석하는 중...</div>';
+  const text = (ev.subject || '') + '\n' + (ev.bodyPreview || '').trim();
+  try {
+    const parsed = await _schedParseText(text);
+    _schedApplyParsed(parsed);
+    closeSchedModal();
+    const parts = [
+      parsed.pitch ? parsed.pitch + 'mm' : null,
+      (parsed.width != null && parsed.height != null) ? parsed.width + '×' + parsed.height + 'm' : null
+    ].filter(Boolean);
+    _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (파싱 결과 없음)');
+  } catch (e) {
+    body.innerHTML = `<div class="sched-hint">파싱 실패: ${_se(e.message)}</div>
+      <button class="sched-primary-btn" style="margin-top:12px;background:#555" onclick="_schedRenderList()">목록으로</button>`;
+  }
+}
+
+async function _schedParseText(text) {
+  const claudeKey = localStorage.getItem('bsp_claude_key');
+  if (!claudeKey) { throw new Error('Claude API 키 없음'); }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': claudeKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-allow-browser': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: `LED 설치 일정 텍스트에서 정보를 추출해 JSON으로 반환해줘.
+
+규칙:
+- pitch: LED 피치 숫자만 (2, 3, 4 중 하나의 정수, 없으면 null)
+- width: 설치 가로(m), "가로*세로" 중 첫 번째 숫자 (없으면 null)
+- height: 설치 세로(m), "가로*세로" 중 두 번째 숫자 (없으면 null)
+
+예시: "3mm 9*4.5(야외)" → {"pitch":3,"width":9,"height":4.5}
+예시: "2mm 6*3 프로파일 14시 도착" → {"pitch":2,"width":6,"height":3}
+
+텍스트: "${text.replace(/"/g, "'")}"
+
+JSON만 반환. 코드블록(\`\`\`) 없이.` }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Claude API ' + res.status);
+  }
+  const data = await res.json();
+  const raw = data.content[0].text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  return JSON.parse(raw);
+}
+
+function _schedApplyParsed(parsed) {
+  if (State.areaMode !== 'single') { setAreaMode('single'); }
+
+  if (parsed.pitch) {
+    document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
+    const el = document.querySelector('#ledChips .chip[data-v="' + parsed.pitch + 'mm"]');
+    if (el) { el.classList.add('on'); State.curLed = parsed.pitch + 'mm'; }
+  }
+
+  // 기본 패널: 500×1000mm (basePH=1000)
+  document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
+  const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
+  if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
+
+  if (parsed.width != null)  { document.getElementById('iW').value = parsed.width; }
+  if (parsed.height != null) { document.getElementById('iH').value = parsed.height; }
+
+  rst();
+  calc();
+  saveState();
+}
+
+let _toastTimer = null;
+function _toast(msg) {
+  const t = document.getElementById('updateToast');
+  if (!t) { return; }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function _se(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function vmixDownload() {
