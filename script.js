@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.16';
-const APP_SW_VERSION = 'v119';
+const APP_VERSION = '2.0.17';
+const APP_SW_VERSION = 'v120';
 
 const CHANGELOG = [
+  { v: '2.0.17', items: [
+    '일정 파싱 — 멀티 섹션 지원 (중앙/좌우/좌측/우측 키워드 자동 인식, 멀티 모드 자동 전환)',
+  ] },
   { v: '2.0.16', items: [
     '일정 목록 — 네이버밴드 자동 꼬리말 제거, 날짜·내용 가독성 개선',
   ] },
@@ -4634,10 +4637,18 @@ function _schedSelectEvent(idx) {
     const parsed = _schedParseText(text);
     _schedApplyParsed(parsed);
     closeSchedModal();
-    const parts = [
-      parsed.pitch ? parsed.pitch + 'mm' : null,
-      (parsed.width != null && parsed.height != null) ? parsed.width + '×' + parsed.height + 'm' : null
-    ].filter(Boolean);
+    const pitchStr = parsed.pitch ? parsed.pitch + 'mm' : null;
+    let areaStr;
+    if (parsed.mode === 'multi') {
+      const ap = [];
+      if (parsed.center) { ap.push('중앙 ' + parsed.center.w + '×' + parsed.center.h + 'm'); }
+      if (parsed.left)   { ap.push('좌우 ' + parsed.left.w   + '×' + parsed.left.h   + 'm'); }
+      areaStr = ap.join(' ');
+    } else {
+      areaStr = (parsed.width != null && parsed.height != null)
+        ? parsed.width + '×' + parsed.height + 'm' : null;
+    }
+    const parts = [pitchStr, areaStr].filter(Boolean);
     _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (면적 정보 없음)');
   } catch (e) {
     const body = document.getElementById('sched-body');
@@ -4648,30 +4659,82 @@ function _schedSelectEvent(idx) {
 
 function _schedParseText(text) {
   const pitchM = text.match(/(\d+)\s*mm/i);
-  const sizeM  = text.match(/(\d+\.?\d*)\s*[*×xX]\s*(\d+\.?\d*)/);
   const pitch  = pitchM ? parseInt(pitchM[1], 10) : null;
-  const width  = sizeM  ? parseFloat(sizeM[1])   : null;
-  const height = sizeM  ? parseFloat(sizeM[2])   : null;
+  const SZ     = '(\\d+\\.?\\d*)\\s*[*×xX]\\s*(\\d+\\.?\\d*)';
+  const toSize = m => m ? { w: parseFloat(m[1]), h: parseFloat(m[2]) } : null;
+
+  // 좌우/좌/우 키워드가 있으면 멀티 모드
+  const isMulti = /좌우|좌측|우측/.test(text) || /[좌우]\s*\d/.test(text);
+
+  if (isMulti) {
+    const centerM = text.match(new RegExp('중앙\\s*' + SZ));
+    const sideM   = text.match(new RegExp('좌우\\s*' + SZ));
+    // 좌우가 있으면 좌/우 개별 매칭 불필요
+    const leftM   = sideM ? null : text.match(new RegExp('(?:좌측|좌)\\s*' + SZ));
+    const rightM  = sideM ? null : text.match(new RegExp('(?:우측|우)\\s*' + SZ));
+
+    let center = toSize(centerM);
+    const left  = toSize(sideM) || toSize(leftM);
+    const right = toSize(sideM) || toSize(rightM);
+
+    // 중앙 미표기 시 라벨 없는 첫 번째 N*M을 중앙으로
+    if (!center) {
+      let tmp = text;
+      [sideM, leftM, rightM].forEach(m => { if (m) { tmp = tmp.replace(m[0], ''); } });
+      const rem = tmp.match(new RegExp(SZ));
+      if (rem) { center = { w: parseFloat(rem[1]), h: parseFloat(rem[2]) }; }
+    }
+
+    if (!center && !left && !right) {
+      throw new Error('멀티 섹션 면적을 찾을 수 없습니다.');
+    }
+    return { mode: 'multi', pitch, center, left, right };
+  }
+
+  // 단일 모드
+  const sizeM  = text.match(new RegExp(SZ));
+  const width  = sizeM ? parseFloat(sizeM[1]) : null;
+  const height = sizeM ? parseFloat(sizeM[2]) : null;
   if (pitch === null && width === null) {
     throw new Error('일정에서 LED 피치 또는 설치 면적을 찾을 수 없습니다.\n(예: 3mm 9*4.5)');
   }
-  return { pitch, width, height };
+  return { mode: 'single', pitch, width, height };
 }
 
 function _schedApplyParsed(parsed) {
-  if (State.areaMode !== 'single') { setAreaMode('single'); }
+  // LED 피치 (단일·멀티 공통)
   if (parsed.pitch) {
     document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
     const el = document.querySelector('#ledChips .chip[data-v="' + parsed.pitch + 'mm"]');
     if (el) { el.classList.add('on'); State.curLed = parsed.pitch + 'mm'; }
   }
+  // 기본 패널: 500×1000mm
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
   const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
   if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
-  if (parsed.width != null)  { document.getElementById('iW').value = parsed.width; }
-  if (parsed.height != null) { document.getElementById('iH').value = parsed.height; }
-  rst();
-  calc();
+
+  if (parsed.mode === 'multi') {
+    setAreaMode('multi');
+    if (parsed.center) {
+      document.getElementById('mW_C').value = parsed.center.w;
+      document.getElementById('mH_C').value = parsed.center.h;
+    }
+    if (parsed.left) {
+      document.getElementById('mW_L').value = parsed.left.w;
+      document.getElementById('mH_L').value = parsed.left.h;
+    }
+    if (parsed.right) {
+      document.getElementById('mW_R').value = parsed.right.w;
+      document.getElementById('mH_R').value = parsed.right.h;
+    }
+    calcMulti();
+  } else {
+    setAreaMode('single');
+    if (parsed.width != null)  { document.getElementById('iW').value = parsed.width; }
+    if (parsed.height != null) { document.getElementById('iH').value = parsed.height; }
+    rst();
+    calc();
+  }
   saveState();
 }
 
