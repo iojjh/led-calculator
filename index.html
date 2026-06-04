@@ -413,7 +413,10 @@
   <div class="sched-sheet">
     <div class="sched-hdr">
       <span class="sched-title">일정 불러오기</span>
-      <button class="sched-close" onclick="closeSchedModal()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="sched-setting-btn" onclick="_schedOpenSettings()">설정</button>
+        <button class="sched-close" onclick="closeSchedModal()">✕</button>
+      </div>
     </div>
     <div id="sched-body"></div>
   </div>

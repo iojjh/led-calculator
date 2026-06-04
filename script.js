@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.7';
-const APP_SW_VERSION = 'v110';
+const APP_VERSION = '2.0.8';
+const APP_SW_VERSION = 'v111';
 
 const CHANGELOG = [
+  { v: '2.0.8', items: [
+    '일정 모달 — 헤더 설정 버튼 추가, API 키 변경 가능',
+    'MSAL CDN을 unpkg로 변경 (Microsoft CDN 로드 실패 대응)',
+  ] },
   { v: '2.0.7', items: [
     '일정 불러오기 — 계산기 탭에서 Outlook 일정 선택 시 Claude API가 LED 피치·설치 면적을 파싱해 자동 적용',
   ] },
@@ -4552,12 +4556,24 @@ async function _schedRender() {
   _schedRenderEvents();
 }
 
+function _schedOpenSettings() {
+  const body = document.getElementById('sched-body');
+  const clientId = localStorage.getItem('bsp_client_id') || '';
+  body.innerHTML = `
+    <p class="sched-hint-sm">설정을 변경하세요. API 키를 비워두면 기존 값이 유지됩니다.</p>
+    <label class="sched-lbl">Azure 클라이언트 ID</label>
+    <input id="sched-inp-cid" class="sched-inp" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${_se(clientId)}">
+    <label class="sched-lbl">Claude API 키 <small style="color:#ccc">— 변경할 경우에만 입력</small></label>
+    <input id="sched-inp-key" class="sched-inp" type="password" placeholder="sk-ant-api03-...">
+    <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장</button>`;
+}
+
 function _schedSaveSettings() {
   const cid = (document.getElementById('sched-inp-cid')?.value || '').trim();
   const key = (document.getElementById('sched-inp-key')?.value || '').trim();
-  if (!cid || !key) { _toast('클라이언트 ID와 API 키를 모두 입력하세요.'); return; }
+  if (!cid) { _toast('클라이언트 ID를 입력하세요.'); return; }
   localStorage.setItem('bsp_client_id', cid);
-  localStorage.setItem('bsp_claude_key', key);
+  if (key) { localStorage.setItem('bsp_claude_key', key); }
   _msalInst = null;
   _schedRender();
 }
@@ -4566,7 +4582,7 @@ async function _schedInitMsal(clientId) {
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
+      s.src = 'https://unpkg.com/@azure/msal-browser@2.38.3/dist/msal-browser.min.js';
       s.onload = resolve;
       s.onerror = () => reject(new Error('MSAL CDN 로드 실패'));
       document.head.appendChild(s);
