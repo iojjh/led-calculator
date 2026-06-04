@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.13';
-const APP_SW_VERSION = 'v116';
+const APP_VERSION = '2.0.14';
+const APP_SW_VERSION = 'v117';
 
 const CHANGELOG = [
+  { v: '2.0.14', items: [
+    '일정 fetch — corsproxy.io 자동 경유 (Outlook CORS 차단 자동 우회)',
+  ] },
   { v: '2.0.13', items: [
     '일정 ICS URL 코드에 내장 — 사용자 설정 불필요',
   ] },
@@ -4569,17 +4572,18 @@ function _schedSaveSettings() {
 async function _schedFetchEvents(icsUrl) {
   const body = document.getElementById('sched-body');
   body.innerHTML = '<div class="sched-loading">일정 불러오는 중...</div>';
+  // Outlook ICS는 브라우저 직접 접근 차단 → corsproxy.io 경유
+  const fetchUrl = icsUrl.startsWith('https://corsproxy.io/')
+    ? icsUrl
+    : 'https://corsproxy.io/?' + encodeURIComponent(icsUrl);
   try {
-    const res = await fetch(icsUrl);
+    const res = await fetch(fetchUrl);
     if (!res.ok) { throw new Error('HTTP ' + res.status); }
     const text = await res.text();
     _schedEvents = _parseIcs(text);
     _schedRenderList();
   } catch (e) {
-    const hint = e instanceof TypeError
-      ? 'CORS 오류: Outlook이 브라우저 직접 접근을 차단하고 있습니다.<br>ICS URL 앞에 <b>https://corsproxy.io/?</b> 를 붙여 다시 시도하세요.'
-      : _se(e.message);
-    body.innerHTML = `<div class="sched-hint" style="line-height:1.7">${hint}</div>
+    body.innerHTML = `<div class="sched-hint">일정 로드 실패: ${_se(e.message)}</div>
       <button class="sched-primary-btn" style="margin-top:14px;background:#555" onclick="_schedOpenSettings()">URL 변경</button>`;
   }
 }
