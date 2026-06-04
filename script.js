@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.18';
-const APP_SW_VERSION = 'v121';
+const APP_VERSION = '2.0.19';
+const APP_SW_VERSION = 'v122';
 
 const CHANGELOG = [
+  { v: '2.0.19', items: [
+    'PNG 저장 — 포트 할당 영역이 파워콘 탭 활성 여부와 무관하게 항상 랜선 데이터 표시',
+  ] },
   { v: '2.0.18', items: [
     '계산 결과 — 패널 수 옆에 랙 개수 표시 (500×1000: 12장/랙, 500×500: 24장/랙)',
   ] },
@@ -1402,7 +1405,8 @@ async function saveCalcPng() {
     </div>`;
   }
 
-  const portRows = State.pA.map((s, i) => s.size > 0 ? `P${i+1}:${s.size}장` : null).filter(Boolean).join(' · ');
+  const _lanPA = State.simTab === 'pwr' && State._savedLan ? State._savedLan.pA : State.pA;
+  const portRows = _lanPA.map((s, i) => s.size > 0 ? `P${i+1}:${s.size}장` : null).filter(Boolean).join(' · ');
   const memoHtml = State.memoList.length
     ? SEC('메모') + State.memoList.map(t => `<div style="font-size:13px;color:#444;padding:3px 0;">• ${t}</div>`).join('')
     : '';
