@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.11';
-const APP_SW_VERSION = 'v114';
+const APP_VERSION = '2.0.12';
+const APP_SW_VERSION = 'v115';
 
 const CHANGELOG = [
+  { v: '2.0.12', items: [
+    '일정 불러오기 — MSAL/Azure 제거, Outlook 공개 ICS URL 방식으로 전환 (로그인 불필요)',
+    'ICS 파서 내장 — VEVENT 블록 파싱, 오늘 이후 일정만 표시',
+  ] },
   { v: '2.0.11', items: [
     '일정 파싱 — Claude API 제거, 로컬 정규식으로 전환 (CORS 오류 해결)',
     '일정 설정 — Claude API 키 항목 제거, Azure 클라이언트 ID만 필요',
@@ -4508,9 +4512,9 @@ function vmixFullReset() {
 }
 
 // ── §13  일정 불러오기 ────────────────────────────────────────────────────────
+// 관리자: 본인 Outlook 공개 ICS URL을 아래에 설정 (빈 문자열이면 설정 화면 표시)
+const _SCHED_ICS_URL = '';
 
-let _msalInst = null;
-let _schedAccount = null;
 let _schedEvents = [];
 
 function openSchedModal() {
@@ -4528,138 +4532,63 @@ function _schedBgClick(e) {
   if (e.target === document.getElementById('schedBg')) { closeSchedModal(); }
 }
 
-async function _schedRender() {
-  const body = document.getElementById('sched-body');
-  const clientId = localStorage.getItem('bsp_client_id') || '';
-
-  if (!clientId) {
+function _schedRender() {
+  const icsUrl = localStorage.getItem('bsp_ics_url') || _SCHED_ICS_URL;
+  if (!icsUrl) {
+    const body = document.getElementById('sched-body');
     body.innerHTML = `
-      <p class="sched-hint-sm">Outlook 연동을 위해 Azure 클라이언트 ID를 한 번만 설정하세요.</p>
-      <label class="sched-lbl">Azure 클라이언트 ID</label>
-      <input id="sched-inp-cid" class="sched-inp" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${_se(clientId)}">
-      <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장 후 계속</button>`;
+      <p class="sched-hint-sm">Outlook 캘린더 공개 ICS URL을 설정하세요.<br>Outlook → 캘린더 → 공유 → 게시(Publish) → ICS 링크 복사</p>
+      <label class="sched-lbl">ICS URL</label>
+      <input id="sched-inp-ics" class="sched-inp" type="text" placeholder="https://outlook.live.com/owa/calendar/.../calendar.ics">
+      <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장 후 불러오기</button>`;
     return;
   }
-
-  if (!_msalInst) {
-    body.innerHTML = '<div class="sched-loading">초기화 중...</div>';
-    try {
-      await _schedInitMsal(clientId);
-    } catch (e) {
-      body.innerHTML = `<div class="sched-hint">초기화 실패: ${_se(e.message)}</div>`;
-      return;
-    }
-  }
-
-  const accounts = _msalInst.getAllAccounts();
-  _schedAccount = accounts.length > 0 ? accounts[0] : null;
-
-  if (!_schedAccount) {
-    body.innerHTML = `
-      <p class="sched-hint-sm">Outlook 캘린더 접근을 위해 Microsoft 계정으로 로그인하세요.</p>
-      <button class="sched-primary-btn" onclick="_schedLogin()">Microsoft 계정 연결</button>`;
-    return;
-  }
-
-  _schedRenderEvents();
+  _schedFetchEvents(icsUrl);
 }
 
 function _schedOpenSettings() {
   const body = document.getElementById('sched-body');
-  const clientId = localStorage.getItem('bsp_client_id') || '';
+  const cur = localStorage.getItem('bsp_ics_url') || _SCHED_ICS_URL;
   body.innerHTML = `
-    <p class="sched-hint-sm">Azure 클라이언트 ID를 변경하세요.</p>
-    <label class="sched-lbl">Azure 클라이언트 ID</label>
-    <input id="sched-inp-cid" class="sched-inp" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${_se(clientId)}">
+    <p class="sched-hint-sm">Outlook 캘린더 공개 ICS URL</p>
+    <label class="sched-lbl">ICS URL</label>
+    <input id="sched-inp-ics" class="sched-inp" type="text" value="${_se(cur)}" placeholder="https://outlook.live.com/owa/calendar/.../calendar.ics">
     <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장</button>`;
 }
 
 function _schedSaveSettings() {
-  const cid = (document.getElementById('sched-inp-cid')?.value || '').trim();
-  if (!cid) { _toast('클라이언트 ID를 입력하세요.'); return; }
-  localStorage.setItem('bsp_client_id', cid);
-  _msalInst = null;
-  _schedRender();
+  const url = (document.getElementById('sched-inp-ics')?.value || '').trim();
+  if (!url) { _toast('ICS URL을 입력하세요.'); return; }
+  localStorage.setItem('bsp_ics_url', url);
+  _schedFetchEvents(url);
 }
 
-async function _schedInitMsal(clientId) {
-  if (!window.msal) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = './msal-browser.min.js';
-      s.onload = resolve;
-      s.onerror = () => reject(new Error('MSAL 로드 실패'));
-      document.head.appendChild(s);
-    });
-  }
-  _msalInst = new msal.PublicClientApplication({
-    auth: {
-      clientId,
-      authority: 'https://login.microsoftonline.com/consumers',
-      redirectUri: window.location.href.split('?')[0].split('#')[0]
-    },
-    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
-  });
-  try { await _msalInst.handleRedirectPromise(); } catch (_) {}
-}
-
-async function _schedLogin() {
-  const body = document.getElementById('sched-body');
-  body.innerHTML = '<div class="sched-loading">로그인 팝업 여는 중...</div>';
-  try {
-    const res = await _msalInst.loginPopup({ scopes: ['User.Read', 'Calendars.Read'] });
-    _schedAccount = res.account;
-    _schedRenderEvents();
-  } catch (e) {
-    body.innerHTML = `<div class="sched-hint">로그인 실패: ${_se(e.message)}</div>
-      <button class="sched-primary-btn" style="margin-top:12px" onclick="_schedLogin()">다시 시도</button>`;
-  }
-}
-
-async function _schedToken() {
-  const req = { scopes: ['User.Read', 'Calendars.Read'], account: _schedAccount };
-  try {
-    return (await _msalInst.acquireTokenSilent(req)).accessToken;
-  } catch (_) {
-    return (await _msalInst.acquireTokenPopup(req)).accessToken;
-  }
-}
-
-async function _schedRenderEvents() {
+async function _schedFetchEvents(icsUrl) {
   const body = document.getElementById('sched-body');
   body.innerHTML = '<div class="sched-loading">일정 불러오는 중...</div>';
   try {
-    const token = await _schedToken();
-    const now = new Date();
-    const startISO = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endISO = new Date(now.getFullYear(), now.getMonth() + 2, 1).toISOString();
-    const params = new URLSearchParams({
-      startDateTime: startISO, endDateTime: endISO,
-      '$select': 'id,subject,bodyPreview,start',
-      '$orderby': 'start/dateTime', '$top': '30'
-    });
-    const res = await fetch('https://graph.microsoft.com/v1.0/me/calendarView?' + params, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    if (!res.ok) { throw new Error('Graph API ' + res.status); }
-    const data = await res.json();
-    _schedEvents = data.value || [];
+    const res = await fetch(icsUrl);
+    if (!res.ok) { throw new Error('HTTP ' + res.status); }
+    const text = await res.text();
+    _schedEvents = _parseIcs(text);
     _schedRenderList();
   } catch (e) {
-    body.innerHTML = `<div class="sched-hint">일정 로드 실패: ${_se(e.message)}</div>
-      <button class="sched-primary-btn" style="margin-top:12px;background:#555" onclick="_schedRenderEvents()">재시도</button>`;
+    const hint = e instanceof TypeError
+      ? 'CORS 오류: Outlook이 브라우저 직접 접근을 차단하고 있습니다.<br>ICS URL 앞에 <b>https://corsproxy.io/?</b> 를 붙여 다시 시도하세요.'
+      : _se(e.message);
+    body.innerHTML = `<div class="sched-hint" style="line-height:1.7">${hint}</div>
+      <button class="sched-primary-btn" style="margin-top:14px;background:#555" onclick="_schedOpenSettings()">URL 변경</button>`;
   }
 }
 
 function _schedRenderList() {
   const body = document.getElementById('sched-body');
-  const userRow = `<div class="sched-user-row">
-    <span class="sched-badge">✓ ${_se(_schedAccount.name || _schedAccount.username)}</span>
-    <button class="sched-refresh" onclick="_schedRenderEvents()">새로고침</button>
+  const topRow = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+    <button class="sched-refresh" onclick="_schedRender()">새로고침</button>
   </div>`;
 
   if (_schedEvents.length === 0) {
-    body.innerHTML = userRow + '<div class="sched-hint">이번 달 ~ 다음 달 일정이 없습니다.</div>';
+    body.innerHTML = topRow + '<div class="sched-hint">예정된 일정이 없습니다.</div>';
     return;
   }
 
@@ -4674,40 +4603,35 @@ function _schedRenderList() {
     </div>`;
   }).join('');
 
-  body.innerHTML = userRow + items;
+  body.innerHTML = topRow + items;
 }
 
-async function _schedSelectEvent(idx) {
+function _schedSelectEvent(idx) {
   const ev = _schedEvents[idx];
   if (!ev) { return; }
-  const body = document.getElementById('sched-body');
-  body.innerHTML = '<div class="sched-loading">Claude가 일정을 분석하는 중...</div>';
   const text = (ev.subject || '') + '\n' + (ev.bodyPreview || '').trim();
   try {
-    const parsed = await _schedParseText(text);
+    const parsed = _schedParseText(text);
     _schedApplyParsed(parsed);
     closeSchedModal();
     const parts = [
       parsed.pitch ? parsed.pitch + 'mm' : null,
       (parsed.width != null && parsed.height != null) ? parsed.width + '×' + parsed.height + 'm' : null
     ].filter(Boolean);
-    _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (파싱 결과 없음)');
+    _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (면적 정보 없음)');
   } catch (e) {
-    body.innerHTML = `<div class="sched-hint">파싱 실패: ${_se(e.message)}</div>
+    const body = document.getElementById('sched-body');
+    body.innerHTML = `<div class="sched-hint">${_se(e.message)}</div>
       <button class="sched-primary-btn" style="margin-top:12px;background:#555" onclick="_schedRenderList()">목록으로</button>`;
   }
 }
 
 function _schedParseText(text) {
-  // LED 피치: "3mm", "2 mm" 등
   const pitchM = text.match(/(\d+)\s*mm/i);
-  // 설치 면적: "9*4.5", "9×4.5", "9x4.5" 등
-  const sizeM = text.match(/(\d+\.?\d*)\s*[*×xX]\s*(\d+\.?\d*)/);
-
+  const sizeM  = text.match(/(\d+\.?\d*)\s*[*×xX]\s*(\d+\.?\d*)/);
   const pitch  = pitchM ? parseInt(pitchM[1], 10) : null;
   const width  = sizeM  ? parseFloat(sizeM[1])   : null;
   const height = sizeM  ? parseFloat(sizeM[2])   : null;
-
   if (pitch === null && width === null) {
     throw new Error('일정에서 LED 피치 또는 설치 면적을 찾을 수 없습니다.\n(예: 3mm 9*4.5)');
   }
@@ -4716,24 +4640,53 @@ function _schedParseText(text) {
 
 function _schedApplyParsed(parsed) {
   if (State.areaMode !== 'single') { setAreaMode('single'); }
-
   if (parsed.pitch) {
     document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
     const el = document.querySelector('#ledChips .chip[data-v="' + parsed.pitch + 'mm"]');
     if (el) { el.classList.add('on'); State.curLed = parsed.pitch + 'mm'; }
   }
-
-  // 기본 패널: 500×1000mm (basePH=1000)
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
   const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
   if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
-
   if (parsed.width != null)  { document.getElementById('iW').value = parsed.width; }
   if (parsed.height != null) { document.getElementById('iH').value = parsed.height; }
-
   rst();
   calc();
   saveState();
+}
+
+// ── ICS 파서 ─────────────────────────────────────────────────────────────────
+function _parseIcs(raw) {
+  const text = raw.replace(/\r\n[ \t]/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const events = [];
+  for (const block of text.split('BEGIN:VEVENT').slice(1)) {
+    const ev = {};
+    for (const line of block.split('\n')) {
+      const sep = line.indexOf(':');
+      if (sep < 0) { continue; }
+      const key = line.slice(0, sep).split(';')[0].toUpperCase();
+      const val = line.slice(sep + 1).trim();
+      if (key === 'SUMMARY')     { ev.subject    = _icsUnescape(val); }
+      if (key === 'DESCRIPTION') { ev.bodyPreview = _icsUnescape(val); }
+      if (key === 'DTSTART')     { ev.start = { dateTime: _icsDate(val) }; }
+    }
+    if (ev.subject && ev.start && new Date(ev.start.dateTime) >= now) { events.push(ev); }
+  }
+  return events
+    .sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime))
+    .slice(0, 30);
+}
+
+function _icsUnescape(s) {
+  return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+}
+
+function _icsDate(val) {
+  const s = val.replace(/Z$/, '');
+  if (s.length === 8) { return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8); }
+  return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8) +
+    'T' + s.slice(9,11) + ':' + s.slice(11,13) + ':' + s.slice(13,15);
 }
 
 let _toastTimer = null;
