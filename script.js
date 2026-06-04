@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.20';
-const APP_SW_VERSION = 'v123';
+const APP_VERSION = '2.0.21';
+const APP_SW_VERSION = 'v124';
 
 const CHANGELOG = [
+  { v: '2.0.21', items: [
+    '_lanPA 이중 선언 SyntaxError 수정 — 앱 전체 먹통 긴급 수정',
+  ] },
   { v: '2.0.20', items: [
     'PNG 저장 — 랜선/파워콘 필요 개수 표시 추가 (필요 N · 여유 N 형식)',
     'PNG 저장 — 파워콘 탭 활성 시 랜선 수량이 파워콘 데이터로 오염되던 버그 수정',
@@ -1410,7 +1413,6 @@ async function saveCalcPng() {
     </div>`;
   }
 
-  const _lanPA = State.simTab === 'pwr' && State._savedLan ? State._savedLan.pA : State.pA;
   const portRows = _lanPA.map((s, i) => s.size > 0 ? `P${i+1}:${s.size}장` : null).filter(Boolean).join(' · ');
   const memoHtml = State.memoList.length
     ? SEC('메모') + State.memoList.map(t => `<div style="font-size:13px;color:#444;padding:3px 0;">• ${t}</div>`).join('')
