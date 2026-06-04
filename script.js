@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.9';
-const APP_SW_VERSION = 'v112';
+const APP_VERSION = '2.0.10';
+const APP_SW_VERSION = 'v113';
 
 const CHANGELOG = [
+  { v: '2.0.10', items: [
+    'MSAL 로컬 파일로 전환 (msal-browser.min.js) — 외부 CDN 의존 제거',
+  ] },
   { v: '2.0.9', items: [
     'SW fetch 핸들러 — 크로스오리진 요청 SW 개입 제거 (외부 CDN 로드 실패 원인 수정)',
     'MSAL CDN jsDelivr로 변경',
@@ -4586,9 +4589,9 @@ async function _schedInitMsal(clientId) {
   if (!window.msal) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/dist/msal-browser.min.js';
+      s.src = './msal-browser.min.js';
       s.onload = resolve;
-      s.onerror = () => reject(new Error('MSAL CDN 로드 실패'));
+      s.onerror = () => reject(new Error('MSAL 로드 실패'));
       document.head.appendChild(s);
     });
   }
