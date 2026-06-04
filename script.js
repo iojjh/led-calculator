@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.15';
-const APP_SW_VERSION = 'v118';
+const APP_VERSION = '2.0.16';
+const APP_SW_VERSION = 'v119';
 
 const CHANGELOG = [
+  { v: '2.0.16', items: [
+    '일정 목록 — 네이버밴드 자동 꼬리말 제거, 날짜·내용 가독성 개선',
+  ] },
   { v: '2.0.15', items: [
     'SW 캐시 — msal-browser.min.js 항목 제거',
   ] },
@@ -4591,6 +4594,13 @@ async function _schedFetchEvents(icsUrl) {
   }
 }
 
+function _stripSchedFooter(s) {
+  // 네이버밴드 → Outlook 변환 시 자동 추가되는 꼬리말 제거
+  // 패턴: " - A-TEAM(CJ): 기본 캘린더, ..." 형태로 ' - 대문자'로 시작
+  const idx = s.search(/ - [A-Z]/);
+  return (idx > 0 ? s.slice(0, idx) : s).trim();
+}
+
 function _schedRenderList() {
   const body = document.getElementById('sched-body');
   const topRow = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
@@ -4605,11 +4615,11 @@ function _schedRenderList() {
   const items = _schedEvents.map((e, i) => {
     const dt = new Date(e.start.dateTime || e.start.date);
     const dateStr = dt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
-    const preview = e.bodyPreview ? e.bodyPreview.slice(0, 80) : '';
+    const content = _stripSchedFooter(e.bodyPreview || '');
     return `<div class="sched-ev" onclick="_schedSelectEvent(${i})">
       <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
       <div class="sched-ev-date">${dateStr}</div>
-      ${preview ? `<div class="sched-ev-body">${_se(preview)}</div>` : ''}
+      ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
     </div>`;
   }).join('');
 
