@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.10';
-const APP_SW_VERSION = 'v113';
+const APP_VERSION = '2.0.11';
+const APP_SW_VERSION = 'v114';
 
 const CHANGELOG = [
+  { v: '2.0.11', items: [
+    '일정 파싱 — Claude API 제거, 로컬 정규식으로 전환 (CORS 오류 해결)',
+    '일정 설정 — Claude API 키 항목 제거, Azure 클라이언트 ID만 필요',
+  ] },
   { v: '2.0.10', items: [
     'MSAL 로컬 파일로 전환 (msal-browser.min.js) — 외부 CDN 의존 제거',
   ] },
@@ -4527,15 +4531,12 @@ function _schedBgClick(e) {
 async function _schedRender() {
   const body = document.getElementById('sched-body');
   const clientId = localStorage.getItem('bsp_client_id') || '';
-  const claudeKey = localStorage.getItem('bsp_claude_key') || '';
 
-  if (!clientId || !claudeKey) {
+  if (!clientId) {
     body.innerHTML = `
-      <p class="sched-hint-sm">Outlook 연동을 위해 한 번만 설정하세요.</p>
+      <p class="sched-hint-sm">Outlook 연동을 위해 Azure 클라이언트 ID를 한 번만 설정하세요.</p>
       <label class="sched-lbl">Azure 클라이언트 ID</label>
       <input id="sched-inp-cid" class="sched-inp" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${_se(clientId)}">
-      <label class="sched-lbl">Claude API 키 <small style="color:#ccc">— 이 기기 localStorage에만 저장됨</small></label>
-      <input id="sched-inp-key" class="sched-inp" type="password" placeholder="sk-ant-api03-...">
       <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장 후 계속</button>`;
     return;
   }
@@ -4567,20 +4568,16 @@ function _schedOpenSettings() {
   const body = document.getElementById('sched-body');
   const clientId = localStorage.getItem('bsp_client_id') || '';
   body.innerHTML = `
-    <p class="sched-hint-sm">설정을 변경하세요. API 키를 비워두면 기존 값이 유지됩니다.</p>
+    <p class="sched-hint-sm">Azure 클라이언트 ID를 변경하세요.</p>
     <label class="sched-lbl">Azure 클라이언트 ID</label>
     <input id="sched-inp-cid" class="sched-inp" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${_se(clientId)}">
-    <label class="sched-lbl">Claude API 키 <small style="color:#ccc">— 변경할 경우에만 입력</small></label>
-    <input id="sched-inp-key" class="sched-inp" type="password" placeholder="sk-ant-api03-...">
     <button class="sched-primary-btn" onclick="_schedSaveSettings()">저장</button>`;
 }
 
 function _schedSaveSettings() {
   const cid = (document.getElementById('sched-inp-cid')?.value || '').trim();
-  const key = (document.getElementById('sched-inp-key')?.value || '').trim();
   if (!cid) { _toast('클라이언트 ID를 입력하세요.'); return; }
   localStorage.setItem('bsp_client_id', cid);
-  if (key) { localStorage.setItem('bsp_claude_key', key); }
   _msalInst = null;
   _schedRender();
 }
@@ -4701,42 +4698,20 @@ async function _schedSelectEvent(idx) {
   }
 }
 
-async function _schedParseText(text) {
-  const claudeKey = localStorage.getItem('bsp_claude_key');
-  if (!claudeKey) { throw new Error('Claude API 키 없음'); }
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': claudeKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-allow-browser': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      messages: [{ role: 'user', content: `LED 설치 일정 텍스트에서 정보를 추출해 JSON으로 반환해줘.
+function _schedParseText(text) {
+  // LED 피치: "3mm", "2 mm" 등
+  const pitchM = text.match(/(\d+)\s*mm/i);
+  // 설치 면적: "9*4.5", "9×4.5", "9x4.5" 등
+  const sizeM = text.match(/(\d+\.?\d*)\s*[*×xX]\s*(\d+\.?\d*)/);
 
-규칙:
-- pitch: LED 피치 숫자만 (2, 3, 4 중 하나의 정수, 없으면 null)
-- width: 설치 가로(m), "가로*세로" 중 첫 번째 숫자 (없으면 null)
-- height: 설치 세로(m), "가로*세로" 중 두 번째 숫자 (없으면 null)
+  const pitch  = pitchM ? parseInt(pitchM[1], 10) : null;
+  const width  = sizeM  ? parseFloat(sizeM[1])   : null;
+  const height = sizeM  ? parseFloat(sizeM[2])   : null;
 
-예시: "3mm 9*4.5(야외)" → {"pitch":3,"width":9,"height":4.5}
-예시: "2mm 6*3 프로파일 14시 도착" → {"pitch":2,"width":6,"height":3}
-
-텍스트: "${text.replace(/"/g, "'")}"
-
-JSON만 반환. 코드블록(\`\`\`) 없이.` }]
-    })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Claude API ' + res.status);
+  if (pitch === null && width === null) {
+    throw new Error('일정에서 LED 피치 또는 설치 면적을 찾을 수 없습니다.\n(예: 3mm 9*4.5)');
   }
-  const data = await res.json();
-  const raw = data.content[0].text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-  return JSON.parse(raw);
+  return { pitch, width, height };
 }
 
 function _schedApplyParsed(parsed) {
