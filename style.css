@@ -62,6 +62,7 @@ input[type=number]:focus{outline:none;border-color:#0F6E56;}
 .metric .ml{font-size:11px;color:#999;margin-bottom:3px;}
 .metric .mv{font-size:16px;font-weight:500;color:#1a1a1a;}
 .metric .mu{font-size:11px;color:#999;}
+.rack-cnt{font-size:12px;color:#0F6E56;font-weight:500;}
 .res-banner{background:#E1F5EE;border-radius:8px;padding:12px 14px;margin-bottom:10px;text-align:center;}
 .res-banner .rl{font-size:12px;color:#0F6E56;margin-bottom:2px;}
 .res-banner .rv{font-size:22px;font-weight:500;color:#085041;}

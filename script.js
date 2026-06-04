@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.17';
-const APP_SW_VERSION = 'v120';
+const APP_VERSION = '2.0.18';
+const APP_SW_VERSION = 'v121';
 
 const CHANGELOG = [
+  { v: '2.0.18', items: [
+    '계산 결과 — 패널 수 옆에 랙 개수 표시 (500×1000: 12장/랙, 500×500: 24장/랙)',
+  ] },
   { v: '2.0.17', items: [
     '일정 파싱 — 멀티 섹션 지원 (중앙/좌우/좌측/우측 키워드 자동 인식, 멀티 모드 자동 전환)',
   ] },
@@ -2285,8 +2288,10 @@ function renderRes() {
   let h = '<div class="metric-grid">';
   h += `<div class="metric"><div class="ml">가로 패널 수</div><div class="mv">${State.cols}<span class="mu"> ea</span></div></div>`;
   h += `<div class="metric"><div class="ml">세로 패널 수</div><div class="mv">${State.layout.length}<span class="mu"> 행</span></div></div>`;
-  h += `<div class="metric"><div class="ml">500×500 패널</div><div class="mv">${c5}<span class="mu"> ea</span></div></div>`;
-  h += `<div class="metric"><div class="ml">500×1000 패널</div><div class="mv">${c10}<span class="mu"> ea</span></div></div>`;
+  const rack5  = c5  ? `<span class="rack-cnt">(랙 ${Math.ceil(c5  / 24)}개)</span>` : '';
+  const rack10 = c10 ? `<span class="rack-cnt">(랙 ${Math.ceil(c10 / 12)}개)</span>` : '';
+  h += `<div class="metric"><div class="ml">500×500 패널</div><div class="mv">${c5}<span class="mu"> ea</span> ${rack5}</div></div>`;
+  h += `<div class="metric"><div class="ml">500×1000 패널</div><div class="mv">${c10}<span class="mu"> ea</span> ${rack10}</div></div>`;
   h += '</div>';
   h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px</div><button class="res-img-btn" onclick="genResImage()">이미지 생성 →</button></div>`;
   h += _buildCoverHtml(tW, tH);
@@ -2331,8 +2336,10 @@ function renderResMulti() {
 
   // 합산 패널 수
   let h = '<div class="metric-grid">';
-  h += `<div class="metric"><div class="ml">500×500 패널 (합계)</div><div class="mv">${totalC5}<span class="mu"> ea</span></div></div>`;
-  h += `<div class="metric"><div class="ml">500×1000 패널 (합계)</div><div class="mv">${totalC10}<span class="mu"> ea</span></div></div>`;
+  const track5  = totalC5  ? `<span class="rack-cnt">(랙 ${Math.ceil(totalC5  / 24)}개)</span>` : '';
+  const track10 = totalC10 ? `<span class="rack-cnt">(랙 ${Math.ceil(totalC10 / 12)}개)</span>` : '';
+  h += `<div class="metric"><div class="ml">500×500 패널 (합계)</div><div class="mv">${totalC5}<span class="mu"> ea</span> ${track5}</div></div>`;
+  h += `<div class="metric"><div class="ml">500×1000 패널 (합계)</div><div class="mv">${totalC10}<span class="mu"> ea</span> ${track10}</div></div>`;
   h += '</div>';
 
   // 전체 해상도 배너
