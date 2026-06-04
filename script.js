@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.12';
-const APP_SW_VERSION = 'v115';
+const APP_VERSION = '2.0.13';
+const APP_SW_VERSION = 'v116';
 
 const CHANGELOG = [
+  { v: '2.0.13', items: [
+    '일정 ICS URL 코드에 내장 — 사용자 설정 불필요',
+  ] },
   { v: '2.0.12', items: [
     '일정 불러오기 — MSAL/Azure 제거, Outlook 공개 ICS URL 방식으로 전환 (로그인 불필요)',
     'ICS 파서 내장 — VEVENT 블록 파싱, 오늘 이후 일정만 표시',
@@ -4513,7 +4516,7 @@ function vmixFullReset() {
 
 // ── §13  일정 불러오기 ────────────────────────────────────────────────────────
 // 관리자: 본인 Outlook 공개 ICS URL을 아래에 설정 (빈 문자열이면 설정 화면 표시)
-const _SCHED_ICS_URL = '';
+const _SCHED_ICS_URL = 'https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/cfc7d81d-4e85-4980-8652-3a1ecc64867d/cid-610EC8FF2A0B2E95/calendar.ics';
 
 let _schedEvents = [];
 
