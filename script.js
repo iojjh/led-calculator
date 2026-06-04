@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.19';
-const APP_SW_VERSION = 'v122';
+const APP_VERSION = '2.0.20';
+const APP_SW_VERSION = 'v123';
 
 const CHANGELOG = [
+  { v: '2.0.20', items: [
+    'PNG 저장 — 랜선/파워콘 필요 개수 표시 추가 (필요 N · 여유 N 형식)',
+    'PNG 저장 — 파워콘 탭 활성 시 랜선 수량이 파워콘 데이터로 오염되던 버그 수정',
+  ] },
   { v: '2.0.19', items: [
     'PNG 저장 — 포트 할당 영역이 파워콘 탭 활성 여부와 무관하게 항상 랜선 데이터 표시',
   ] },
@@ -1333,10 +1337,11 @@ async function saveCalcPng() {
     if (r.type === 'half') { c5 += State.cols; } else if (State.basePH === 1000) { c10 += State.cols; } else { c5 += State.cols; }
   });
 
-  // 케이블 수량
-  const asgn = new Set(); State.pA.forEach(s => s.forEach(k => asgn.add(k)));
+  // 케이블 수량 — PWR 탭 활성 시에도 LAN pA 기준으로 계산
+  const _lanPA = State.simTab === 'pwr' && State._savedLan ? State._savedLan.pA : State.pA;
+  const asgn = new Set(); _lanPA.forEach(s => s.forEach(k => asgn.add(k)));
   const tot = State.layout.length * State.cols, una = tot - asgn.size;
-  const _lan = _calcLan(), _pw = _calcPwr(State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA);
+  const _lan = _calcLan(_lanPA), _pw = _calcPwr(State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA);
 
   // 입력 필드 값 수집
   const W = document.getElementById('iW').value;
@@ -1440,14 +1445,14 @@ async function saveCalcPng() {
         <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
           <div style="font-size:10px;color:#666;margin-bottom:2px;">1번 랜</div>
           <div style="font-size:18px;font-weight:700;color:#0C447C;line-height:1.2;">${_lan.l1} 개</div>
-          <div style="font-size:10px;color:#888;margin-top:3px;">메인 ${_lan.l1Main} + 백업 ${_lan.l1Back}</div>
-          <div style="font-size:10px;color:#BA7517;">여유 +${_lan.l1Spare}</div>
+          <div style="font-size:10px;color:#888;margin-top:3px;">메인 ${_lan.l1Main} · 백업 ${_lan.l1Back}</div>
+          <div style="font-size:10px;color:#555;margin-top:2px;">필요 <b>${_lan.l1Main + _lan.l1Back}</b> · 여유 ${_lan.l1Spare}</div>
         </div>
         <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
           <div style="font-size:10px;color:#666;margin-bottom:2px;">숏랜</div>
           <div style="font-size:18px;font-weight:700;color:#0C447C;line-height:1.2;">${_lan.sl} 개</div>
           <div style="font-size:10px;color:#1D9E75;font-weight:600;margin-top:3px;">${_lan.slBundle}묶음 (×20)</div>
-          <div style="font-size:10px;color:#BA7517;">여유 +${_lan.slSpare} 포함</div>
+          <div style="font-size:10px;color:#555;margin-top:2px;">필요 <b>${_lan.slNet}</b> · 여유 ${_lan.slSpare}</div>
         </div>
       </div>
       ${una > 0 ? `<div style="font-size:11px;color:#BA7517;margin-top:6px;">미할당 ${una}/${tot} 패널</div>` : ''}
@@ -1458,14 +1463,13 @@ async function saveCalcPng() {
         <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
           <div style="font-size:10px;color:#666;margin-bottom:2px;">1번 파워</div>
           <div style="font-size:18px;font-weight:700;color:#633806;line-height:1.2;">${_pw.c1} 개</div>
-          <div style="font-size:10px;color:#888;margin-top:3px;">실 ${_pw.c1Net}개</div>
-          <div style="font-size:10px;color:#BA7517;">여유 +${_pw.c1Spare}</div>
+          <div style="font-size:10px;color:#555;margin-top:3px;">필요 <b>${_pw.c1Net}</b> · 여유 ${_pw.c1Spare}</div>
         </div>
         <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
           <div style="font-size:10px;color:#666;margin-bottom:2px;">숏 파워</div>
           <div style="font-size:18px;font-weight:700;color:#633806;line-height:1.2;">${_pw.sp} 개</div>
           <div style="font-size:10px;color:#1D9E75;font-weight:600;margin-top:3px;">${_pw.spBundle}묶음 (×10)</div>
-          <div style="font-size:10px;color:#BA7517;">여유 +${_pw.spSpare} 포함</div>
+          <div style="font-size:10px;color:#555;margin-top:2px;">필요 <b>${_pw.spNet}</b> · 여유 ${_pw.spSpare}</div>
         </div>
       </div>
     </div>
