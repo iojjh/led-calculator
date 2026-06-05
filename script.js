@@ -20,12 +20,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.29';
-const APP_SW_VERSION = 'v132';
+const APP_VERSION = '2.0.30';
+const APP_SW_VERSION = 'v133';
 
 const CHANGELOG = [
-  { v: '2.0.29', items: [
-    '뒤로가기 종료 — guard 삽입을 history.pushState → location.hash 직접 할당으로 전환 (Samsung Internet Activity 스택 등록 보장)',
+  { v: '2.0.30', items: [
+    '뒤로가기 종료 — location.hash 방식 롤백 (시작 시 토스트 표시 버그 수정), pushState 방식 복원',
   ] },
   { v: '2.0.26', items: [
     '뒤로가기 종료 — guard 중복 삽입 방지 (_pushGuardIfNeeded), pageshow 타이밍 보완, 두 번째 back 시 타이머 즉시 취소',
@@ -1998,17 +1998,10 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
-// guard를 location.hash 직접 할당으로 삽입.
-// history.pushState와 달리 location.hash 할당은 Samsung Internet을 포함한
-// 모든 Android 브라우저에서 실제 URL navigate로 처리되어 Activity 뒤로가기
-// 스택에 확실히 등록됨 → popstate 정상 발생 보장.
 function _pushGuardIfNeeded() {
-  if (location.hash === '#_' && history.length > 1) { return; } // 이미 정상 상태
-  if (location.hash === '#_') {
-    // hash는 맞지만 앞에 항목이 없는 경우 — replaceState로 빈 항목 생성 후 재삽입
-    history.replaceState(null, '', location.pathname + location.search);
-  }
-  location.hash = '_'; // 실제 URL 이동으로 guard 삽입
+  const s = history.state;
+  if (s && s.app === 'guard') { return; }
+  history.pushState({ app: 'guard' }, '');
 }
 
 // 앱 진입 시 guard 삽입
