@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.21';
-const APP_SW_VERSION = 'v124';
+const APP_VERSION = '2.0.22';
+const APP_SW_VERSION = 'v125';
 
 const CHANGELOG = [
+  { v: '2.0.22', items: [
+    '저장/불러오기 — 랜선·파워콘 여유 선 수치 저장 버그 수정 (rst() 호출이 spareAdj를 덮어쓰던 문제)',
+    '일정 불러오기 — 지난 날짜 일정은 목록에 표시하지 않음',
+  ] },
   { v: '2.0.21', items: [
     '_lanPA 이중 선언 SyntaxError 수정 — 앱 전체 먹통 긴급 수정',
   ] },
@@ -1637,7 +1641,6 @@ function getAppState(name) {
 function loadAppState(st) {
   document.getElementById('iW').value = st.W ?? '';
   document.getElementById('iH').value = st.H ?? '';
-  State.spareAdj = st.spareAdj ? { ...st.spareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
 
   // 칩 상태 복원
   document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
@@ -1678,6 +1681,7 @@ function loadAppState(st) {
 
   // 계산 실행 후 포트 할당 복원
   rst();
+  State.spareAdj = st.spareAdj ? { ...st.spareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
   if (st.areaMode === 'multi') {
     // 멀티 모드 복원
     setAreaMode('multi');
@@ -4627,13 +4631,10 @@ function _schedRenderList() {
     <button class="sched-refresh" onclick="_schedRender()">새로고침</button>
   </div>`;
 
-  if (_schedEvents.length === 0) {
-    body.innerHTML = topRow + '<div class="sched-hint">예정된 일정이 없습니다.</div>';
-    return;
-  }
-
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const items = _schedEvents.map((e, i) => {
     const dt = new Date(e.start.dateTime || e.start.date);
+    if (dt < now) { return ''; }
     const dateStr = dt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     const content = _stripSchedFooter(e.bodyPreview || '');
     return `<div class="sched-ev" onclick="_schedSelectEvent(${i})">
@@ -4642,6 +4643,11 @@ function _schedRenderList() {
       ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
     </div>`;
   }).join('');
+
+  if (!items.trim()) {
+    body.innerHTML = topRow + '<div class="sched-hint">예정된 일정이 없습니다.</div>';
+    return;
+  }
 
   body.innerHTML = topRow + items;
 }
