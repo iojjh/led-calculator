@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.23';
-const APP_SW_VERSION = 'v126';
+const APP_VERSION = '2.0.24';
+const APP_SW_VERSION = 'v127';
 
 const CHANGELOG = [
+  { v: '2.0.24', items: [
+    '뒤로가기 종료 — window.close() 제거 (Android PWA 미지원), 히스토리 소진 방식 복원',
+    '종료 토스트 — 화면 정중앙 표시, 크기·가독성 개선',
+  ] },
   { v: '2.0.23', items: [
     '뒤로가기 종료 — guard 즉시 재삽입 + window.close() 호출로 두 번째 뒤로가기 앱 종료 보장',
     'CSS — overscroll-behavior-y:none 추가 (당겨서 새로고침 비활성)',
@@ -1993,13 +1997,13 @@ function _showExitToast() {
   if (!t) {
     t = document.createElement('div');
     t.id = '_exitToast';
-    t.style.cssText = 'position:fixed;bottom:72px;left:12px;right:12px;background:#1a1a1a;color:#fff;border-radius:14px;padding:12px 16px;text-align:center;z-index:600;font-size:13px;font-weight:500;pointer-events:none;opacity:0;transition:opacity .3s;';
+    t.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:16px;padding:18px 28px;text-align:center;z-index:9999;font-size:15px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,0.35);';
     document.body.appendChild(t);
   }
-  t.textContent = '뒤로가기를 한 번 더 누르면 앱이 종료됩니다';
+  t.textContent = '한 번 더 누르면 앱이 종료됩니다';
   clearTimeout(t._t);
   t.style.opacity = '1';
-  t._t = setTimeout(() => { t.style.opacity = '0'; }, 2200);
+  t._t = setTimeout(() => { t.style.opacity = '0'; }, 2400);
 }
 
 window.addEventListener('popstate', e => {
@@ -2049,16 +2053,15 @@ window.addEventListener('popstate', e => {
     document.getElementById('easterBg').style.display = 'none';
   } else {
     // 열린 레이어 없음 — 종료 안내
-    if (State._exitWarned) {
-      clearTimeout(State._exitTimer);
-      State._exitWarned = false;
-      window.close(); // standalone PWA 종료
-      return;
-    }
+    if (State._exitWarned) { return; }
     State._exitWarned = true;
     _showExitToast();
-    history.pushState({ app: 'guard' }, ''); // 두 번째 back도 popstate 발생 보장
-    State._exitTimer = setTimeout(() => { State._exitWarned = false; }, 2500);
+    // 2.5초 내 재입력 → 히스토리 소진 → OS가 PWA 종료
+    // 2.5초 경과 → guard 복원해 실수 종료 방지
+    State._exitTimer = setTimeout(() => {
+      State._exitWarned = false;
+      history.pushState({ app: 'guard' }, '');
+    }, 2500);
   }
 });
 
