@@ -20,12 +20,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.27';
-const APP_SW_VERSION = 'v130';
+const APP_VERSION = '2.0.28';
+const APP_SW_VERSION = 'v131';
 
 const CHANGELOG = [
-  { v: '2.0.27', items: [
-    '뒤로가기 종료 — history.length≤1일 때 state 무관하게 guard 삽입 (reload 후 state 보존 케이스 수정)',
+  { v: '2.0.28', items: [
+    '뒤로가기 종료 — guard를 #_ hash URL 변경으로 삽입 (Android Activity 스택 확실 등록, Samsung Internet 대응)',
   ] },
   { v: '2.0.26', items: [
     '뒤로가기 종료 — guard 중복 삽입 방지 (_pushGuardIfNeeded), pageshow 타이밍 보완, 두 번째 back 시 타이머 즉시 취소',
@@ -1998,25 +1998,26 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
-// guard 추가: history.length === 1(뒤로갈 곳 없음)이거나 state에 앱 키가 없을 때만 추가
+// guard를 '#_' hash URL 변경으로 삽입.
+// 같은 URL의 pushState는 일부 Android 브라우저(Samsung Internet 등)에서
+// Activity 뒤로가기 스택에 등록되지 않아 popstate 미발생 → 앱 즉시 종료 발생.
+// hash 변경(#_)은 실제 URL navigate로 인식되어 Activity 스택에 확실히 등록됨.
 function _pushGuardIfNeeded() {
-  const s = history.state;
-  if (history.length <= 1 || !s || (!s.app && !s.overlay && !s.modal)) {
-    history.pushState({ app: 'guard' }, '');
+  if (location.hash !== '#_' || history.length <= 1) {
+    history.pushState({ app: 'guard' }, '', location.pathname + location.search + '#_');
   }
 }
 
-// 앱 진입 시 guard 엔트리 삽입
+// 앱 진입 시 guard 삽입
 _pushGuardIfNeeded();
 
-// 세션 복원 후 guard 보장 (Chrome이 이전 세션 history를 복원하는 타이밍 대응)
+// 세션 복원 후 guard 보장
 window.addEventListener('pageshow', (e) => {
-  if (e.persisted) { return; } // BFCache 복원: JS 상태 그대로 유지됨
+  if (e.persisted) { return; }
   _pushGuardIfNeeded();
 });
 
 // 백그라운드 복귀 시 guard 복원
-// (첫 번째 back → toast 후 홈 버튼으로 나가면 setTimeout이 백그라운드에서 미실행돼 guard가 사라짐)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') { return; }
   clearTimeout(State._exitTimer);
@@ -2085,12 +2086,7 @@ window.addEventListener('popstate', e => {
     document.getElementById('easterBg').style.display = 'none';
   } else {
     // 열린 레이어 없음 — 종료 안내
-    if (State._exitWarned) {
-      // 두 번째 back: 타이머 취소 + 상태 초기화 → 히스토리 소진 → OS가 PWA 종료
-      clearTimeout(State._exitTimer);
-      State._exitWarned = false;
-      return;
-    }
+    if (State._exitWarned) { return; }
     State._exitWarned = true;
     _showExitToast();
     // 2.5초 경과 → guard 복원해 실수 종료 방지
