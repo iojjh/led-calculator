@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.26';
-const APP_SW_VERSION = 'v129';
+const APP_VERSION = '2.0.27';
+const APP_SW_VERSION = 'v130';
 
 const CHANGELOG = [
+  { v: '2.0.27', items: [
+    '뒤로가기 종료 — history.length≤1일 때 state 무관하게 guard 삽입 (reload 후 state 보존 케이스 수정)',
+  ] },
   { v: '2.0.26', items: [
     '뒤로가기 종료 — guard 중복 삽입 방지 (_pushGuardIfNeeded), pageshow 타이밍 보완, 두 번째 back 시 타이머 즉시 취소',
   ] },
@@ -1995,10 +1998,10 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
-// guard 중복 방지: 현재 state가 이미 guard이면 추가하지 않음
+// guard 추가: history.length === 1(뒤로갈 곳 없음)이거나 state에 앱 키가 없을 때만 추가
 function _pushGuardIfNeeded() {
   const s = history.state;
-  if (!s || (!s.app && !s.overlay && !s.modal)) {
+  if (history.length <= 1 || !s || (!s.app && !s.overlay && !s.modal)) {
     history.pushState({ app: 'guard' }, '');
   }
 }
