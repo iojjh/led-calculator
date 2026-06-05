@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.24';
-const APP_SW_VERSION = 'v127';
+const APP_VERSION = '2.0.25';
+const APP_SW_VERSION = 'v128';
 
 const CHANGELOG = [
+  { v: '2.0.25', items: [
+    '뒤로가기 종료 — 백그라운드 복귀 시 guard 자동 복원 (visibilitychange 감지)',
+  ] },
   { v: '2.0.24', items: [
     '뒤로가기 종료 — window.close() 제거 (Android PWA 미지원), 히스토리 소진 방식 복원',
     '종료 토스트 — 화면 정중앙 표시, 크기·가독성 개선',
@@ -1991,6 +1994,18 @@ function _histBack() { _programmaticBack = true; history.back(); }
 
 // 앱 진입 시 guard 엔트리 삽입
 history.pushState({ app: 'guard' }, '');
+
+// 백그라운드 복귀 시 guard 복원
+// (첫 번째 back → toast 후 홈 버튼으로 나가면 setTimeout이 백그라운드에서 미실행돼 guard가 사라짐)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') { return; }
+  clearTimeout(State._exitTimer);
+  State._exitWarned = false;
+  const s = history.state;
+  if (!s || (!s.app && !s.overlay && !s.modal)) {
+    history.pushState({ app: 'guard' }, '');
+  }
+});
 
 function _showExitToast() {
   let t = document.getElementById('_exitToast');
