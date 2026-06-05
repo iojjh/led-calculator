@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.31';
-const APP_SW_VERSION = 'v134';
+const APP_VERSION = '2.0.32';
+const APP_SW_VERSION = 'v135';
 
 const CHANGELOG = [
+  { v: '2.0.32', items: [
+    '뒤로가기 두 번 종료 재구현 — pushState guard + 토스트, flag·이벤트 리스너 없이 단순화',
+  ] },
   { v: '2.0.31', items: [
     '뒤로가기 두 번 종료 기능 제거 — _pushGuardIfNeeded, _showExitToast, 관련 이벤트 리스너 삭제',
   ] },
@@ -2001,6 +2004,21 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
+function _showExitToast() {
+  let t = document.getElementById('_exitToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = '_exitToast';
+    t.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:16px;padding:18px 28px;text-align:center;z-index:9999;font-size:15px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,0.35);';
+    document.body.appendChild(t);
+  }
+  t.textContent = '한 번 더 누르면 앱이 종료됩니다';
+  clearTimeout(t._t);
+  t.style.opacity = '1';
+  t._t = setTimeout(() => { t.style.opacity = '0'; }, 2400);
+}
+
+history.pushState({ app: 'guard' }, '');
 
 window.addEventListener('popstate', e => {
   if (_programmaticBack) { _programmaticBack = false; return; }
@@ -2047,6 +2065,9 @@ window.addEventListener('popstate', e => {
     document.getElementById('chkResetChoiceBg').style.display = 'none';
   } else if (document.getElementById('easterBg').style.display !== 'none') {
     document.getElementById('easterBg').style.display = 'none';
+  } else {
+    _showExitToast();
+    setTimeout(() => { history.pushState({ app: 'guard' }, ''); }, 2500);
   }
 });
 
