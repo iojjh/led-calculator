@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.25';
-const APP_SW_VERSION = 'v128';
+const APP_VERSION = '2.0.26';
+const APP_SW_VERSION = 'v129';
 
 const CHANGELOG = [
+  { v: '2.0.26', items: [
+    '뒤로가기 종료 — guard 중복 삽입 방지 (_pushGuardIfNeeded), pageshow 타이밍 보완, 두 번째 back 시 타이머 즉시 취소',
+  ] },
   { v: '2.0.25', items: [
     '뒤로가기 종료 — 백그라운드 복귀 시 guard 자동 복원 (visibilitychange 감지)',
   ] },
@@ -1992,8 +1995,22 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
+// guard 중복 방지: 현재 state가 이미 guard이면 추가하지 않음
+function _pushGuardIfNeeded() {
+  const s = history.state;
+  if (!s || (!s.app && !s.overlay && !s.modal)) {
+    history.pushState({ app: 'guard' }, '');
+  }
+}
+
 // 앱 진입 시 guard 엔트리 삽입
-history.pushState({ app: 'guard' }, '');
+_pushGuardIfNeeded();
+
+// 세션 복원 후 guard 보장 (Chrome이 이전 세션 history를 복원하는 타이밍 대응)
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) { return; } // BFCache 복원: JS 상태 그대로 유지됨
+  _pushGuardIfNeeded();
+});
 
 // 백그라운드 복귀 시 guard 복원
 // (첫 번째 back → toast 후 홈 버튼으로 나가면 setTimeout이 백그라운드에서 미실행돼 guard가 사라짐)
@@ -2001,10 +2018,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') { return; }
   clearTimeout(State._exitTimer);
   State._exitWarned = false;
-  const s = history.state;
-  if (!s || (!s.app && !s.overlay && !s.modal)) {
-    history.pushState({ app: 'guard' }, '');
-  }
+  _pushGuardIfNeeded();
 });
 
 function _showExitToast() {
@@ -2068,14 +2082,18 @@ window.addEventListener('popstate', e => {
     document.getElementById('easterBg').style.display = 'none';
   } else {
     // 열린 레이어 없음 — 종료 안내
-    if (State._exitWarned) { return; }
+    if (State._exitWarned) {
+      // 두 번째 back: 타이머 취소 + 상태 초기화 → 히스토리 소진 → OS가 PWA 종료
+      clearTimeout(State._exitTimer);
+      State._exitWarned = false;
+      return;
+    }
     State._exitWarned = true;
     _showExitToast();
-    // 2.5초 내 재입력 → 히스토리 소진 → OS가 PWA 종료
     // 2.5초 경과 → guard 복원해 실수 종료 방지
     State._exitTimer = setTimeout(() => {
       State._exitWarned = false;
-      history.pushState({ app: 'guard' }, '');
+      _pushGuardIfNeeded();
     }, 2500);
   }
 });
