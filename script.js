@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.22';
-const APP_SW_VERSION = 'v125';
+const APP_VERSION = '2.0.23';
+const APP_SW_VERSION = 'v126';
 
 const CHANGELOG = [
+  { v: '2.0.23', items: [
+    '뒤로가기 종료 — guard 즉시 재삽입 + window.close() 호출로 두 번째 뒤로가기 앱 종료 보장',
+    'CSS — overscroll-behavior-y:none 추가 (당겨서 새로고침 비활성)',
+  ] },
   { v: '2.0.22', items: [
     '저장/불러오기 — 랜선·파워콘 여유 선 수치 저장 버그 수정 (rst() 호출이 spareAdj를 덮어쓰던 문제)',
     '일정 불러오기 — 지난 날짜 일정은 목록에 표시하지 않음',
@@ -2045,15 +2049,16 @@ window.addEventListener('popstate', e => {
     document.getElementById('easterBg').style.display = 'none';
   } else {
     // 열린 레이어 없음 — 종료 안내
-    if (State._exitWarned) { return; }
+    if (State._exitWarned) {
+      clearTimeout(State._exitTimer);
+      State._exitWarned = false;
+      window.close(); // standalone PWA 종료
+      return;
+    }
     State._exitWarned = true;
     _showExitToast();
-    // 2.5초 내 재입력 → guard 없으므로 앱 종료
-    // 2.5초 경과 → guard 복원해 실수 종료 방지
-    State._exitTimer = setTimeout(() => {
-      State._exitWarned = false;
-      history.pushState({ app: 'guard' }, '');
-    }, 2500);
+    history.pushState({ app: 'guard' }, ''); // 두 번째 back도 popstate 발생 보장
+    State._exitTimer = setTimeout(() => { State._exitWarned = false; }, 2500);
   }
 });
 
