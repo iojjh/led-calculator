@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.30';
-const APP_SW_VERSION = 'v133';
+const APP_VERSION = '2.0.31';
+const APP_SW_VERSION = 'v134';
 
 const CHANGELOG = [
+  { v: '2.0.31', items: [
+    '뒤로가기 두 번 종료 기능 제거 — _pushGuardIfNeeded, _showExitToast, 관련 이벤트 리스너 삭제',
+  ] },
   { v: '2.0.30', items: [
     '뒤로가기 종료 — location.hash 방식 롤백 (시작 시 토스트 표시 버그 수정), pushState 방식 복원',
   ] },
@@ -1998,42 +2001,6 @@ function closePdfModal() {
 let _programmaticBack = false;
 function _histBack() { _programmaticBack = true; history.back(); }
 
-function _pushGuardIfNeeded() {
-  const s = history.state;
-  if (s && s.app === 'guard') { return; }
-  history.pushState({ app: 'guard' }, '');
-}
-
-// 앱 진입 시 guard 삽입
-_pushGuardIfNeeded();
-
-// 세션 복원 후 guard 보장
-window.addEventListener('pageshow', (e) => {
-  if (e.persisted) { return; }
-  _pushGuardIfNeeded();
-});
-
-// 백그라운드 복귀 시 guard 복원
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible') { return; }
-  clearTimeout(State._exitTimer);
-  State._exitWarned = false;
-  _pushGuardIfNeeded();
-});
-
-function _showExitToast() {
-  let t = document.getElementById('_exitToast');
-  if (!t) {
-    t = document.createElement('div');
-    t.id = '_exitToast';
-    t.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:16px;padding:18px 28px;text-align:center;z-index:9999;font-size:15px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,0.35);';
-    document.body.appendChild(t);
-  }
-  t.textContent = '한 번 더 누르면 앱이 종료됩니다';
-  clearTimeout(t._t);
-  t.style.opacity = '1';
-  t._t = setTimeout(() => { t.style.opacity = '0'; }, 2400);
-}
 
 window.addEventListener('popstate', e => {
   if (_programmaticBack) { _programmaticBack = false; return; }
@@ -2080,16 +2047,6 @@ window.addEventListener('popstate', e => {
     document.getElementById('chkResetChoiceBg').style.display = 'none';
   } else if (document.getElementById('easterBg').style.display !== 'none') {
     document.getElementById('easterBg').style.display = 'none';
-  } else {
-    // 열린 레이어 없음 — 종료 안내
-    if (State._exitWarned) { return; }
-    State._exitWarned = true;
-    _showExitToast();
-    // 2.5초 경과 → guard 복원해 실수 종료 방지
-    State._exitTimer = setTimeout(() => {
-      State._exitWarned = false;
-      _pushGuardIfNeeded();
-    }, 2500);
   }
 });
 

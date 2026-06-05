@@ -84,7 +84,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 프로젝트 구조 (LED 설치 계산기 PWA)
 
 **파일 구성**
-- `script.js` — 약 3700줄, 앱 전체 로직
+- `script.js` — 약 4800줄, 앱 전체 로직
 - `index.html` — UI 마크업
 - `style.css` — 스타일
 - `service-worker.js` — PWA 캐시 (버전: `CACHE_VERSION`)
@@ -100,14 +100,14 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §4 | 485 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`, `_updateBarForTab`) — 탭별 하단 바 버튼 동작 분기(vmix·chk·기타), 업데이트 완료 토스트 감지 IIFE 포함 |
 | §5 | 558 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
 | §6 | 584 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `_buildPwrCanvas`, `_stitchV`, `_getPwrPA`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `_cvToUrl`) |
-| §7 | 1395 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
-| §8 | 1449 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
-| §9 | 1615 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
-| §9.5 | 1714 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 1858 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
-| §11 | 2136 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — 파워콘 탭: PWR_PORT_COUNT=18 포트, 스네이크 기본배선, LAN/PWR 탭 전환 시 pA 스왑 |
-| §12 | 3417 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
-| §13 | 4492 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents` |
+| §7 | 1571 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
+| §8 | 1627 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
+| §9 | 1793 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
+| §9.5 | 1899 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
+| §10 | 2087 | 계산기 핵심 (`selLed`, `selPanel`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
+| §11 | 2369 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — 파워콘 탭: PWR_PORT_COUNT=18 포트, 스네이크 기본배선, LAN/PWR 탭 전환 시 pA 스왑 |
+| §12 | 3651 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
+| §13 | 4543 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents` |
 
 **핵심 전역 상태 — `const State` (§1, line 242)**
 
