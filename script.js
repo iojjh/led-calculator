@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.33';
-const APP_SW_VERSION = 'v136';
+const APP_VERSION = '2.0.34';
+const APP_SW_VERSION = 'v137';
 
 const CHANGELOG = [
+  { v: '2.0.34', items: [
+    '계산 결과 — 최종 해상도 옆 대각선 인치수 뱃지 표시 (단일·멀티 모드 모두)',
+    '패널 가로 사용 옵션 — 500×1000mm 선택 시 "↔ 가로 사용" 토글 활성화, 1000×500mm 배치로 계산·시뮬레이터 동작',
+  ] },
   { v: '2.0.33', items: [
     '뒤로가기 종료 guard 완전 제거 — Android PWA OS 레벨 제약으로 JS 해결 불가',
   ] },
@@ -345,6 +349,7 @@ const State = {
   // 선택 상태
   curLed:      null,
   basePH:      null,
+  panelRotated: false,
   curSending:  null,
 
   // 면적 / 시뮬레이터 모드
@@ -1643,7 +1648,7 @@ function getAppState(name) {
     mH_C: document.getElementById('mH_C').value,
     mW_R: document.getElementById('mW_R').value,
     mH_R: document.getElementById('mH_R').value,
-    curLed: State.curLed, basePH: State.basePH, curSending: State.curSending,
+    curLed: State.curLed, basePH: State.basePH, panelRotated: State.panelRotated, curSending: State.curSending,
     consoleName: document.querySelector('#consoleChips .chip.on')?.dataset.v || null,
     fiberLen: document.getElementById('fiberLen').value,
     mainLen:  document.getElementById('mainLen').value,
@@ -1676,6 +1681,11 @@ function loadAppState(st) {
     const el = document.querySelector(`#panelChips .chip[data-v="${st.basePH}"]`);
     if (el) { el.classList.add('on'); State.basePH = st.basePH; }
   }
+  State.panelRotated = !!(st.panelRotated && st.basePH === 1000);
+  const rotWrap = document.getElementById('panelRotateWrap');
+  const rotBtn  = document.getElementById('panelRotateBtn');
+  if (rotWrap) { rotWrap.style.display = State.basePH === 1000 ? '' : 'none'; }
+  if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
 
   // 콘솔·샌딩카드 복원 (selConsole/selSending이 UI도 업데이트)
   document.getElementById('consoleInfo').style.display = 'none';
@@ -2109,6 +2119,19 @@ function selLed(el) {
 function selPanel(el) {
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
   el.classList.add('on'); State.basePH = parseInt(el.dataset.v);
+  if (State.basePH !== 1000) { State.panelRotated = false; }
+  const wrap = document.getElementById('panelRotateWrap');
+  const btn  = document.getElementById('panelRotateBtn');
+  if (wrap) { wrap.style.display = State.basePH === 1000 ? '' : 'none'; }
+  if (btn)  { btn.classList.toggle('on', State.panelRotated); }
+  rst(); State.areaMode === 'single' ? calc() : calcMulti();
+}
+
+function togglePanelRotate() {
+  if (State.basePH !== 1000) { return; }
+  State.panelRotated = !State.panelRotated;
+  const btn = document.getElementById('panelRotateBtn');
+  if (btn) { btn.classList.toggle('on', State.panelRotated); }
   rst(); State.areaMode === 'single' ? calc() : calcMulti();
 }
 
@@ -2140,15 +2163,22 @@ function syncMultiH() {
 function calcSection(W, H) {
   const sec = { cols:0, layout:[] };
   if (!W || !H || !isReady()) { return sec; }
-  sec.cols = Math.max(1, Math.round(W * 1000 / 500));
   const Hmm = H * 1000;
-  if (State.basePH === 1000) {
-    const fr = Math.floor(Hmm / 1000);
-    if (Math.round(Hmm - fr * 1000) >= 400) { sec.layout.push({ type:'half' }); }
-    for (let i = 0; i < fr; i++) sec.layout.push({ type:'full' });
-  } else {
+  if (State.panelRotated && State.basePH === 1000) {
+    // 가로 사용: 1000mm 폭 × 500mm 높이
+    sec.cols = Math.max(1, Math.round(W * 1000 / 1000));
     const nr = Math.max(1, Math.round(Hmm / 500));
     for (let i = 0; i < nr; i++) sec.layout.push({ type:'full' });
+  } else {
+    sec.cols = Math.max(1, Math.round(W * 1000 / 500));
+    if (State.basePH === 1000) {
+      const fr = Math.floor(Hmm / 1000);
+      if (Math.round(Hmm - fr * 1000) >= 400) { sec.layout.push({ type:'half' }); }
+      for (let i = 0; i < fr; i++) sec.layout.push({ type:'full' });
+    } else {
+      const nr = Math.max(1, Math.round(Hmm / 500));
+      for (let i = 0; i < nr; i++) sec.layout.push({ type:'full' });
+    }
   }
   return sec;
 }
@@ -2209,6 +2239,10 @@ function switchSimSec(sec) {
 // 행 타입에 따른 픽셀 크기 반환
 function ppx(rowType) {
   const s = SPECS[State.curLed];
+  if (State.panelRotated && State.basePH === 1000) {
+    // 1000mm 패널 가로 사용: 물리 크기 1000×500mm → 픽셀 h×w 교환
+    return { w: s.px1000.h, h: s.px1000.w };
+  }
   return rowType === 'half' ? s.px500 : (State.basePH === 1000 ? s.px1000 : s.px500);
 }
 
@@ -2240,7 +2274,12 @@ function calc() {
     return;
   }
 
-  State.cols = Math.max(1, Math.round(W * 1000 / 500));
+  const Hmm = H * 1000;
+  if (State.panelRotated && State.basePH === 1000) {
+    State.cols = Math.max(1, Math.round(W * 1000 / 1000));
+  } else {
+    State.cols = Math.max(1, Math.round(W * 1000 / 500));
+  }
   State.layout = [];
 
   if (!isReady()) {
@@ -2249,8 +2288,11 @@ function calc() {
     return;
   }
 
-  const Hmm = H * 1000;
-  if (State.basePH === 1000) {
+  if (State.panelRotated && State.basePH === 1000) {
+    // 가로 사용: 1000mm 폭 × 500mm 높이
+    const nr = Math.max(1, Math.round(Hmm / 500));
+    for (let i = 0; i < nr; i++) State.layout.push({ type: 'full' });
+  } else if (State.basePH === 1000) {
     // 1000mm 기준 — 나머지가 400mm 이상이면 상단에 500mm(half) 패널 추가
     const fr = Math.floor(Hmm / 1000);
     if (Math.round(Hmm - fr * 1000) >= 400) { State.layout.push({ type: 'half' }); }
@@ -2288,12 +2330,23 @@ function _buildCoverHtml(tW, tH) {
 
 function renderRes() {
   if (!isReady()) { return; }
-  const sp = SPECS[State.curLed]; let c5 = 0, c10 = 0;
+  const sp = SPECS[State.curLed];
+  const isLand = State.panelRotated && State.basePH === 1000;
+  let c5 = 0, c10 = 0;
   State.layout.forEach(r => {
-    if (r.type === 'half') { c5 += State.cols; } else if (State.basePH === 1000) { c10 += State.cols; } else { c5 += State.cols; }
+    if (isLand) { c10 += State.cols; }
+    else if (r.type === 'half') { c5 += State.cols; }
+    else if (State.basePH === 1000) { c10 += State.cols; }
+    else { c5 += State.cols; }
   });
-  const tW = State.cols * sp.px500.w;
+  const tW = isLand ? State.cols * sp.px1000.h : State.cols * sp.px500.w;
   let tH = 0; State.layout.forEach(r => { tH += ppx(r.type).h; });
+
+  // 물리 크기 → 대각선 인치
+  const physW = State.cols * (isLand ? 1000 : 500);
+  let physH = 0;
+  State.layout.forEach(r => { physH += isLand ? 500 : (r.type === 'half' ? 500 : State.basePH); });
+  const diagInch = Math.round(Math.sqrt(physW ** 2 + physH ** 2) / 25.4);
 
   let h = '<div class="metric-grid">';
   h += `<div class="metric"><div class="ml">가로 패널 수</div><div class="mv">${State.cols}<span class="mu"> ea</span></div></div>`;
@@ -2303,9 +2356,12 @@ function renderRes() {
   h += `<div class="metric"><div class="ml">500×500 패널</div><div class="mv">${c5}<span class="mu"> ea</span> ${rack5}</div></div>`;
   h += `<div class="metric"><div class="ml">500×1000 패널</div><div class="mv">${c10}<span class="mu"> ea</span> ${rack10}</div></div>`;
   h += '</div>';
-  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px</div><button class="res-img-btn" onclick="genResImage()">이미지 생성 →</button></div>`;
+  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px <span class="res-inch">${diagInch}"</span></div><button class="res-img-btn" onclick="genResImage()">이미지 생성 →</button></div>`;
   h += _buildCoverHtml(tW, tH);
-  h += `<div class="panel-spec-note">패널 해상도 — 500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px</div>`;
+  const specNote = isLand
+    ? `1000×500(가로): ${sp.px1000.h}×${sp.px1000.w}px`
+    : `500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px`;
+  h += `<div class="panel-spec-note">패널 해상도 — ${specNote}</div>`;
   document.getElementById('resultBody').innerHTML = h;
 }
 
@@ -2327,8 +2383,9 @@ function _buildSectionRowHtml(k, r, totalTW) {
 function renderResMulti() {
   if (!isReady()) { return; }
   const sp = SPECS[State.curLed];
+  const isLand = State.panelRotated && State.basePH === 1000;
 
-  let totalC5 = 0, totalC10 = 0, totalTW = 0, maxTH = 0;
+  let totalC5 = 0, totalC10 = 0, totalTW = 0, totalPhysW = 0, maxTH = 0, maxPhysH = 0;
   const secInfo = {};
 
   ['left','center','right'].forEach(k => {
@@ -2336,11 +2393,17 @@ function renderResMulti() {
     if (!sec.cols || !sec.layout.length) { secInfo[k] = null; return; }
     let c5 = 0, c10 = 0;
     sec.layout.forEach(r => {
-      if (r.type === 'half') { c5 += sec.cols; } else if (State.basePH === 1000) { c10 += sec.cols; } else { c5 += sec.cols; }
+      if (isLand) { c10 += sec.cols; }
+      else if (r.type === 'half') { c5 += sec.cols; }
+      else if (State.basePH === 1000) { c10 += sec.cols; }
+      else { c5 += sec.cols; }
     });
     let tH = 0; sec.layout.forEach(r => { tH += ppx(r.type).h; });
-    const tW = sec.cols * sp.px500.w;
-    totalC5 += c5; totalC10 += c10; totalTW += tW; maxTH = Math.max(maxTH, tH);
+    const tW = isLand ? sec.cols * sp.px1000.h : sec.cols * sp.px500.w;
+    const physW = sec.cols * (isLand ? 1000 : 500);
+    let physH = 0; sec.layout.forEach(r => { physH += isLand ? 500 : (r.type === 'half' ? 500 : State.basePH); });
+    totalC5 += c5; totalC10 += c10; totalTW += tW; totalPhysW += physW;
+    maxTH = Math.max(maxTH, tH); maxPhysH = Math.max(maxPhysH, physH);
     secInfo[k] = { c5, c10, tW, tH, cols: sec.cols, rows: sec.layout.length };
   });
 
@@ -2354,7 +2417,8 @@ function renderResMulti() {
 
   // 전체 해상도 배너
   if (totalTW && maxTH) {
-    h += `<div class="res-banner"><div class="rl">전체 해상도</div><div class="rv">${totalTW} × ${maxTH} px</div><button class="res-img-btn" onclick="genResImageMulti()">이미지 생성 →</button></div>`;
+    const diagInch = Math.round(Math.sqrt(totalPhysW ** 2 + maxPhysH ** 2) / 25.4);
+    h += `<div class="res-banner"><div class="rl">전체 해상도</div><div class="rv">${totalTW} × ${maxTH} px <span class="res-inch">${diagInch}"</span></div><button class="res-img-btn" onclick="genResImageMulti()">이미지 생성 →</button></div>`;
     h += _buildCoverHtml(totalTW, maxTH);
   }
 
@@ -2362,7 +2426,10 @@ function renderResMulti() {
   h += '<div class="res-section-list">';
   ['left','center','right'].forEach(k => { h += _buildSectionRowHtml(k, secInfo[k], totalTW); });
   h += '</div>';
-  h += `<div class="panel-spec-note">패널 해상도 — 500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px</div>`;
+  const specNote = isLand
+    ? `1000×500(가로): ${sp.px1000.h}×${sp.px1000.w}px`
+    : `500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px`;
+  h += `<div class="panel-spec-note">패널 해상도 — ${specNote}</div>`;
 
   document.getElementById('resultBody').innerHTML = h;
 }
@@ -2792,10 +2859,13 @@ function buildCv() {
     if (fsMode) {
       const availH = cv.parentElement.clientHeight - 8;
       if (availH > 0) {
-        const maxFactor = Math.max(...activeSecs.map(k =>
-          State.multiSec[k].layout.reduce((s, r) => s + (r.type === 'full' && State.basePH === 1000 ? 2 : 1), 0)
-        ));
-        const cellWFromH = Math.floor((availH - SEC_LBL_H) / Math.max(1, maxFactor));
+        const isLandCv = State.panelRotated && State.basePH === 1000;
+        const maxFactor = Math.max(...activeSecs.map(k => {
+          const sec = State.multiSec[k];
+          if (isLandCv) { return sec.layout.length * 0.5; }
+          return sec.layout.reduce((s, r) => s + (r.type === 'full' && State.basePH === 1000 ? 2 : 1), 0);
+        }));
+        const cellWFromH = Math.floor((availH - SEC_LBL_H) / Math.max(0.5, maxFactor));
         State.cellW = Math.min(State.cellW, Math.max(22, cellWFromH));
       }
     }
@@ -2804,7 +2874,9 @@ function buildCv() {
       const sec = State.multiSec[k];
       if (sec.cols > 0 && sec.layout.length > 0) {
         State.multiCvOffsets[k] = xOff;
-        sec.rH = sec.layout.map(r => r.type === 'full' ? (State.basePH === 1000 ? State.cellW * 2 : State.cellW) : State.cellW);
+        sec.rH = State.panelRotated && State.basePH === 1000
+          ? sec.layout.map(() => Math.max(14, Math.round(State.cellW / 2)))
+          : sec.layout.map(r => r.type === 'full' ? (State.basePH === 1000 ? State.cellW * 2 : State.cellW) : State.cellW);
         xOff += sec.cols * State.cellW + SECTION_GAP;
       } else {
         State.multiCvOffsets[k] = -1; sec.rH = [];
@@ -2823,12 +2895,16 @@ function buildCv() {
   if (fsMode) {
     const availH = cv.parentElement.clientHeight - 8;
     if (availH > 0) {
-      const totalFactor = State.layout.reduce((s, r) => s + (r.type === 'full' && State.basePH === 1000 ? 2 : 1), 0);
-      const cellWFromH = Math.floor(availH / Math.max(1, totalFactor));
+      const totalFactor = State.panelRotated && State.basePH === 1000
+        ? State.layout.length * 0.5
+        : State.layout.reduce((s, r) => s + (r.type === 'full' && State.basePH === 1000 ? 2 : 1), 0);
+      const cellWFromH = Math.floor(availH / Math.max(0.5, totalFactor));
       State.cellW = Math.min(State.cellW, Math.max(28, cellWFromH));
     }
   }
-  State.rH = State.layout.map(r => r.type === 'full' ? (State.basePH === 1000 ? State.cellW * 2 : State.cellW) : State.cellW);
+  State.rH = State.panelRotated && State.basePH === 1000
+    ? State.layout.map(() => Math.max(14, Math.round(State.cellW / 2)))
+    : State.layout.map(r => r.type === 'full' ? (State.basePH === 1000 ? State.cellW * 2 : State.cellW) : State.cellW);
   cv.width = State.cols * State.cellW;
   cv.height = State.rH.reduce((s, h) => s + h, 0);
   drawCv();
