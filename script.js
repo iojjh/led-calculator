@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.35';
-const APP_SW_VERSION = 'v138';
+const APP_VERSION = '2.0.36';
+const APP_SW_VERSION = 'v139';
 
 const CHANGELOG = [
+  { v: '2.0.36', items: [
+    '일정 불러오기 — 패널 사이즈 자동 적용 시 "가로 사용" 버튼이 보이지 않던 버그 수정',
+  ] },
   { v: '2.0.35', items: [
     'PNG 저장 — 가로 모드 시 해상도 이미지·파워콘 캔버스 패널 폭을 1000mm 픽셀 기준으로 수정',
     '시뮬레이터 캔버스 — 가로 모드 시 cellW 상한을 128px(단일)/120px(멀티)로 확대해 캔버스가 화면 폭 채우도록 수정',
@@ -4820,6 +4823,10 @@ function _schedApplyParsed(parsed) {
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
   const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
   if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
+  const rotWrap = document.getElementById('panelRotateWrap');
+  const rotBtn  = document.getElementById('panelRotateBtn');
+  if (rotWrap) { rotWrap.style.display = ''; }
+  if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
 
   if (parsed.mode === 'multi') {
     setAreaMode('multi');
