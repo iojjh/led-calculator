@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.39';
-const APP_SW_VERSION = 'v142';
+const APP_VERSION = '2.0.40';
+const APP_SW_VERSION = 'v143';
 
 const CHANGELOG = [
+  { v: '2.0.40', items: [
+    '일정 불러오기 — 지난 일정 탭 카운트 뱃지 제거',
+    '랜선 자동할당 — maxRaw가 홀수일 때 포트 끝이 바닥행 아닌 상단에서 끝나는 버그 수정 (numPorts 계산에 maxEven 기준 적용)',
+  ] },
   { v: '2.0.39', items: [
     '일정 불러오기 — 지난 일정 탭에 과거 일정이 표시되지 않던 버그 수정',
   ] },
@@ -3551,8 +3555,8 @@ function _autoAssignSec(secName, secLayout, secCols, portOff) {
   const maxRaw = Math.max(1, Math.floor(MAX_PX / colPx));
   // 짝수 열로 내림 → 포트 양끝 바닥행 보장 (규칙1)
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
-  // 최소 포트 수 선계산 후 균등 배분 (규칙2: 나머지는 마지막 포트)
-  const numPorts = Math.min(8 - portOff, Math.ceil(secCols / maxRaw));
+  // maxEven 기준으로 포트 수 계산 — maxRaw가 홀수일 때 짝수 열 보장
+  const numPorts = Math.min(8 - portOff, Math.ceil(secCols / maxEven));
   const takes = _balancedCols(secCols, numPorts, maxRaw, maxEven);
 
   let colStart = 0, portCount = 0;
@@ -3747,7 +3751,7 @@ function _autoAssignSecRowSplit(secName, secLayout, secCols, portOff) {
   const colPx = upper.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   const maxRaw = Math.max(1, Math.floor(MAX_PX / colPx));
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
-  const numPorts = Math.min(8 - portOff - 1, Math.ceil(secCols / maxRaw));
+  const numPorts = Math.min(8 - portOff - 1, Math.ceil(secCols / maxEven));
   const takes = _balancedCols(secCols, numPorts, maxRaw, maxEven);
   let colStart = 0, portCount = 1;
   for (let p = 0; p < takes.length && portOff + portCount < 8; p++) {
@@ -4770,7 +4774,7 @@ function _schedRenderList() {
 
   const tabRow = `<div class="sched-tab-row">
     <button class="sched-tab-btn${_schedTab === 'upcoming' ? ' on' : ''}" onclick="_setSchedTab('upcoming')">예정 <span class="sched-tab-cnt">${upcoming.length}</span></button>
-    <button class="sched-tab-btn${_schedTab === 'past' ? ' on' : ''}" onclick="_setSchedTab('past')">지난 일정 <span class="sched-tab-cnt">${past.length}</span></button>
+    <button class="sched-tab-btn${_schedTab === 'past' ? ' on' : ''}" onclick="_setSchedTab('past')">지난 일정</button>
     <button class="sched-refresh" style="margin-left:auto" onclick="_schedRender()">새로고침</button>
   </div>`;
 
