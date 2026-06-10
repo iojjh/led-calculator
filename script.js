@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.37';
-const APP_SW_VERSION = 'v140';
+const APP_VERSION = '2.0.38';
+const APP_SW_VERSION = 'v141';
 
 const CHANGELOG = [
+  { v: '2.0.38', items: [
+    '랜선 자동할당 — 포트 수 동일 조건에서 포트별 열 수 균등 배분 (기본·바닥행분리 모드)',
+  ] },
   { v: '2.0.37', items: [
     '일정 불러오기 — 예정/지난 일정 탭 분리',
     '랜선 시뮬레이터 — 첫 표시 시 자동할당 자동 적용',
@@ -3510,26 +3513,56 @@ function attachEv() {
 
 // ── 자동 포트 할당 ────────────────────────────────────────
 
+// 포트별 열 수를 균등하게 배분. 비-마지막 포트는 짝수 규칙(규칙1) 적용, 마지막은 나머지(규칙2).
+// 포트 수 증가 없이 균등화 불가 시 짝수 규칙 포기 (포트 최소화 > 짝수 > 균등).
+function _balancedCols(total, numPorts, maxRaw, maxEven) {
+  if (numPorts === 1) { return [total]; }
+  const base = Math.floor(total / numPorts);
+  let perPort;
+  if (base < 2 || base % 2 === 0) {
+    perPort = base;
+  } else {
+    const up = base + 1;
+    const lastIfUp = total - up * (numPorts - 1);
+    if (up <= maxEven && lastIfUp >= 1 && lastIfUp <= maxRaw) {
+      perPort = up;
+    } else {
+      const down = base - 1;
+      const lastIfDown = total - down * (numPorts - 1);
+      if (down >= 1 && lastIfDown >= 1 && lastIfDown <= maxRaw) {
+        perPort = down;
+      } else {
+        perPort = base;
+      }
+    }
+  }
+  const takes = [];
+  let rem = total;
+  for (let p = 0; p < numPorts - 1; p++) { takes.push(perPort); rem -= perPort; }
+  takes.push(rem);
+  return takes;
+}
+
 function _autoAssignSec(secName, secLayout, secCols, portOff) {
   const colPx = secLayout.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   const maxRaw = Math.max(1, Math.floor(MAX_PX / colPx));
   // 짝수 열로 내림 → 포트 양끝 바닥행 보장 (규칙1)
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
+  // 최소 포트 수 선계산 후 균등 배분 (규칙2: 나머지는 마지막 포트)
+  const numPorts = Math.min(8 - portOff, Math.ceil(secCols / maxRaw));
+  const takes = _balancedCols(secCols, numPorts, maxRaw, maxEven);
 
   let colStart = 0, portCount = 0;
-  while (colStart < secCols && portOff + portCount < 8) {
-    const rem = secCols - colStart;
-    // 남은 열이 maxRaw 이하면 모두 할당 — 홀수여도 새 포트 강제 X (규칙2)
-    const take = rem <= maxRaw ? rem : maxEven;
+  for (let p = 0; p < takes.length && portOff + portCount < 8; p++) {
     const pi = portOff + portCount;
-    for (let ci = 0; ci < take; ci++) {
+    for (let ci = 0; ci < takes[p]; ci++) {
       const col = colStart + ci;
       for (let ri = 0; ri < secLayout.length; ri++) {
         const row = ci % 2 === 0 ? secLayout.length - 1 - ri : ri;
         assign(pi, secName ? `${secName}:${row},${col}` : `${row},${col}`);
       }
     }
-    colStart += take;
+    colStart += takes[p];
     portCount++;
   }
   return portCount;
@@ -3711,19 +3744,19 @@ function _autoAssignSecRowSplit(secName, secLayout, secCols, portOff) {
   const colPx = upper.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   const maxRaw = Math.max(1, Math.floor(MAX_PX / colPx));
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
+  const numPorts = Math.min(8 - portOff - 1, Math.ceil(secCols / maxRaw));
+  const takes = _balancedCols(secCols, numPorts, maxRaw, maxEven);
   let colStart = 0, portCount = 1;
-  while (colStart < secCols && portOff + portCount < 8) {
-    const rem = secCols - colStart;
-    const take = rem <= maxRaw ? rem : maxEven;
+  for (let p = 0; p < takes.length && portOff + portCount < 8; p++) {
     const pi = portOff + portCount;
-    for (let ci = 0; ci < take; ci++) {
+    for (let ci = 0; ci < takes[p]; ci++) {
       const col = colStart + ci;
       for (let ri = 0; ri < upper.length; ri++) {
         const row = ci % 2 === 0 ? upper.length - 1 - ri : ri;
         assign(pi, secName ? `${secName}:${row},${col}` : `${row},${col}`);
       }
     }
-    colStart += take;
+    colStart += takes[p];
     portCount++;
   }
   return portCount;
