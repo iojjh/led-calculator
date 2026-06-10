@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.36';
-const APP_SW_VERSION = 'v139';
+const APP_VERSION = '2.0.37';
+const APP_SW_VERSION = 'v140';
 
 const CHANGELOG = [
+  { v: '2.0.37', items: [
+    '일정 불러오기 — 예정/지난 일정 탭 분리',
+    '랜선 시뮬레이터 — 첫 표시 시 자동할당 자동 적용',
+  ] },
   { v: '2.0.36', items: [
     '일정 불러오기 — 패널 사이즈 자동 적용 시 "가로 사용" 버튼이 보이지 않던 버그 수정',
   ] },
@@ -2677,6 +2681,9 @@ function buildSim() {
   attachEv();
   renderPorts(); buildCv(); renderLeg(); renderSum();
   if (isFs) { _refreshSimFs(); }
+  if (!isPwr && State.pA.every(s => s.size === 0)) {
+    if (State.areaMode === 'multi') { autoAssignUnified(); } else { autoAssign(); }
+  }
 }
 
 function openSimFs() {
@@ -4640,6 +4647,7 @@ function vmixFullReset() {
 const _SCHED_ICS_URL = 'https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/cfc7d81d-4e85-4980-8652-3a1ecc64867d/cid-610EC8FF2A0B2E95/calendar.ics';
 
 let _schedEvents = [];
+let _schedTab = 'upcoming';
 
 function openSchedModal() {
   document.getElementById('schedBg').style.display = 'flex';
@@ -4715,29 +4723,40 @@ function _stripSchedFooter(s) {
 
 function _schedRenderList() {
   const body = document.getElementById('sched-body');
-  const topRow = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-    <button class="sched-refresh" onclick="_schedRender()">새로고침</button>
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+
+  const upcoming = [], past = [];
+  _schedEvents.forEach((e, i) => {
+    const dt = new Date(e.start.dateTime || e.start.date);
+    (dt < now ? past : upcoming).push({ e, i, dt });
+  });
+  past.sort((a, b) => b.dt - a.dt);
+
+  const tabRow = `<div class="sched-tab-row">
+    <button class="sched-tab-btn${_schedTab === 'upcoming' ? ' on' : ''}" onclick="_setSchedTab('upcoming')">예정 <span class="sched-tab-cnt">${upcoming.length}</span></button>
+    <button class="sched-tab-btn${_schedTab === 'past' ? ' on' : ''}" onclick="_setSchedTab('past')">지난 일정 <span class="sched-tab-cnt">${past.length}</span></button>
+    <button class="sched-refresh" style="margin-left:auto" onclick="_schedRender()">새로고침</button>
   </div>`;
 
-  const now = new Date(); now.setHours(0, 0, 0, 0);
-  const items = _schedEvents.map((e, i) => {
-    const dt = new Date(e.start.dateTime || e.start.date);
-    if (dt < now) { return ''; }
+  const list = _schedTab === 'upcoming' ? upcoming : past;
+  const emptyMsg = _schedTab === 'upcoming' ? '예정된 일정이 없습니다.' : '지난 일정이 없습니다.';
+
+  const items = list.map(({ e, i, dt }) => {
     const dateStr = dt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     const content = _stripSchedFooter(e.bodyPreview || '');
-    return `<div class="sched-ev" onclick="_schedSelectEvent(${i})">
+    return `<div class="sched-ev${_schedTab === 'past' ? ' sched-ev-past' : ''}" onclick="_schedSelectEvent(${i})">
       <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
       <div class="sched-ev-date">${dateStr}</div>
       ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
     </div>`;
   }).join('');
 
-  if (!items.trim()) {
-    body.innerHTML = topRow + '<div class="sched-hint">예정된 일정이 없습니다.</div>';
-    return;
-  }
+  body.innerHTML = tabRow + (items || `<div class="sched-hint">${emptyMsg}</div>`);
+}
 
-  body.innerHTML = topRow + items;
+function _setSchedTab(tab) {
+  _schedTab = tab;
+  _schedRenderList();
 }
 
 function _schedSelectEvent(idx) {
