@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.38';
-const APP_SW_VERSION = 'v141';
+const APP_VERSION = '2.0.39';
+const APP_SW_VERSION = 'v142';
 
 const CHANGELOG = [
+  { v: '2.0.39', items: [
+    '일정 불러오기 — 지난 일정 탭에 과거 일정이 표시되지 않던 버그 수정',
+  ] },
   { v: '2.0.38', items: [
     '랜선 자동할당 — 포트 수 동일 조건에서 포트별 열 수 균등 배분 (기본·바닥행분리 모드)',
   ] },
@@ -4908,7 +4911,6 @@ function _schedApplyParsed(parsed) {
 // ── ICS 파서 ─────────────────────────────────────────────────────────────────
 function _parseIcs(raw) {
   const text = raw.replace(/\r\n[ \t]/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const now = new Date(); now.setHours(0, 0, 0, 0);
   const events = [];
   for (const block of text.split('BEGIN:VEVENT').slice(1)) {
     const ev = {};
@@ -4921,11 +4923,9 @@ function _parseIcs(raw) {
       if (key === 'DESCRIPTION') { ev.bodyPreview = _icsUnescape(val); }
       if (key === 'DTSTART')     { ev.start = { dateTime: _icsDate(val) }; }
     }
-    if (ev.subject && ev.start && new Date(ev.start.dateTime) >= now) { events.push(ev); }
+    if (ev.subject && ev.start) { events.push(ev); }
   }
-  return events
-    .sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime))
-    .slice(0, 30);
+  return events.sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
 }
 
 function _icsUnescape(s) {
