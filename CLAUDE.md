@@ -127,7 +127,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | `State.cols` / `State.layout` | 단일 모드 열 수 / 행 배열 |
 
 **버전 업 규칙**
-코드 수정 후 반드시: `APP_VERSION` 올리기 → `APP_SW_VERSION` 올리기 → `CHANGELOG` 항목 추가 → `service-worker.js`의 `CACHE_VERSION` 동기화 → git push
+코드 수정 후 반드시: `APP_VERSION` 올리기 → `APP_SW_VERSION` 올리기 → `CHANGELOG` 항목 추가 → `service-worker.js`의 `CACHE_VERSION` 동기화 → 커밋 → **푸시 전 사용자에게 확인 후 진행**
 
 ---
 
