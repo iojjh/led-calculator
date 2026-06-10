@@ -20,10 +20,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.34';
-const APP_SW_VERSION = 'v137';
+const APP_VERSION = '2.0.35';
+const APP_SW_VERSION = 'v138';
 
 const CHANGELOG = [
+  { v: '2.0.35', items: [
+    'PNG 저장 — 가로 모드 시 해상도 이미지·파워콘 캔버스 패널 폭을 1000mm 픽셀 기준으로 수정',
+    '시뮬레이터 캔버스 — 가로 모드 시 cellW 상한을 128px(단일)/120px(멀티)로 확대해 캔버스가 화면 폭 채우도록 수정',
+    'PNG 스냅샷 — 가로 모드 시 패널 사이즈를 "1000 × 500 mm (가로 사용)"으로 표시',
+  ] },
   { v: '2.0.34', items: [
     '계산 결과 — 최종 해상도 옆 대각선 인치수 뱃지 표시 (단일·멀티 모드 모두)',
     '패널 가로 사용 옵션 — 500×1000mm 선택 시 "↔ 가로 사용" 토글 활성화, 1000×500mm 배치로 계산·시뮬레이터 동작',
@@ -874,7 +879,7 @@ function _buildResCanvas(sp, tW, tH) {
   ctx.lineWidth = gridLW;
   ctx.setLineDash([]);
 
-  const pw = sp.px500.w;
+  const pw = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
   for (let x = pw; x < tW; x += pw) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
   }
@@ -958,7 +963,7 @@ async function _buildWmCanvas(sp, tW, tH) {
   ctx.strokeStyle = 'rgba(255,255,255,0.60)';
   ctx.lineWidth = gridLW;
   ctx.setLineDash([]);
-  const pw = sp.px500.w;
+  const pw = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
   for (let x = pw; x < tW; x += pw) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
   }
@@ -1027,7 +1032,7 @@ function _buildPwrCanvas(sp, tW, tH, pwrPA) {
   ctx.fillText(`1번 파워콘 ${usedPorts}개`, Math.round(tW * 0.975), hdr / 2);
   // 셀 그리기
   const C = State.cols, layout = State.layout;
-  const cellW = sp.px500.w;
+  const cellW = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
   let y = hdr;
   layout.forEach((row, ri) => {
     const cellH = ppx(row.type).h;
@@ -1070,7 +1075,7 @@ function _buildPwrCanvasMulti(sp, secInfo, totalTW, maxTH, pwrPA) {
   const usedPorts = pwrPA.filter(s => s.size > 0).length;
   ctx.fillStyle = '#ccc'; ctx.textAlign = 'right';
   ctx.fillText(`1번 파워콘 ${usedPorts}개`, Math.round(totalTW * 0.975), hdr / 2);
-  const cellW = sp.px500.w;
+  const cellW = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
   let xOff = 0;
   ['left','center','right'].forEach(sn => {
     const sec = secInfo[sn]; if (!sec) { return; }
@@ -1118,7 +1123,8 @@ function _getPwrPA() {
 async function genResImage() {
   if (!isReady()) { return; }
   const sp = SPECS[State.curLed];
-  const tW = State.cols * sp.px500.w;
+  const isLand = State.panelRotated && State.basePH === 1000;
+  const tW = isLand ? State.cols * sp.px1000.h : State.cols * sp.px500.w;
   let tH = 0;
   State.layout.forEach(r => { tH += ppx(r.type).h; });
 
@@ -1180,7 +1186,7 @@ function _drawWmTiles(ctx, tW, tH) {
 
 function _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH) {
   const gridLW = Math.max(2, Math.round(totalTW / 700));
-  const pw = sp.px500.w;
+  const pw = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
   const active = ['left','center','right'].filter(k => secInfo[k]);
   ctx.strokeStyle = 'rgba(255,255,255,0.60)';
   ctx.lineWidth = gridLW;
@@ -1297,13 +1303,14 @@ async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
 async function genResImageMulti() {
   if (!isReady()) { return; }
   const sp = SPECS[State.curLed];
+  const isLand = State.panelRotated && State.basePH === 1000;
   let totalTW = 0, maxTH = 0;
   const secInfo = {};
   ['left','center','right'].forEach(k => {
     const sec = State.multiSec[k];
     if (!sec.cols || !sec.layout.length) { secInfo[k] = null; return; }
     let tH = 0; sec.layout.forEach(r => { tH += ppx(r.type).h; });
-    const tW = sec.cols * sp.px500.w;
+    const tW = isLand ? sec.cols * sp.px1000.h : sec.cols * sp.px500.w;
     totalTW += tW; maxTH = Math.max(maxTH, tH);
     secInfo[k] = { tW, tH, cols: sec.cols, layout: [...sec.layout] };
   });
@@ -1363,13 +1370,17 @@ async function saveCalcPng() {
   if (!isReady()) { alert('LED 종류와 패널 사이즈를 먼저 선택해주세요.'); return; }
 
   const sp = SPECS[State.curLed];
-  const tW = State.cols * sp.px500.w;
+  const isLand = State.panelRotated && State.basePH === 1000;
+  const tW = isLand ? State.cols * sp.px1000.h : State.cols * sp.px500.w;
   let tH = 0; State.layout.forEach(r => { tH += ppx(r.type).h; });
 
   // 패널 수량
   let c5 = 0, c10 = 0;
   State.layout.forEach(r => {
-    if (r.type === 'half') { c5 += State.cols; } else if (State.basePH === 1000) { c10 += State.cols; } else { c5 += State.cols; }
+    if (isLand) { c10 += State.cols; }
+    else if (r.type === 'half') { c5 += State.cols; }
+    else if (State.basePH === 1000) { c10 += State.cols; }
+    else { c5 += State.cols; }
   });
 
   // 케이블 수량 — PWR 탭 활성 시에도 LAN pA 기준으로 계산
@@ -1454,7 +1465,7 @@ async function saveCalcPng() {
     ${SEC('기본 정보')}
     ${S('설치 면적', `${W}m × ${H}m`)}
     ${S('LED 종류', State.curLed)}
-    ${S('패널 사이즈', panelEl ? panelEl.textContent.trim() : '-')}
+    ${S('패널 사이즈', panelEl ? (isLand ? '1000 × 500 mm (가로 사용)' : panelEl.textContent.trim()) : '-')}
     ${consoleName || State.curSending || mainLen ? SEC('장비') : ''}
     ${consoleName ? S('콘솔', `${consoleName} (${consoleSpec.cable} · ${consoleSpec.rep})`) : ''}
     ${consoleName && fiberLen ? S('광케이블 길이', fiberLen + 'm') : ''}
@@ -2855,7 +2866,8 @@ function buildCv() {
     const totalCols = activeSecs.reduce((s, k) => s + State.multiSec[k].cols, 0);
     const gaps = activeSecs.length - 1;
     const cW = Math.min(cv.parentElement.clientWidth - 32, fsMode ? 9999 : 900);
-    State.cellW = Math.max(22, Math.min(60, Math.floor((cW - gaps * SECTION_GAP) / totalCols)));
+    const maxCellWM = State.panelRotated && State.basePH === 1000 ? 120 : 60;
+    State.cellW = Math.max(22, Math.min(maxCellWM, Math.floor((cW - gaps * SECTION_GAP) / totalCols)));
     if (fsMode) {
       const availH = cv.parentElement.clientHeight - 8;
       if (availH > 0) {
@@ -2891,7 +2903,8 @@ function buildCv() {
 
   if (!State.cols || !State.layout.length) { return; }
   const cW = Math.min(cv.parentElement.clientWidth - 32, fsMode ? 9999 : 600);
-  State.cellW = Math.max(28, Math.min(64, Math.floor(cW / State.cols)));
+  const maxCellW = State.panelRotated && State.basePH === 1000 ? 128 : 64;
+  State.cellW = Math.max(28, Math.min(maxCellW, Math.floor(cW / State.cols)));
   if (fsMode) {
     const availH = cv.parentElement.clientHeight - 8;
     if (availH > 0) {
