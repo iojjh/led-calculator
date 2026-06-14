@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.40';
-const APP_SW_VERSION = 'v143';
+const APP_VERSION = '2.0.41';
+const APP_SW_VERSION = 'v144';
 
 const CHANGELOG = [
+  { v: '2.0.41', items: [
+    '랜선 시뮬레이터 — 포트당 픽셀 상한을 655,360으로 상향',
+  ] },
   { v: '2.0.40', items: [
     '일정 불러오기 — 지난 일정 탭 카운트 뱃지 제거',
     '랜선 자동할당 — maxRaw가 홀수일 때 포트 끝이 바닥행 아닌 상단에서 끝나는 버그 수정 (numPorts 계산에 maxEven 기준 적용)',
@@ -308,7 +311,7 @@ const SPECS = {
   '4mm': { px500: { w: 104, h: 104 }, px1000: { w: 104, h: 208 } },
 };
 
-const MAX_PX = 650000; // 포트당 최대 픽셀 수 상한
+const MAX_PX = 655360; // 포트당 최대 픽셀 수 상한
 const LP_MS = 380;    // 마우스 롱프레스 임계값 (ms)
 const LP_TOUCH = 600;   // 터치 롱프레스 임계값 (ms) — 일반 탭과 명확히 구분하기 위해 더 길게 설정
 
