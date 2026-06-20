@@ -20,10 +20,16 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.42';
-const APP_SW_VERSION = 'v145';
+const APP_VERSION = '2.0.44';
+const APP_SW_VERSION = 'v147';
 
 const CHANGELOG = [
+  { v: '2.0.44', items: [
+    '일정 불러오기 — 위치 링크 클릭 시 지도 앱(네이버·카카오·구글) 선택 바텀 시트',
+  ] },
+  { v: '2.0.43', items: [
+    '일정 불러오기 — 위치 정보를 지도 앱 연결 링크로 표시',
+  ] },
   { v: '2.0.42', items: [
     '일정 불러오기 — 아웃룩 일정의 위치(장소) 정보 표시',
   ] },
@@ -4694,6 +4700,7 @@ const _SCHED_ICS_URL = 'https://outlook.live.com/owa/calendar/00000000-0000-0000
 
 let _schedEvents = [];
 let _schedTab = 'upcoming';
+let _schedMapPendingLoc = '';
 
 function openSchedModal() {
   document.getElementById('schedBg').style.display = 'flex';
@@ -4793,7 +4800,7 @@ function _schedRenderList() {
     return `<div class="sched-ev${_schedTab === 'past' ? ' sched-ev-past' : ''}" onclick="_schedSelectEvent(${i})">
       <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
       <div class="sched-ev-date">${dateStr}</div>
-      ${e.location ? `<div class="sched-ev-loc">📍 ${_se(e.location)}</div>` : ''}
+      ${e.location ? `<a class="sched-ev-loc" href="#" onclick="_schedOpenMap(event,${i})">📍 ${_se(e.location)}</a>` : ''}
       ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
     </div>`;
   }).join('');
@@ -4832,6 +4839,47 @@ function _schedSelectEvent(idx) {
     body.innerHTML = `<div class="sched-hint">${_se(e.message)}</div>
       <button class="sched-primary-btn" style="margin-top:12px;background:#555" onclick="_schedRenderList()">목록으로</button>`;
   }
+}
+
+function _schedOpenMap(ev, idx) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  const location = _schedEvents[idx]?.location;
+  if (!location) { return; }
+  _schedShowMapPicker(location);
+}
+
+function _schedDoOpenMap(type, location) {
+  const q = encodeURIComponent(location);
+  const urls = {
+    naver:  'https://map.naver.com/v5/search/' + q,
+    kakao:  'https://map.kakao.com/?q=' + q,
+    google: 'https://maps.google.com/maps?q=' + q,
+  };
+  window.open(urls[type], '_blank', 'noopener');
+}
+
+function _schedShowMapPicker(location) {
+  _schedMapPendingLoc = location;
+  document.getElementById('schedMapPickerBg')?.remove();
+  const bg = document.createElement('div');
+  bg.id = 'schedMapPickerBg';
+  bg.className = 'sched-map-picker-bg';
+  bg.onclick = () => bg.remove();
+  bg.innerHTML = `<div class="sched-map-picker" onclick="event.stopPropagation()">
+    <div class="sched-map-picker-title">지도 앱 선택</div>
+    <button class="sched-map-picker-btn" onclick="_schedPickMap('naver')">네이버 지도</button>
+    <button class="sched-map-picker-btn" onclick="_schedPickMap('kakao')">카카오맵</button>
+    <button class="sched-map-picker-btn" onclick="_schedPickMap('google')">구글 지도</button>
+    <button class="sched-map-picker-cancel" onclick="document.getElementById('schedMapPickerBg')?.remove()">취소</button>
+  </div>`;
+  document.body.appendChild(bg);
+}
+
+function _schedPickMap(type) {
+  document.getElementById('schedMapPickerBg')?.remove();
+  _schedDoOpenMap(type, _schedMapPendingLoc);
+  _schedMapPendingLoc = '';
 }
 
 function _schedParseText(text) {
