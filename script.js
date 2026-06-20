@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.48';
-const APP_SW_VERSION = 'v151';
+const APP_VERSION = '2.0.49';
+const APP_SW_VERSION = 'v152';
 
 const CHANGELOG = [
+  { v: '2.0.49', items: [
+    '일정 불러오기 — 2mm LED 장비 적용 시 패널 기본값 500×500mm로 설정',
+  ] },
   { v: '2.0.48', items: [
     '일정 불러오기 — 위치 링크 "지도" 텍스트 제거, PC에서 구글 지도 웹으로 폴백',
   ] },
@@ -4930,14 +4933,21 @@ function _schedApplyParsed(parsed) {
     const el = document.querySelector('#ledChips .chip[data-v="' + parsed.pitch + 'mm"]');
     if (el) { el.classList.add('on'); State.curLed = parsed.pitch + 'mm'; }
   }
-  // 기본 패널: 500×1000mm
+  // 패널: 2mm LED는 500×500mm 고정, 그 외는 기본 500×1000mm
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
-  const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
-  if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
   const rotWrap = document.getElementById('panelRotateWrap');
   const rotBtn  = document.getElementById('panelRotateBtn');
-  if (rotWrap) { rotWrap.style.display = ''; }
-  if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
+  if (parsed.pitch === 2) {
+    const panelEl = document.querySelector('#panelChips .chip[data-v="500"]');
+    if (panelEl) { panelEl.classList.add('on'); State.basePH = 500; }
+    State.panelRotated = false;
+    if (rotWrap) { rotWrap.style.display = 'none'; }
+  } else {
+    const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
+    if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
+    if (rotWrap) { rotWrap.style.display = ''; }
+    if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
+  }
 
   if (parsed.mode === 'multi') {
     setAreaMode('multi');
