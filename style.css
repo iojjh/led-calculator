@@ -436,9 +436,12 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .sched-tab-btn.on{color:#0F6E56;font-weight:700;background:#e8f7f3;}
 .sched-tab-cnt{font-size:11px;background:#e8e8e8;color:#888;border-radius:8px;padding:1px 5px;margin-left:2px;}
 .sched-tab-btn.on .sched-tab-cnt{background:#0F6E56;color:#fff;}
-.sched-ev{border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .1s;}
-.sched-ev:active{background:#f0faf6;}
+.sched-ev{border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:8px;}
 .sched-ev-past{opacity:.7;border-color:#f5f5f5;}
+.sched-ev-row{display:flex;align-items:flex-start;gap:8px;}
+.sched-ev-info{flex:1;min-width:0;}
+.sched-ev-load{flex-shrink:0;padding:5px 10px;border:none;background:#0F6E56;color:#fff;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.sched-ev-load:active{background:#0a5a47;}
 .sched-ev-title{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:2px;}
 .sched-ev-date{font-size:12px;color:#0F6E56;font-weight:500;margin-top:2px;}
 .sched-ev-past .sched-ev-date{color:#aaa;}

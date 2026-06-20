@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.46';
-const APP_SW_VERSION = 'v149';
+const APP_VERSION = '2.0.47';
+const APP_SW_VERSION = 'v150';
 
 const CHANGELOG = [
+  { v: '2.0.47', items: [
+    '일정 불러오기 — 일정 카드에 불러오기 버튼 추가, 위치에서 주소만 추출하여 지도 앱 검색',
+  ] },
   { v: '2.0.46', items: [
     '일정 불러오기 — 위치 링크 터치 시 geo: URI로 OS 지도 앱 선택창 호출',
   ] },
@@ -4802,11 +4805,16 @@ function _schedRenderList() {
   const items = list.map(({ e, i, dt }) => {
     const dateStr = dt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     const content = _stripSchedFooter(e.bodyPreview || '');
-    return `<div class="sched-ev${_schedTab === 'past' ? ' sched-ev-past' : ''}" onclick="_schedSelectEvent(${i})">
-      <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
-      <div class="sched-ev-date">${dateStr}</div>
-      ${e.location ? `<button type="button" class="sched-ev-loc" onclick="_schedOpenMap(event,${i})" ontouchend="event.stopPropagation()">📍 ${_se(e.location)} <span class="sched-ev-loc-map">지도</span></button>` : ''}
-      ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
+    return `<div class="sched-ev${_schedTab === 'past' ? ' sched-ev-past' : ''}">
+      <div class="sched-ev-row">
+        <div class="sched-ev-info">
+          <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
+          <div class="sched-ev-date">${dateStr}</div>
+          ${e.location ? `<button type="button" class="sched-ev-loc" onclick="_schedOpenMap(event,${i})" ontouchend="event.stopPropagation()">📍 ${_se(e.location)} <span class="sched-ev-loc-map">지도</span></button>` : ''}
+          ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
+        </div>
+        <button type="button" class="sched-ev-load" onclick="_schedSelectEvent(${i})">불러오기</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -4846,13 +4854,20 @@ function _schedSelectEvent(idx) {
   }
 }
 
+function _extractMapAddr(location) {
+  // 대괄호와 내용 제거
+  const s = location.replace(/\[.*?\]/g, '').trim();
+  // 광역시도 키워드로 시작하는 주소 부분만 추출, 없으면 전체 사용
+  const m = s.match(/((?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)\S*[\s\S]+)/);
+  return (m ? m[1] : s).trim();
+}
+
 function _schedOpenMap(ev, idx) {
   ev.preventDefault();
   ev.stopPropagation();
   const location = _schedEvents[idx]?.location;
   if (!location) { return; }
-  // geo: URI → OS 시스템 지도 앱 선택창 호출 (Android: 네이버·카카오·구글맵 등 선택 가능)
-  window.location.href = 'geo:0,0?q=' + encodeURIComponent(location);
+  window.location.href = 'geo:0,0?q=' + encodeURIComponent(_extractMapAddr(location));
 }
 
 function _schedParseText(text) {
