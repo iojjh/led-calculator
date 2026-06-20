@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.41';
-const APP_SW_VERSION = 'v144';
+const APP_VERSION = '2.0.42';
+const APP_SW_VERSION = 'v145';
 
 const CHANGELOG = [
+  { v: '2.0.42', items: [
+    '일정 불러오기 — 아웃룩 일정의 위치(장소) 정보 표시',
+  ] },
   { v: '2.0.41', items: [
     '랜선 시뮬레이터 — 포트당 픽셀 상한을 655,360으로 상향',
   ] },
@@ -4790,6 +4793,7 @@ function _schedRenderList() {
     return `<div class="sched-ev${_schedTab === 'past' ? ' sched-ev-past' : ''}" onclick="_schedSelectEvent(${i})">
       <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
       <div class="sched-ev-date">${dateStr}</div>
+      ${e.location ? `<div class="sched-ev-loc">📍 ${_se(e.location)}</div>` : ''}
       ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
     </div>`;
   }).join('');
@@ -4928,6 +4932,7 @@ function _parseIcs(raw) {
       const val = line.slice(sep + 1).trim();
       if (key === 'SUMMARY')     { ev.subject    = _icsUnescape(val); }
       if (key === 'DESCRIPTION') { ev.bodyPreview = _icsUnescape(val); }
+      if (key === 'LOCATION')    { ev.location   = _icsUnescape(val); }
       if (key === 'DTSTART')     { ev.start = { dateTime: _icsDate(val) }; }
     }
     if (ev.subject && ev.start) { events.push(ev); }
