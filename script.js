@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.47';
-const APP_SW_VERSION = 'v150';
+const APP_VERSION = '2.0.48';
+const APP_SW_VERSION = 'v151';
 
 const CHANGELOG = [
+  { v: '2.0.48', items: [
+    '일정 불러오기 — 위치 링크 "지도" 텍스트 제거, PC에서 구글 지도 웹으로 폴백',
+  ] },
   { v: '2.0.47', items: [
     '일정 불러오기 — 일정 카드에 불러오기 버튼 추가, 위치에서 주소만 추출하여 지도 앱 검색',
   ] },
@@ -4810,7 +4813,7 @@ function _schedRenderList() {
         <div class="sched-ev-info">
           <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
           <div class="sched-ev-date">${dateStr}</div>
-          ${e.location ? `<button type="button" class="sched-ev-loc" onclick="_schedOpenMap(event,${i})" ontouchend="event.stopPropagation()">📍 ${_se(e.location)} <span class="sched-ev-loc-map">지도</span></button>` : ''}
+          ${e.location ? `<button type="button" class="sched-ev-loc" onclick="_schedOpenMap(event,${i})" ontouchend="event.stopPropagation()">📍 ${_se(e.location)}</button>` : ''}
           ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
         </div>
         <button type="button" class="sched-ev-load" onclick="_schedSelectEvent(${i})">불러오기</button>
@@ -4867,7 +4870,13 @@ function _schedOpenMap(ev, idx) {
   ev.stopPropagation();
   const location = _schedEvents[idx]?.location;
   if (!location) { return; }
-  window.location.href = 'geo:0,0?q=' + encodeURIComponent(_extractMapAddr(location));
+  const addr = _extractMapAddr(location);
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.location.href = 'geo:0,0?q=' + encodeURIComponent(addr);
+  } else {
+    window.open('https://maps.google.com/maps?q=' + encodeURIComponent(addr), '_blank', 'noopener');
+  }
 }
 
 function _schedParseText(text) {
