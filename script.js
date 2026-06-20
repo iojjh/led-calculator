@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.44';
-const APP_SW_VERSION = 'v147';
+const APP_VERSION = '2.0.45';
+const APP_SW_VERSION = 'v148';
 
 const CHANGELOG = [
+  { v: '2.0.45', items: [
+    '일정 불러오기 — 위치 링크를 하이퍼링크 스타일로 변경, 모바일 터치 이벤트 분리 수정',
+  ] },
   { v: '2.0.44', items: [
     '일정 불러오기 — 위치 링크 클릭 시 지도 앱(네이버·카카오·구글) 선택 바텀 시트',
   ] },
@@ -4800,7 +4803,7 @@ function _schedRenderList() {
     return `<div class="sched-ev${_schedTab === 'past' ? ' sched-ev-past' : ''}" onclick="_schedSelectEvent(${i})">
       <div class="sched-ev-title">${_se(e.subject || '(제목 없음)')}</div>
       <div class="sched-ev-date">${dateStr}</div>
-      ${e.location ? `<a class="sched-ev-loc" href="#" onclick="_schedOpenMap(event,${i})">📍 ${_se(e.location)}</a>` : ''}
+      ${e.location ? `<button type="button" class="sched-ev-loc" onclick="_schedOpenMap(event,${i})" ontouchend="event.stopPropagation()">📍 ${_se(e.location)} <span class="sched-ev-loc-map">지도</span></button>` : ''}
       ${content ? `<div class="sched-ev-body">${_se(content)}</div>` : ''}
     </div>`;
   }).join('');
