@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.45';
-const APP_SW_VERSION = 'v148';
+const APP_VERSION = '2.0.46';
+const APP_SW_VERSION = 'v149';
 
 const CHANGELOG = [
+  { v: '2.0.46', items: [
+    '일정 불러오기 — 위치 링크 터치 시 geo: URI로 OS 지도 앱 선택창 호출',
+  ] },
   { v: '2.0.45', items: [
     '일정 불러오기 — 위치 링크를 하이퍼링크 스타일로 변경, 모바일 터치 이벤트 분리 수정',
   ] },
@@ -4703,7 +4706,6 @@ const _SCHED_ICS_URL = 'https://outlook.live.com/owa/calendar/00000000-0000-0000
 
 let _schedEvents = [];
 let _schedTab = 'upcoming';
-let _schedMapPendingLoc = '';
 
 function openSchedModal() {
   document.getElementById('schedBg').style.display = 'flex';
@@ -4849,40 +4851,8 @@ function _schedOpenMap(ev, idx) {
   ev.stopPropagation();
   const location = _schedEvents[idx]?.location;
   if (!location) { return; }
-  _schedShowMapPicker(location);
-}
-
-function _schedDoOpenMap(type, location) {
-  const q = encodeURIComponent(location);
-  const urls = {
-    naver:  'https://map.naver.com/v5/search/' + q,
-    kakao:  'https://map.kakao.com/?q=' + q,
-    google: 'https://maps.google.com/maps?q=' + q,
-  };
-  window.open(urls[type], '_blank', 'noopener');
-}
-
-function _schedShowMapPicker(location) {
-  _schedMapPendingLoc = location;
-  document.getElementById('schedMapPickerBg')?.remove();
-  const bg = document.createElement('div');
-  bg.id = 'schedMapPickerBg';
-  bg.className = 'sched-map-picker-bg';
-  bg.onclick = () => bg.remove();
-  bg.innerHTML = `<div class="sched-map-picker" onclick="event.stopPropagation()">
-    <div class="sched-map-picker-title">지도 앱 선택</div>
-    <button class="sched-map-picker-btn" onclick="_schedPickMap('naver')">네이버 지도</button>
-    <button class="sched-map-picker-btn" onclick="_schedPickMap('kakao')">카카오맵</button>
-    <button class="sched-map-picker-btn" onclick="_schedPickMap('google')">구글 지도</button>
-    <button class="sched-map-picker-cancel" onclick="document.getElementById('schedMapPickerBg')?.remove()">취소</button>
-  </div>`;
-  document.body.appendChild(bg);
-}
-
-function _schedPickMap(type) {
-  document.getElementById('schedMapPickerBg')?.remove();
-  _schedDoOpenMap(type, _schedMapPendingLoc);
-  _schedMapPendingLoc = '';
+  // geo: URI → OS 시스템 지도 앱 선택창 호출 (Android: 네이버·카카오·구글맵 등 선택 가능)
+  window.location.href = 'geo:0,0?q=' + encodeURIComponent(location);
 }
 
 function _schedParseText(text) {
