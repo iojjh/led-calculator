@@ -123,6 +123,8 @@ input[type=number].spare-inp:focus{outline:none;border-bottom-style:solid;border
 .port-btn{border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;background:#f5f5f5;color:#888;min-width:38px;text-align:center;}
 .port-btn.has-data{border-width:1.5px;}
 .port-btn.active{color:white;border-color:transparent;}
+.expand-port-btn{background:#EF9F27;color:#fff;border-color:#EF9F27;}
+.expand-port-btn:active{opacity:.8;}
 .port-info-bar{border-radius:8px;padding:10px 12px;background:#f5f5f5;margin-bottom:8px;}
 .sim-hint{font-size:11px;color:#999;margin-bottom:8px;line-height:1.7;}
 .sim-locked{display:flex;align-items:center;justify-content:center;min-height:80px;background:#f5f5f5;border-radius:8px;font-size:13px;color:#999;}
@@ -484,6 +486,7 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .beta-lan-btns-row{display:flex;gap:8px;margin-bottom:8px;}
 .beta-lan-btn{flex:1;padding:8px 0;border:1px solid #0F6E56;background:#fff;color:#0F6E56;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
 .beta-lan-btn.danger{border-color:#f44;color:#f44;}
+.beta-lan-btn.export{background:#378ADD;color:#fff;border-color:#378ADD;}
 .beta-port-strip{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
 .beta-port-btn{border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;background:#f5f5f5;color:#888;min-width:38px;text-align:center;}
 .beta-port-btn.has-data{border-width:1.5px;}

@@ -20,10 +20,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.58';
-const APP_SW_VERSION = 'v161';
+const APP_VERSION = '2.0.59';
+const APP_SW_VERSION = 'v162';
 
 const CHANGELOG = [
+  { v: '2.0.59', items: [
+    '혼합 시뮬β → 계산기 내보내기: 설치면적·LED·패널·LAN배선 자동 적용, 파워 배선 자동 생성',
+    'LAN 시뮬레이터 포트 16개 확장 버튼 추가 (P8 옆 샌딩카드 확장)',
+    '1000×500mm(가로) 패널 선택란 항상 표시',
+  ]},
   { v: '2.0.58', items: [
     '혼합 시뮬β — LAN 배선 그래픽을 기존 랜선 시뮬레이터와 동일하게 통일 (셀 색상, 경로 굵기, 화살촉, 번호 배지, 포트 레이블, 포트 버튼 스타일)',
   ] },
@@ -496,6 +501,9 @@ const State = {
   _betaFCell:   null,
   _betaLanDHov: null,
   _betaCache:   null,
+
+  lanExpanded:  false,
+  betaImport:   null,
 };
 (function() {
   const raw = localStorage.getItem('ledCalcChkCustom');
@@ -1735,6 +1743,7 @@ function doFullReset() {
   Object.keys(State.chkNotes).forEach(k => delete State.chkNotes[k]);
   Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); _saveChkLayout();
   // 시뮬레이터 초기화 및 결과 영역 초기화
+  State.lanExpanded = false; State.betaImport = null;
   rst(); State.cols = 0; State.layout = [];
   document.getElementById('resultBody').innerHTML = '<div class="hint-text">LED 종류와 패널 사이즈를 선택하세요</div>';
   document.getElementById('simArea').innerHTML = '<div class="sim-locked">LED 종류와 패널 사이즈를 먼저 선택해주세요</div>';
@@ -1779,6 +1788,7 @@ function getAppState(name) {
     betaPH2:      State.betaPH2.map(a => [...a]),
     betaAPort:    State.betaAPort,
     betaSpareAdj: { ...State.betaSpareAdj },
+    lanExpanded:  State.lanExpanded,
   };
 }
 
@@ -1799,9 +1809,7 @@ function loadAppState(st) {
     if (el) { el.classList.add('on'); State.basePH = st.basePH; }
   }
   State.panelRotated = !!(st.panelRotated && st.basePH === 1000);
-  const rotWrap = document.getElementById('panelRotateWrap');
   const rotBtn  = document.getElementById('panelRotateBtn');
-  if (rotWrap) { rotWrap.style.display = State.basePH === 1000 ? '' : 'none'; }
   if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
 
   // 콘솔·샌딩카드 복원 (selConsole/selSending이 UI도 업데이트)
@@ -1884,6 +1892,8 @@ function loadAppState(st) {
     State.betaSpareAdj = st.betaSpareAdj ? { ...st.betaSpareAdj } : { l1: 2, sl: 20 };
     State._betaCache   = null;
   }
+  State.lanExpanded = !!(st.lanExpanded);
+  State.betaImport  = null;
 }
 
 function saveState() {
@@ -2241,6 +2251,7 @@ function _mkSec() {
 function isReady() { return State.curLed && State.basePH; }
 
 function selLed(el) {
+  State.betaImport = null;
   document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
   el.classList.add('on'); State.curLed = el.dataset.v;
   rst(); State.areaMode === 'single' ? calc() : calcMulti();
@@ -2249,9 +2260,7 @@ function selPanel(el) {
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
   el.classList.add('on'); State.basePH = parseInt(el.dataset.v);
   if (State.basePH !== 1000) { State.panelRotated = false; }
-  const wrap = document.getElementById('panelRotateWrap');
   const btn  = document.getElementById('panelRotateBtn');
-  if (wrap) { wrap.style.display = State.basePH === 1000 ? '' : 'none'; }
   if (btn)  { btn.classList.toggle('on', State.panelRotated); }
   rst(); State.areaMode === 'single' ? calc() : calcMulti();
 }
@@ -2390,6 +2399,7 @@ function calcPW() {
 }
 
 function calc() {
+  State.betaImport = null;
   const W = parseFloat(document.getElementById('iW').value) || 0;
   const H = parseFloat(document.getElementById('iH').value) || 0;
 
@@ -2457,8 +2467,28 @@ function _buildCoverHtml(tW, tH) {
   </div>`;
 }
 
+function _renderResBeta() {
+  const imp = State.betaImport;
+  let h = '<div class="metric-grid">';
+  if (imp.isRect) {
+    h += `<div class="metric"><div class="ml">가로 패널 수</div><div class="mv">${imp.cols}<span class="mu"> ea</span></div></div>`;
+    h += `<div class="metric"><div class="ml">세로 패널 수</div><div class="mv">${imp.rows}<span class="mu"> 행</span></div></div>`;
+  } else {
+    h += `<div class="metric"><div class="ml">패널 배치</div><div class="mv" style="font-size:12px;color:#888">불규칙 레이아웃 — 혼합 시뮬 참조</div></div>`;
+  }
+  h += `<div class="metric"><div class="ml">LED 패널 수</div><div class="mv">${imp.totalPanels}<span class="mu"> ea</span></div></div>`;
+  h += '</div>';
+  const resStr = imp.isRect && imp.tW ? `${imp.tW.toLocaleString()} × ${imp.tH.toLocaleString()} px` : '—';
+  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${resStr} <span style="font-size:11px;color:#aaa">(데드존 포함)</span></div></div>`;
+  if (imp.usedLeds && imp.usedLeds.length > 1) {
+    h += `<div class="panel-spec-note">혼합 LED: ${imp.usedLeds.join(' · ')} (대표: ${State.curLed || imp.usedLeds[0]})</div>`;
+  }
+  document.getElementById('resultBody').innerHTML = h;
+}
+
 function renderRes() {
   if (!isReady()) { return; }
+  if (State.betaImport) { _renderResBeta(); return; }
   const sp = SPECS[State.curLed];
   const isLand = State.panelRotated && State.basePH === 1000;
   let c5 = 0, c10 = 0;
@@ -2572,8 +2602,9 @@ function renderResMulti() {
 // ── 상태 초기화 ───────────────────────────────────────────
 
 function rst() {
-  State.pA = Array.from({ length: 8 }, () => new Set());
-  State.pH2      = Array.from({ length: 8 }, () => []);
+  const _n = State.lanExpanded ? 16 : 8;
+  State.pA  = Array.from({ length: _n }, () => new Set());
+  State.pH2 = Array.from({ length: _n }, () => []);
   State.spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 };
   State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
   State.multiSec = { left:_mkSec(), center:_mkSec(), right:_mkSec() };
@@ -2930,12 +2961,19 @@ function pxOf(pi) {
 
 function renderPorts() {
   const s = document.getElementById('portStrip'); if (!s) return;
-  s.innerHTML = State.pA.map((set, i) => {
-    const on = i === State.aPort, has = set.size > 0;
-    return `<button class="port-btn${on?' active':''}${has?' has-data':''}"
-      style="${on ? `background:${PC[i]};border-color:${PC[i]};` : has ? `border-color:${PC[i]};color:${PC[i]};` : ''}"
-      onclick="setP(${i})">P${i+1}</button>`;
-  }).join('');
+  s.innerHTML = (() => {
+    let _h = '';
+    State.pA.forEach((set, i) => {
+      const on = i === State.aPort, has = set.size > 0;
+      _h += `<button class="port-btn${on?' active':''}${has?' has-data':''}"
+        style="${on ? `background:${PC[i % PC.length]};border-color:${PC[i % PC.length]};` : has ? `border-color:${PC[i % PC.length]};color:${PC[i % PC.length]};` : ''}"
+        onclick="setP(${i})">P${i+1}</button>`;
+      if (i === 7 && !State.lanExpanded && State.simTab === 'lan') {
+        _h += `<button class="port-btn expand-port-btn" onclick="expandLanPorts()" title="샌딩카드 확장 — 포트 16개">샌딩카드 확장</button>`;
+      }
+    });
+    return _h;
+  })();
 
   const pi = document.getElementById('portInfo');
   if (pi) {
@@ -2973,6 +3011,12 @@ function renderPorts() {
 
   const rb = document.getElementById('rstPBtn');
   if (rb) { rb.textContent = `포트 ${State.aPort+1} 초기화`; }
+}
+function expandLanPorts() {
+  State.lanExpanded = true;
+  while (State.pA.length  < 16) { State.pA.push(new Set()); }
+  while (State.pH2.length < 16) { State.pH2.push([]); }
+  renderPorts(); drawCv(); renderSum(); saveState();
 }
 function setP(i) { State.aPort = i; renderPorts(); }
 
@@ -3658,11 +3702,11 @@ function _autoAssignSec(secName, secLayout, secCols, portOff) {
   // 짝수 열로 내림 → 포트 양끝 바닥행 보장 (규칙1)
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
   // maxEven 기준으로 포트 수 계산 — maxRaw가 홀수일 때 짝수 열 보장
-  const numPorts = Math.min(8 - portOff, Math.ceil(secCols / maxEven));
+  const numPorts = Math.min(State.pA.length - portOff, Math.ceil(secCols / maxEven));
   const takes = _balancedCols(secCols, numPorts, maxRaw, maxEven);
 
   let colStart = 0, portCount = 0;
-  for (let p = 0; p < takes.length && portOff + portCount < 8; p++) {
+  for (let p = 0; p < takes.length && portOff + portCount < State.pA.length; p++) {
     const pi = portOff + portCount;
     for (let ci = 0; ci < takes[p]; ci++) {
       const col = colStart + ci;
@@ -3680,8 +3724,9 @@ function _autoAssignSec(secName, secLayout, secCols, portOff) {
 function autoAssign() {
   if (!isReady()) { return; }
   if (State.areaMode === 'multi') {
-    State.pA = Array.from({ length: 8 }, () => new Set());
-    State.pH2 = Array.from({ length: 8 }, () => []);
+    const _an = State.lanExpanded ? 16 : 8;
+    State.pA = Array.from({ length: _an }, () => new Set());
+    State.pH2 = Array.from({ length: _an }, () => []);
     State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
     let portOff = 0;
     ['left','center','right'].forEach(secName => {
@@ -3717,8 +3762,9 @@ function doAutoAssign() {
 // 통합 자동 할당 — 좌→중→우 순서로 전역 열 인덱스 기반 뱀 할당 (섹션 경계 무시)
 function autoAssignUnified() {
   if (!isReady()) { return; }
-  State.pA = Array.from({ length: 8 }, () => new Set());
-  State.pH2 = Array.from({ length: 8 }, () => []);
+  const _un = State.lanExpanded ? 16 : 8;
+  State.pA = Array.from({ length: _un }, () => new Set());
+  State.pH2 = Array.from({ length: _un }, () => []);
   State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
 
   const vCols = [];
@@ -3730,7 +3776,7 @@ function autoAssignUnified() {
   if (!vCols.length) { return; }
   const colPxOf = lay => lay.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   let gi = 0, curPort = 0;
-  while (gi < vCols.length && curPort < 8) {
+  while (gi < vCols.length && curPort < State.pA.length) {
     // 현재 포트에 들어갈 수 있는 최대 열 수 (픽셀 한도 기준)
     let nFit = 0, accPx = 0;
     while (gi + nFit < vCols.length) {
@@ -3781,8 +3827,9 @@ function autoAssignRowSplitUnified() {
     for (let ci = 0; ci < sec.cols; ci++) { vCols.push({ sn, ci, lay: sec.layout }); }
   });
   if (!vCols.length) { return; }
-  State.pA = Array.from({ length: 8 }, () => new Set());
-  State.pH2 = Array.from({ length: 8 }, () => []);
+  const _rn = State.lanExpanded ? 16 : 8;
+  State.pA = Array.from({ length: _rn }, () => new Set());
+  State.pH2 = Array.from({ length: _rn }, () => []);
   State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
   // 바닥행: 픽셀 한도 고려, 초과 시 다음 포트로 분할
   let pi = 0, accBottom = 0;
@@ -3798,7 +3845,7 @@ function autoAssignRowSplitUnified() {
   const upperOf = lay => lay.slice(0, lay.length - 1);
   const colPxOf = lay => lay.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   let gi = 0, curPort = pi;
-  while (gi < vCols.length && curPort < 8) {
+  while (gi < vCols.length && curPort < State.pA.length) {
     const uLay0 = upperOf(vCols[gi].lay);
     if (!uLay0.length) { gi++; continue; }
     let nFit = 0, accPx = 0;
@@ -3853,10 +3900,10 @@ function _autoAssignSecRowSplit(secName, secLayout, secCols, portOff) {
   const colPx = upper.reduce((s, r) => s + ppx(r.type).w * ppx(r.type).h, 0);
   const maxRaw = Math.max(1, Math.floor(MAX_PX / colPx));
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
-  const numPorts = Math.min(8 - portOff - 1, Math.ceil(secCols / maxEven));
+  const numPorts = Math.min(State.pA.length - portOff - 1, Math.ceil(secCols / maxEven));
   const takes = _balancedCols(secCols, numPorts, maxRaw, maxEven);
   let colStart = 0, portCount = 1;
-  for (let p = 0; p < takes.length && portOff + portCount < 8; p++) {
+  for (let p = 0; p < takes.length && portOff + portCount < State.pA.length; p++) {
     const pi = portOff + portCount;
     for (let ci = 0; ci < takes[p]; ci++) {
       const col = colStart + ci;
@@ -5010,17 +5057,14 @@ function _schedApplyParsed(parsed) {
   }
   // 패널: 2mm LED는 500×500mm 고정, 그 외는 기본 500×1000mm
   document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
-  const rotWrap = document.getElementById('panelRotateWrap');
   const rotBtn  = document.getElementById('panelRotateBtn');
   if (parsed.pitch === 2) {
     const panelEl = document.querySelector('#panelChips .chip[data-v="500"]');
     if (panelEl) { panelEl.classList.add('on'); State.basePH = 500; }
     State.panelRotated = false;
-    if (rotWrap) { rotWrap.style.display = 'none'; }
   } else {
     const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
     if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
-    if (rotWrap) { rotWrap.style.display = ''; }
     if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
   }
 
@@ -5756,12 +5800,137 @@ function betaDrawLan() {
 
 // ─ LAN UI ─
 
+function betaExportToCalc() {
+  if (!State.betaZones.length) { _toast('내보낼 구역이 없습니다.'); return; }
+  const allPanels = _betaAllPanels();
+
+  // 지배적 LED·패널 크기 (면적 기준)
+  const ledArea = {}, panelArea = {};
+  for (const z of State.betaZones) {
+    const a = z.rows * z.cols;
+    ledArea[z.led] = (ledArea[z.led] || 0) + a;
+    const pk = `${z.panelW}:${z.panelH}`;
+    panelArea[pk] = (panelArea[pk] || 0) + a;
+  }
+  const domLed = Object.entries(ledArea).sort((a, b) => b[1] - a[1])[0][0];
+  const [domPW, domPH] = Object.entries(panelArea).sort((a, b) => b[1] - a[1])[0][0].split(':').map(Number);
+  const domRotated = domPW === 1000;
+  const domBasePH  = (domPH === 1000 || domRotated) ? 1000 : 500;
+
+  // 직사각형 여부 (전체 격자를 빈틈없이 덮는지)
+  const gW = _betaGW(), gH = _betaGH();
+  const covered = new Set(); let isRect = true;
+  for (const z of State.betaZones) {
+    for (let r = z.startRow; r < z.startRow + z.rows && isRect; r++) {
+      for (let c = z.startCol; c < z.startCol + z.cols; c++) {
+        const k = `${r},${c}`; if (covered.has(k)) { isRect = false; break; } covered.add(k);
+      }
+    }
+  }
+  isRect = isRect && covered.size === gW * gH;
+
+  // 계산기 탭 기본 상태
+  State.areaMode = 'single';
+  document.getElementById('modeBtn-single').classList.add('on');
+  document.getElementById('modeBtn-multi').classList.remove('on');
+  document.getElementById('area-single').style.display = '';
+  document.getElementById('area-multi').style.display = 'none';
+  document.getElementById('iW').value = (State.betaAreaW / 1000).toFixed(1);
+  document.getElementById('iH').value = (State.betaAreaH / 1000).toFixed(1);
+
+  // LED 칩 (사용된 전체 표시, 지배적 LED를 curLed로)
+  document.querySelectorAll('#ledChips .chip').forEach(el => el.classList.remove('on'));
+  const usedLeds = Object.keys(ledArea);
+  usedLeds.forEach(led => {
+    const el = document.querySelector(`#ledChips .chip[data-v="${led}"]`);
+    if (el) { el.classList.add('on'); }
+  });
+  State.curLed = domLed;
+
+  // 패널 칩
+  document.querySelectorAll('#panelChips .chip').forEach(el => el.classList.remove('on'));
+  const panelEl = document.querySelector(`#panelChips .chip[data-v="${domBasePH}"]`);
+  if (panelEl) { panelEl.classList.add('on'); }
+  State.basePH = domBasePH;
+  State.panelRotated = domRotated;
+  const rotBtn = document.getElementById('panelRotateBtn');
+  if (rotBtn) { rotBtn.classList.toggle('on', domRotated); }
+
+  // 레이아웃 구성 (지배적 패널 크기 기준 직사각형 격자)
+  const calcCols = Math.round(State.betaAreaW / domPW);
+  const calcRows = Math.round(State.betaAreaH / domPH);
+  State.cols   = calcCols;
+  State.layout = Array.from({ length: calcRows }, () => ({ type: 'full' }));
+
+  // 해상도 계산 (지배적 LED·패널 기준)
+  const sp = SPECS[domLed];
+  const panelPxW = domRotated ? sp.px1000.h : (domBasePH === 1000 ? sp.px500.w : sp.px500.w);
+  const panelPxH = domRotated ? sp.px1000.w : (domBasePH === 1000 ? sp.px1000.h : sp.px500.h);
+  State.betaImport = {
+    isRect, totalPanels: allPanels.length,
+    cols: calcCols, rows: calcRows,
+    tW: calcCols * panelPxW, tH: calcRows * panelPxH,
+    usedLeds,
+  };
+
+  // LAN 배선 변환 (beta 패널 키 → calc 격자 키 "calcRow,calcCol")
+  const maxUsedPort = State.betaPorts.reduce((mx, s, i) => s.size > 0 ? i : mx, -1) + 1;
+  const needExpand  = maxUsedPort > 8;
+  State.lanExpanded = needExpand;
+  const lanN = needExpand ? 16 : 8;
+  const newPA  = Array.from({ length: lanN }, () => new Set());
+  const newPH2 = Array.from({ length: lanN }, () => []);
+  for (let pi = 0; pi < Math.min(maxUsedPort, 16); pi++) {
+    for (const key of State.betaPH2[pi]) {
+      if (!State.betaPorts[pi].has(key)) { continue; }
+      const panel = allPanels.find(p => p.key === key);
+      if (!panel) { continue; }
+      const calcCol = Math.round(panel.x / domPW);
+      const calcRow = Math.round(panel.y / domPH);
+      if (calcRow < 0 || calcRow >= calcRows || calcCol < 0 || calcCol >= calcCols) { continue; }
+      const calcKey = `${calcRow},${calcCol}`;
+      if (!newPA[pi].has(calcKey)) { newPA[pi].add(calcKey); newPH2[pi].push(calcKey); }
+    }
+  }
+
+  // PWR 자동 배선 (2열당 1포트, 스네이크)
+  const tmpPwrPA  = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
+  const tmpPwrPH2 = Array.from({ length: PWR_PORT_COUNT }, () => []);
+  let pwrPi = 0;
+  for (let ci = 0; ci < calcCols && pwrPi < PWR_PORT_COUNT; ci++) {
+    const isEven = ci % 2 === 0;
+    for (let ri = 0; ri < calcRows; ri++) {
+      const r = isEven ? calcRows - 1 - ri : ri;
+      const k = `${r},${ci}`;
+      tmpPwrPA[pwrPi].add(k); tmpPwrPH2[pwrPi].push(k);
+    }
+    if (ci % 2 === 1 || ci === calcCols - 1) { pwrPi++; }
+  }
+
+  // State 적용 (LAN 탭 활성)
+  State.simTab    = 'lan';
+  State.pA        = newPA;
+  State.pH2       = newPH2;
+  State.aPort     = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
+  State._savedLan = null;
+  State._savedPwr = { pA: tmpPwrPA.map(s => new Set(s)), pH2: tmpPwrPH2.map(a => [...a]), aPort: 0 };
+
+  // 계산기 탭으로 전환 후 렌더링
+  swTab('calc');
+  buildSim();
+  renderRes();
+  renderSum();
+  saveState();
+  _toast('혼합 시뮬 데이터를 계산기에 적용했습니다.');
+}
+
 function betaRenderLanUI() {
   const el = document.getElementById('betaLanBtns');
   if (el) {
     el.innerHTML = `<div class="beta-lan-btns-row">
       <button class="beta-lan-btn" onclick="betaAutoAssign()">자동 할당</button>
       <button class="beta-lan-btn danger" onclick="betaRstAllPorts()">전체 배선 초기화</button>
+      <button class="beta-lan-btn export" onclick="betaExportToCalc()">계산기로 내보내기</button>
     </div>`;
   }
   betaRenderPorts();

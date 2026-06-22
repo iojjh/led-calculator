@@ -104,11 +104,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §8 | 1635 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) |
 | §9 | 1806 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
 | §9.5 | ~1912 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 2100 | 계산기 핵심 (`selLed`, `selPanel`, `togglePanelRotate`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `renderRes`, `renderResMulti`) |
-| §11 | 2439 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — 파워콘 탭: PWR_PORT_COUNT=18 포트, 스네이크 기본배선, LAN/PWR 탭 전환 시 pA 스왑 |
+| §10 | 2100 | 계산기 핵심 (`selLed`, `selPanel`, `togglePanelRotate`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `_renderResBeta`, `renderRes`, `renderResMulti`) — `State.betaImport` 비null 시 `_renderResBeta()` 호출, `calc()`/`selLed()` 진입 시 `betaImport=null` |
+| §11 | 2570 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `expandLanPorts`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — `State.lanExpanded` 에 따라 포트 8개/16개 전환, P8 옆 "샌딩카드 확장" 버튼 표시 |
 | §12 | 3730 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
 | §13 | 4622 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_setSchedTab`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents`, `_schedTab` |
-| §14 | ~5100 | 혼합 시뮬레이터 β (`_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN 모드 전환, 뱀형 자동할당 |
+| §14 | ~5100 | 혼합 시뮬레이터 β (`_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaExportToCalc`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN 모드 전환, 뱀형 자동할당; **계산기로 내보내기**: `betaExportToCalc()` → 면적·칩·레이아웃·LAN·PWR 자동 이전 |
 
 **핵심 전역 상태 — `const State` (§1, line 242)**
 
@@ -120,8 +120,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | `State.basePH` | 기준 패널 높이 (`500` 또는 `1000`) |
 | `State.panelRotated` | `true` = 1000mm 패널 가로 사용 (1000×500mm) |
 | `State.areaMode` | `'single'` 또는 `'multi'` |
-| `State.aPort` | 현재 선택 포트 번호 (LAN: 0–7, PWR: 0–17) |
-| `State.pA` | 포트별 Set 배열 (LAN: 8개, PWR 탭: 18개) |
+| `State.lanExpanded` | `false` = 기본 8포트, `true` = 샌딩카드 확장 16포트 |
+| `State.betaImport` | 혼합 시뮬 내보내기 메타 `{isRect, totalPanels, cols, rows, tW, tH, usedLeds}` (null이면 일반 결과 표시) |
+| `State.aPort` | 현재 선택 포트 번호 (LAN: 0–15, PWR: 0–17) |
+| `State.pA` | 포트별 Set 배열 (LAN: 8 또는 16개, PWR 탭: 18개) |
 | `State.pH2` | 포트별 배선 경로 배열 (pA와 동일 크기) |
 | `State.multiSec` | 멀티 섹션 `{ left, center, right }` 각각 `{ cols, rows, layout[] }` |
 | `State.curSending` | 선택 샌딩카드 키 |
