@@ -20,12 +20,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.54';
-const APP_SW_VERSION = 'v157';
+const APP_VERSION = '2.0.55';
+const APP_SW_VERSION = 'v158';
 
 const CHANGELOG = [
+  { v: '2.0.55', items: [
+    '혼합 시뮬β — 면적 입력 가로×세로×적용 한 행으로 수정',
+  ] },
   { v: '2.0.54', items: [
-    '혼합 시뮬β — 꾹 누르기 시 다음 빈 포트 자동 전환, mouseleave/touchcancel 정리, 구역별 균등 자동할당(_balancedCols) 적용, 면적 입력 세로 배치',
+    '혼합 시뮬β — 꾹 누르기 시 다음 빈 포트 자동 전환, mouseleave/touchcancel 정리, 구역별 균등 자동할당(_balancedCols) 적용',
   ] },
   { v: '2.0.53', items: [
     '혼합 시뮬β — PC 창 크기 변화 시 격자 좌표 오류 수정, resize 리렌더링 추가',
