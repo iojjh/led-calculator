@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.55';
-const APP_SW_VERSION = 'v158';
+const APP_VERSION = '2.0.56';
+const APP_SW_VERSION = 'v159';
 
 const CHANGELOG = [
+  { v: '2.0.56', items: [
+    '혼합 시뮬β — 면적 입력칸 너비 축소, white-space:nowrap 적용으로 한 행 표시 안정화',
+  ] },
   { v: '2.0.55', items: [
     '혼합 시뮬β — 면적 입력 가로×세로×적용 한 행으로 수정',
   ] },
