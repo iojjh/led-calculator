@@ -25,6 +25,7 @@
   <button class="tab-btn on" onclick="swTab('calc',this)">계산기</button>
   <button class="tab-btn" onclick="swTab('chk',this)">장비 체크리스트</button>
   <button class="tab-btn" onclick="swTab('vmix',this)">vMix 소스 매크로</button>
+  <button class="tab-btn" onclick="swTab('beta',this)">혼합 시뮬β</button>
   <div class="tab-right">
     <button class="help-btn" id="helpBtn" style="display:none;">?</button>
     <span class="app-version" id="appVersion" onclick="_onVersionTap()"></span>
@@ -211,6 +212,15 @@
       <input type="text" id="add-cond" placeholder="현장 장비 추가..." onkeydown="if(event.key==='Enter')addItem('cond')">
       <button class="add-btn" onclick="addItem('cond')">추가</button>
     </div>
+  </div>
+</div>
+
+<!-- 탭4: 혼합 시뮬레이터 β -->
+<div id="tab-beta" class="tab-page">
+  <div id="betaEditor"></div>
+  <div id="betaPortRow"></div>
+  <div class="beta-canvas-wrap">
+    <canvas id="betaCanvas" onclick="betaCanvasClick(event)"></canvas>
   </div>
 </div>
 

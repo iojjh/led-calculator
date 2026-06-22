@@ -108,6 +108,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §11 | 2439 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `renderPorts`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — 파워콘 탭: PWR_PORT_COUNT=18 포트, 스네이크 기본배선, LAN/PWR 탭 전환 시 pA 스왑 |
 | §12 | 3730 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
 | §13 | 4622 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_setSchedTab`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents`, `_schedTab` |
+| §14 | ~5060 | 혼합 시뮬레이터 β (`_betaId`, `betaPanelFromKey`, `betaOwner`, `betaPanelPx`, `betaPortPx`, `_betaBBox`, `_betaScale`, `betaCellAt`, `betaReset`, `betaAddZone`, `betaDeleteZone`, `betaUpdateZone`, `betaAddRow`, `betaDeleteRow`, `betaAddPanel`, `betaDeletePanel`, `betaUpdatePanel`, `betaAssign`, `betaCanvasClick`, `betaRenderPorts`, `betaDrawCv`, `betaRenderEditor`) — Zone→행→패널 3계층 자유 배치, 패널별 LED·사이즈 독립, LAN 포트 클릭 할당, 안정 ID 키(`zone.id:row.id:panel.id`) |
 
 **핵심 전역 상태 — `const State` (§1, line 242)**
 
@@ -125,6 +126,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | `State.multiSec` | 멀티 섹션 `{ left, center, right }` 각각 `{ cols, rows, layout[] }` |
 | `State.curSending` | 선택 샌딩카드 키 |
 | `State.cols` / `State.layout` | 단일 모드 열 수 / 행 배열 |
+| `State.betaZones` | 혼합 시뮬 β 존 배열 `[{id, x, y, rows:[{id, panels:[{id,w,h,led}]}]}]` |
+| `State.betaPorts` | β 포트별 패널 키 Set 배열 (8개), 키 형식: `zone.id:row.id:panel.id` |
+| `State.betaPH2` | β 포트별 할당 순서 배열 |
+| `State.betaAPort` | β 현재 선택 포트 번호 (0–7) |
 
 **버전 업 규칙**
 코드 수정 후 반드시: `APP_VERSION` 올리기 → `APP_SW_VERSION` 올리기 → `CHANGELOG` 항목 추가 → `service-worker.js`의 `CACHE_VERSION` 동기화 → 커밋 → **푸시 전 사용자에게 확인 후 진행**

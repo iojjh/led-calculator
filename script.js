@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.49';
-const APP_SW_VERSION = 'v152';
+const APP_VERSION = '2.0.50';
+const APP_SW_VERSION = 'v153';
 
 const CHANGELOG = [
+  { v: '2.0.50', items: [
+    '혼합 시뮬레이터 β 탭 추가 — Zone·행·패널 단위 자유 배치, 패널별 LED 피치·사이즈 독립 설정, LAN 포트 클릭 할당',
+  ] },
   { v: '2.0.49', items: [
     '일정 불러오기 — 2mm LED 장비 적용 시 패널 기본값 500×500mm로 설정',
   ] },
@@ -449,6 +452,12 @@ const State = {
   simTab: 'lan',
   _savedLan: null,  // 파워콘 탭 활성 중 저장해 둔 랜선 상태
   _savedPwr: null,  // 랜선 탭 활성 중 저장해 둔 파워콘 상태
+
+  // 혼합 시뮬레이터 β
+  betaZones:  [],
+  betaPorts:  Array.from({ length: 8 }, () => new Set()),
+  betaPH2:    Array.from({ length: 8 }, () => []),
+  betaAPort:  0,
 };
 (function() {
   const raw = localStorage.getItem('ledCalcChkCustom');
@@ -649,6 +658,7 @@ function swTab(id, btn) {
   document.getElementById('tab-' + id).classList.add('on');
   btn.classList.add('on');
   _updateBarForTab(id);
+  if (id === 'beta') { betaRenderEditor(); betaDrawCv(); }
 }
 
 function _updateBarForTab(id) {
@@ -667,6 +677,12 @@ function _updateBarForTab(id) {
     btnMain.textContent = 'PNG 저장';
     btnMain.onclick = openModal;
     btnMain.disabled = false;
+  } else if (id === 'beta') {
+    btnReset.onclick = betaReset;
+    btnReset.title = '혼합 시뮬 초기화';
+    btnMain.textContent = '혼합 시뮬β';
+    btnMain.onclick = null;
+    btnMain.disabled = true;
   } else {
     btnReset.onclick = tryResetAll;
     btnReset.title = '전체 초기화';
@@ -1717,6 +1733,10 @@ function getAppState(name) {
     COND: [...State.COND],
     pwrPA: (State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA)?.map(s => [...s]) || null,
     pwrPH: (State.simTab === 'pwr' ? State.pH2 : State._savedPwr?.pH2)?.map(a => [...a]) || null,
+    betaZones:  State.betaZones,
+    betaPorts:  State.betaPorts.map(s => [...s]),
+    betaPH2:    State.betaPH2.map(a => [...a]),
+    betaAPort:  State.betaAPort,
   };
 }
 
@@ -1809,6 +1829,13 @@ function loadAppState(st) {
       pH2: (st.pwrPH || st.pwrPA).map(a => [...a]),
       aPort: 0,
     };
+  }
+  // 혼합 시뮬레이터 β 복원
+  if (st.betaZones) {
+    State.betaZones  = st.betaZones;
+    State.betaPorts  = st.betaPorts ? st.betaPorts.map(a => new Set(a)) : Array.from({ length: 8 }, () => new Set());
+    State.betaPH2    = st.betaPH2   ? st.betaPH2.map(a => [...a])       : Array.from({ length: 8 }, () => []);
+    State.betaAPort  = st.betaAPort || 0;
   }
 }
 
@@ -5043,6 +5070,392 @@ function vmixDownload() {
     if (file) { vmixLoad(file); }
   });
 })();
+
+
+// ── §14 혼합 시뮬레이터 β ────────────────────────────────
+
+// 안정적인 ID 생성 (재로드 후에도 uniqueness 보장)
+function _betaId() {
+  return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+}
+
+// ─ 헬퍼 ─
+
+function betaPanelFromKey(key) {
+  // key = "{zone.id}:{row.id}:{panel.id}"
+  const [zid, rid, pid] = key.split(':');
+  const zone = State.betaZones.find(z => z.id === zid);
+  if (!zone) { return null; }
+  const row = zone.rows.find(r => r.id === rid);
+  if (!row) { return null; }
+  return row.panels.find(p => p.id === pid) || null;
+}
+
+function betaOwner(key) {
+  return State.betaPorts.findIndex(s => s.has(key));
+}
+
+function betaPanelPx(panel) {
+  const sp = SPECS[panel.led];
+  if (!sp) { return 0; }
+  const ref = sp.px500.w; // pixels per 500mm
+  return Math.floor(panel.w / 500 * ref) * Math.floor(panel.h / 500 * ref);
+}
+
+function betaPortPx(pi) {
+  let total = 0;
+  State.betaPorts[pi].forEach(key => {
+    const panel = betaPanelFromKey(key);
+    if (panel) { total += betaPanelPx(panel); }
+  });
+  return total;
+}
+
+function _betaBBox() {
+  let maxX = 500, maxY = 500;
+  State.betaZones.forEach(zone => {
+    let zW = 0, zH = 0;
+    zone.rows.forEach(row => {
+      if (!row.panels.length) { return; }
+      const rw = row.panels.reduce((s, p) => s + p.w, 0);
+      const rh = Math.max(...row.panels.map(p => p.h));
+      if (rw > zW) { zW = rw; }
+      zH += rh;
+    });
+    if (zone.x + zW > maxX) { maxX = zone.x + zW; }
+    if (zone.y + zH > maxY) { maxY = zone.y + zH; }
+  });
+  return { maxX, maxY };
+}
+
+function _betaScale() {
+  const cvEl = document.getElementById('betaCanvas');
+  if (!cvEl) { return 1; }
+  const wrapW = (cvEl.parentElement.clientWidth - 2) || 300;
+  const { maxX } = _betaBBox();
+  return wrapW / maxX;
+}
+
+function betaCellAt(mx, my) {
+  const sc = _betaScale();
+  const mmX = mx / sc;
+  const mmY = my / sc;
+  for (const zone of State.betaZones) {
+    let py = zone.y;
+    for (const row of zone.rows) {
+      if (!row.panels.length) { continue; }
+      const rh = Math.max(...row.panels.map(p => p.h));
+      if (mmY >= py && mmY < py + rh) {
+        let px = zone.x;
+        for (const panel of row.panels) {
+          if (mmX >= px && mmX < px + panel.w) {
+            return `${zone.id}:${row.id}:${panel.id}`;
+          }
+          px += panel.w;
+        }
+      }
+      py += rh;
+    }
+  }
+  return null;
+}
+
+// ─ 존/행/패널 편집 ─
+
+function betaReset() {
+  openConfirm('혼합 시뮬 초기화', '혼합 시뮬레이터 데이터를 모두 초기화할까요?', () => {
+    State.betaZones  = [];
+    State.betaPorts  = Array.from({ length: 8 }, () => new Set());
+    State.betaPH2    = Array.from({ length: 8 }, () => []);
+    State.betaAPort  = 0;
+    betaRenderEditor();
+    betaDrawCv();
+  });
+}
+
+function betaAddZone() {
+  State.betaZones.push({ id: _betaId(), x: 0, y: 0, rows: [] });
+  betaRenderEditor();
+  betaDrawCv();
+}
+
+function betaDeleteZone(zi) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  // 해당 존의 모든 포트 할당 해제
+  State.betaPorts.forEach(s => {
+    [...s].forEach(k => { if (k.startsWith(zone.id + ':')) { s.delete(k); } });
+  });
+  State.betaZones.splice(zi, 1);
+  betaRenderEditor();
+  betaDrawCv();
+}
+
+function betaUpdateZone(zi, key, val) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  zone[key] = +val || 0;
+  betaDrawCv();
+}
+
+function betaAddRow(zi) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  zone.rows.push({ id: _betaId(), panels: [] });
+  betaRenderEditor();
+  betaDrawCv();
+}
+
+function betaDeleteRow(zi, ri) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  const row = zone.rows[ri];
+  if (!row) { return; }
+  // 해당 행의 모든 포트 할당 해제
+  State.betaPorts.forEach(s => {
+    [...s].forEach(k => { if (k.startsWith(zone.id + ':' + row.id + ':')) { s.delete(k); } });
+  });
+  zone.rows.splice(ri, 1);
+  betaRenderEditor();
+  betaDrawCv();
+}
+
+function betaAddPanel(zi, ri) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  const row = zone.rows[ri];
+  if (!row) { return; }
+  row.panels.push({ id: _betaId(), w: 500, h: 500, led: '2mm' });
+  betaRenderEditor();
+  betaDrawCv();
+}
+
+function betaDeletePanel(zi, ri, pi) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  const row = zone.rows[ri];
+  if (!row) { return; }
+  const panel = row.panels[pi];
+  if (!panel) { return; }
+  const key = `${zone.id}:${row.id}:${panel.id}`;
+  State.betaPorts.forEach(s => s.delete(key));
+  row.panels.splice(pi, 1);
+  betaRenderEditor();
+  betaDrawCv();
+}
+
+function betaUpdatePanel(zi, ri, pi, key, val) {
+  const zone = State.betaZones[zi];
+  if (!zone) { return; }
+  const row = zone.rows[ri];
+  if (!row) { return; }
+  const panel = row.panels[pi];
+  if (!panel) { return; }
+  panel[key] = (key === 'led') ? val : (+val || 0);
+  betaRenderPorts();
+  betaDrawCv();
+}
+
+// ─ 포트 할당 ─
+
+function betaAssign(key) {
+  const pi = State.betaAPort;
+  State.betaPorts.forEach((s, i) => { if (i !== pi) { s.delete(key); } });
+  if (State.betaPorts[pi].has(key)) {
+    State.betaPorts[pi].delete(key);
+  } else {
+    State.betaPorts[pi].add(key);
+  }
+  betaRenderPorts();
+  betaDrawCv();
+}
+
+function betaCanvasClick(e) {
+  const cvEl = document.getElementById('betaCanvas');
+  if (!cvEl) { return; }
+  const rect = cvEl.getBoundingClientRect();
+  const scaleX = cvEl.width / rect.width;
+  const scaleY = cvEl.height / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top) * scaleY;
+  const key = betaCellAt(mx, my);
+  if (key) { betaAssign(key); }
+}
+
+// ─ 렌더 ─
+
+function betaRenderPorts() {
+  const el = document.getElementById('betaPortRow');
+  if (!el) { return; }
+  const pi = State.betaAPort;
+  const cnt = State.betaPorts[pi].size;
+  const px = betaPortPx(pi);
+  const over = px > MAX_PX;
+
+  const strip = State.betaPorts.map((s, i) => {
+    const col = PC[i];
+    const hasData = s.size > 0;
+    const isActive = i === pi;
+    return `<button class="beta-port-btn" style="` +
+      `background:${hasData ? col + '33' : '#f5f5f5'};` +
+      `color:${hasData ? col : '#555'};` +
+      `border-color:${isActive ? (hasData ? col : '#555') : 'transparent'}"` +
+      ` onclick="State.betaAPort=${i};betaRenderPorts();betaDrawCv()">P${i + 1}</button>`;
+  }).join('');
+
+  el.innerHTML = `<div class="beta-port-wrap">
+    <div class="beta-port-strip">${strip}</div>
+    <div class="beta-port-info">
+      <span>P${pi + 1}: 패널 ${cnt}장</span>
+      <span>${px.toLocaleString()} px` +
+    (over ? ` <span class="beta-port-warn">⚠ ${(px - MAX_PX).toLocaleString()}px 초과</span>` : '') +
+    `</span>
+    </div>
+  </div>`;
+}
+
+function betaDrawCv() {
+  const cvEl = document.getElementById('betaCanvas');
+  if (!cvEl) { return; }
+  const { maxX, maxY } = _betaBBox();
+  const sc = _betaScale();
+  const W = Math.max(1, Math.round(maxX * sc));
+  const H = Math.max(1, Math.round(maxY * sc));
+  cvEl.width  = W;
+  cvEl.height = H;
+  const ctx = cvEl.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (!State.betaZones.length || !State.betaZones.some(z => z.rows.some(r => r.panels.length))) {
+    ctx.fillStyle = '#bbb';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('존을 추가하고 패널을 구성하세요', W / 2, H / 2);
+    return;
+  }
+
+  // pass1: 배경 + 테두리
+  State.betaZones.forEach(zone => {
+    let py = zone.y;
+    zone.rows.forEach(row => {
+      if (!row.panels.length) { return; }
+      const rh = Math.max(...row.panels.map(p => p.h));
+      let px = zone.x;
+      row.panels.forEach(panel => {
+        const key = `${zone.id}:${row.id}:${panel.id}`;
+        const ow = betaOwner(key);
+        const x = Math.round(px * sc);
+        const y = Math.round(py * sc);
+        const w = Math.max(2, Math.round(panel.w * sc));
+        const h = Math.max(2, Math.round(rh * sc));
+        ctx.fillStyle = ow >= 0 ? PC[ow] + '66' : '#C0DD97';
+        ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+        ctx.strokeStyle = ow >= 0 ? PC[ow] : '#639922';
+        ctx.lineWidth = ow >= 0 ? 2 : 0.5;
+        ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+        px += panel.w;
+      });
+      py += rh;
+    });
+  });
+
+  // pass2: 레이블
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  State.betaZones.forEach(zone => {
+    let py = zone.y;
+    zone.rows.forEach(row => {
+      if (!row.panels.length) { return; }
+      const rh = Math.max(...row.panels.map(p => p.h));
+      let px = zone.x;
+      row.panels.forEach(panel => {
+        const key = `${zone.id}:${row.id}:${panel.id}`;
+        const ow = betaOwner(key);
+        const cx = Math.round((px + panel.w / 2) * sc);
+        const rh_px = rh * sc;
+        const cy_base = Math.round((py + rh / 2) * sc);
+
+        if (ow >= 0) {
+          const fs = Math.max(9, Math.min(15, rh_px * 0.3));
+          ctx.font = `bold ${fs}px sans-serif`;
+          ctx.strokeStyle = PC[ow];
+          ctx.lineWidth = 3;
+          ctx.strokeText(`P${ow + 1}`, cx, cy_base - (rh_px > 30 ? rh_px * 0.12 : 0));
+          ctx.fillStyle = '#fff';
+          ctx.fillText(`P${ow + 1}`, cx, cy_base - (rh_px > 30 ? rh_px * 0.12 : 0));
+        }
+
+        if (rh_px >= 28) {
+          const fs2 = Math.max(8, Math.min(11, rh_px * 0.14));
+          ctx.font = `${fs2}px sans-serif`;
+          ctx.fillStyle = '#444';
+          const infoY = cy_base + (ow >= 0 && rh_px > 30 ? rh_px * 0.15 : 0);
+          ctx.fillText(`${panel.w}×${panel.h} ${panel.led}`, cx, infoY);
+        }
+        px += panel.w;
+      });
+      py += rh;
+    });
+  });
+}
+
+function betaRenderEditor() {
+  const el = document.getElementById('betaEditor');
+  if (!el) { return; }
+
+  let html = `<button class="beta-add-zone-btn" onclick="betaAddZone()">+ 존 추가</button>`;
+
+  if (!State.betaZones.length) {
+    html += `<div class="beta-empty-hint">존을 추가해서 패널 구성을 시작하세요</div>`;
+    el.innerHTML = html;
+    betaRenderPorts();
+    return;
+  }
+
+  State.betaZones.forEach((zone, zi) => {
+    html += `<div class="beta-zone-card">
+      <div class="beta-zone-hdr">
+        <span class="beta-zone-hdr-label">존 ${zi + 1}</span>
+        X: <input type="number" class="beta-num-input" value="${zone.x}"
+            onchange="betaUpdateZone(${zi},'x',this.value)"> mm
+        &nbsp;Y: <input type="number" class="beta-num-input" value="${zone.y}"
+            onchange="betaUpdateZone(${zi},'y',this.value)"> mm
+        <button class="beta-zone-del" onclick="betaDeleteZone(${zi})">존 삭제</button>
+      </div>
+      <div class="beta-zone-body">`;
+
+    zone.rows.forEach((row, ri) => {
+      html += `<div class="beta-row-wrap">
+        <span class="beta-row-label">행${ri + 1}</span>`;
+      row.panels.forEach((panel, pi) => {
+        const opts = ['2mm', '3mm', '4mm'].map(v =>
+          `<option value="${v}"${panel.led === v ? ' selected' : ''}>${v}</option>`
+        ).join('');
+        html += `<span class="beta-panel-chip">
+          <select onchange="betaUpdatePanel(${zi},${ri},${pi},'led',this.value)">${opts}</select>
+          <input type="number" class="beta-num-input" value="${panel.w}" min="1"
+              onchange="betaUpdatePanel(${zi},${ri},${pi},'w',this.value)">×
+          <input type="number" class="beta-num-input" value="${panel.h}" min="1"
+              onchange="betaUpdatePanel(${zi},${ri},${pi},'h',this.value)">mm
+          <button class="beta-del-btn" onclick="betaDeletePanel(${zi},${ri},${pi})">✕</button>
+        </span>`;
+      });
+      html += `<span class="beta-row-actions">
+          <button class="beta-add-panel-btn" onclick="betaAddPanel(${zi},${ri})">+ 패널</button>
+          <button class="beta-del-row-btn" onclick="betaDeleteRow(${zi},${ri})">행 삭제</button>
+        </span>
+      </div>`;
+    });
+
+    html += `<button class="beta-add-row-btn" onclick="betaAddRow(${zi})">+ 행 추가</button>
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+  betaRenderPorts();
+}
 
 
 // ── 초기 실행 ────────────────────────────────────────────
