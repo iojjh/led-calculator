@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.57';
-const APP_SW_VERSION = 'v160';
+const APP_VERSION = '2.0.58';
+const APP_SW_VERSION = 'v161';
 
 const CHANGELOG = [
+  { v: '2.0.58', items: [
+    '혼합 시뮬β — LAN 배선 그래픽을 기존 랜선 시뮬레이터와 동일하게 통일 (셀 색상, 경로 굵기, 화살촉, 번호 배지, 포트 레이블, 포트 버튼 스타일)',
+  ] },
   { v: '2.0.57', items: [
     '혼합 시뮬β — 랜선 배선 포트 8개→16개로 확장',
   ] },
@@ -5618,7 +5621,7 @@ function betaDrawLan() {
   const curPi  = State.betaAPort;
   ctx.clearRect(0, 0, cv.width, cv.height);
 
-  // pass1: 배경
+  // 격자 배경
   ctx.fillStyle = '#d8d8d8';
   ctx.fillRect(0, 0, cv.width, cv.height);
   const gW = _betaGW(); const gH = _betaGH();
@@ -5630,80 +5633,123 @@ function betaDrawLan() {
     ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
   }
 
+  // 배선 순서 번호 맵
+  const stepOf = new Map();
+  State.betaPorts.forEach((s, pi) => {
+    State.betaPH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
+  });
+
+  // ── pass 1: 셀 배경·테두리·패턴 ────────────────────────────
   panels.forEach(p => {
     const pi = _betaOwner(p.key);
     const px = p.x * sc; const py = p.y * sc;
     const pw = p.w * sc; const ph = p.h * sc;
+    const lk  = pi >= 0 && pi !== curPi;
+    const hov = State._betaLanDrag && State._betaLanDHov === p.key && pi < 0;
 
-    if (pi >= 0) {
-      ctx.fillStyle = PC[pi % PC.length] + '44';
-    } else {
-      ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = pi >= 0
+      ? PC[pi % PC.length] + (lk ? '55' : '99')
+      : '#9FE1CB';
+    ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
+
+    if (hov) {
+      ctx.fillStyle = PC[curPi % PC.length] + '44';
+      ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
     }
-    ctx.fillRect(px, py, pw, ph);
 
-    // 다른 포트 소유 → 빗금
-    if (pi >= 0 && pi !== curPi) {
+    ctx.strokeStyle = pi >= 0 ? PC[pi % PC.length] : '#1D9E75';
+    ctx.lineWidth   = pi >= 0 ? 1.5 : 0.5;
+    ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+
+    // 다른 포트 → 어두운 빗금
+    if (lk) {
       ctx.save();
-      ctx.beginPath(); ctx.rect(px, py, pw, ph); ctx.clip();
-      ctx.strokeStyle = PC[pi % PC.length] + '55'; ctx.lineWidth = 3;
-      for (let d = -ph; d < pw + ph; d += 8) {
-        ctx.beginPath(); ctx.moveTo(px + d, py); ctx.lineTo(px + d + ph, py + ph); ctx.stroke();
+      ctx.beginPath(); ctx.rect(px + 1, py + 1, pw - 2, ph - 2); ctx.clip();
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
+      for (let d = -ph; d < pw + ph; d += 6) {
+        ctx.beginPath(); ctx.moveTo(px + d, py + 1); ctx.lineTo(px + d + ph, py + ph); ctx.stroke();
       }
       ctx.restore();
     }
 
-    // 호버 (드래그 중: 현재 셀 / 단순 탭: 마지막 선택 셀)
-    if (State._betaLanDHov === p.key || (!State._betaLanDrag && State._betaFCell === p.key)) {
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.fillRect(px, py, pw, ph);
+    // 마지막 탭 셀 하이라이트
+    if (!State._betaLanDrag && State._betaFCell === p.key) {
+      ctx.strokeStyle = 'white';   ctx.lineWidth = 3; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
+      ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
     }
-
-    ctx.strokeStyle = pi >= 0 ? PC[pi % PC.length] : '#bbb';
-    ctx.lineWidth = pi === curPi ? 2 : 1;
-    ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
   });
 
-  // pass2: 배선 경로
-  for (let pi = 0; pi < 16; pi++) {
-    const path = State.betaPH2[pi];
-    if (path.length < 2) { continue; }
-    for (let i = 0; i < path.length - 1; i++) {
-      const pa = panels.find(x => x.key === path[i]);
-      const pb = panels.find(x => x.key === path[i + 1]);
-      if (!pa || !pb) { continue; }
-      const ax = _betaPanelCx(pa); const ay = _betaPanelCy(pa);
-      const bx = _betaPanelCx(pb); const by = _betaPanelCy(pb);
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-      ctx.strokeStyle = PC[pi % PC.length]; ctx.lineWidth = 2; ctx.stroke();
-      const dx = bx - ax; const dy = by - ay;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len < 1) { continue; }
-      const ux = dx / len; const uy = dy / len;
-      const mx2 = ax + dx * 0.6; const my2 = ay + dy * 0.6; const aw = 6;
-      ctx.beginPath();
-      ctx.moveTo(mx2 + ux * aw, my2 + uy * aw);
-      ctx.lineTo(mx2 - uy * aw * 0.6, my2 + ux * aw * 0.6);
-      ctx.lineTo(mx2 + uy * aw * 0.6, my2 - ux * aw * 0.6);
-      ctx.closePath(); ctx.fillStyle = PC[pi % PC.length]; ctx.fill();
-    }
-  }
+  // ── pass 2: 포트 배선 경로 — 다각선 + 끝 화살촉 ───────────
+  State.betaPorts.forEach((s, pi) => {
+    const h = State.betaPH2[pi].filter(k => s.has(k));
+    if (h.length < 2) { return; }
+    const col = PC[pi % PC.length];
+    const pts = h.map(k => {
+      const p = panels.find(x => x.key === k);
+      return p ? { x: _betaPanelCx(p), y: _betaPanelCy(p) } : null;
+    }).filter(Boolean);
+    if (pts.length < 2) { return; }
 
-  // pass3: 번호 배지
+    const pL0 = pts[pts.length - 2]; const pL1 = pts[pts.length - 1];
+    const ldx = pL1.x - pL0.x; const ldy = pL1.y - pL0.y;
+
+    const strokePath = (style, lw) => {
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) { ctx.lineTo(pts[i].x, pts[i].y); }
+      ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
+    };
+
+    const fillArrow = (style) => {
+      const len = Math.sqrt(ldx * ldx + ldy * ldy); if (len < 1) { return; }
+      const ux = ldx / len; const uy = ldy / len;
+      const hw = 6; const hl = 12; const nx = -uy; const ny = ux;
+      const bx = pL1.x - ux * 5; const by = pL1.y - uy * 5;
+      ctx.beginPath(); ctx.moveTo(bx, by);
+      ctx.lineTo(bx - ux * hl + nx * hw, by - uy * hl + ny * hw);
+      ctx.lineTo(bx - ux * hl - nx * hw, by - uy * hl - ny * hw);
+      ctx.closePath(); ctx.fillStyle = style; ctx.fill();
+    };
+
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    strokePath('rgba(255,255,255,0.85)', 6);
+    strokePath(col, 3.5);
+    fillArrow('rgba(255,255,255,0.85)');
+    fillArrow(col);
+    ctx.restore();
+  });
+
+  // ── pass 3: 순서 번호 & 포트 레이블 ────────────────────────
   panels.forEach(p => {
     const pi = _betaOwner(p.key);
     if (pi < 0) { return; }
-    const cx = _betaPanelCx(p); const cy = _betaPanelCy(p);
-    const idx = State.betaPH2[pi].indexOf(p.key);
-    const rad = Math.max(9, Math.min(14, p.w * sc * 0.18));
-    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-    ctx.fillStyle = PC[pi % PC.length]; ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = `700 ${Math.round(rad * 1.1)}px sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(idx + 1, cx, cy);
+    const px = p.x * sc; const py = p.y * sc;
+    const pw = p.w * sc; const ph = p.h * sc;
+    const lk  = pi !== curPi;
+    const cx2 = px + pw / 2; const cy2 = py + ph / 2;
+    const step = stepOf.get(p.key);
+
+    if (step) {
+      const fs = Math.min(12, pw - 8);
+      const r  = Math.max(8, fs * 0.72);
+      ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
+      ctx.fillStyle = lk ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.9)';
+      ctx.fill();
+      ctx.font = `700 ${fs}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : PC[pi % PC.length];
+      ctx.fillText(String(step), cx2, cy2);
+    }
+
+    if (pw >= 32) {
+      const label = 'P' + (pi + 1);
+      ctx.font = '700 9px sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.strokeText(label, px + 4, py + 4);
+      ctx.fillStyle = lk ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.97)';
+      ctx.fillText(label, px + 4, py + 4);
+    }
     ctx.textBaseline = 'alphabetic';
   });
 }
@@ -5726,24 +5772,33 @@ function betaRenderLanUI() {
 function betaRenderPorts() {
   const el = document.getElementById('betaPortRow');
   if (!el) { return; }
-  const pi = State.betaAPort;
-  let html = '<div class="beta-port-strip">';
+  const pi  = State.betaAPort;
+  let html  = '<div class="beta-port-strip">';
   for (let i = 0; i < 16; i++) {
-    const sz = State.betaPorts[i].size;
-    const on = i === pi;
-    html += `<button class="beta-port-btn${on ? ' sel' : ''}"
-      style="border-color:${PC[i % PC.length]};background:${on ? PC[i % PC.length] : '#f5f5f5'};color:${on ? '#fff' : '#333'}"
-      onclick="State.betaAPort=${i};betaDrawLan();betaRenderPorts()">P${i + 1}<span style="font-size:10px;display:block">${sz}개</span></button>`;
+    const sz  = State.betaPorts[i].size;
+    const on  = i === pi;
+    const has = sz > 0;
+    html += `<button class="beta-port-btn${on ? ' sel' : ''}${has ? ' has-data' : ''}"
+      style="${on ? `background:${PC[i % PC.length]};border-color:${PC[i % PC.length]};` : has ? `border-color:${PC[i % PC.length]};color:${PC[i % PC.length]};` : ''}"
+      onclick="State.betaAPort=${i};betaDrawLan();betaRenderPorts()">P${i + 1}</button>`;
   }
   html += '</div>';
   const sz  = State.betaPorts[pi].size;
   const px  = _betaPxOf(pi);
   const pct = Math.min(100, Math.round(px / MAX_PX * 100));
-  const warn = px > MAX_PX ? ' <span class="beta-port-warn">픽셀 초과!</span>' : '';
-  html += `<div class="beta-port-info">P${pi + 1}: ${sz}패널 / ${px.toLocaleString()}px (${pct}%)${warn}
-    <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">P${pi + 1} 초기화</button>
+  const ov  = px > MAX_PX;
+  html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:13px;font-weight:500;color:${PC[pi % PC.length]}">포트 ${pi + 1}</span>
+    <span style="font-size:13px;color:#333;">${sz}장 · ${px.toLocaleString()} px</span>
+    <span style="font-size:12px;color:${ov ? '#A32D2D' : '#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
+    ${State._betaLanDrag ? `<span class="drag-badge" style="background:${PC[pi % PC.length]}">드래그 중</span>` : ''}
   </div>
-  <div class="beta-px-bar-wrap"><div class="beta-px-bar" style="width:${pct}%;background:${px > MAX_PX ? '#c00' : PC[pi % PC.length]}"></div></div>`;
+  <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
+    <div style="height:5px;width:${pct}%;background:${ov ? '#E24B4A' : PC[pi % PC.length]};border-radius:3px;"></div>
+  </div>
+  <div style="margin-top:4px;">
+    <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">포트 ${pi + 1} 초기화</button>
+  </div>`;
   el.innerHTML = html;
 }
 
