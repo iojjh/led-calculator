@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.56';
-const APP_SW_VERSION = 'v159';
+const APP_VERSION = '2.0.57';
+const APP_SW_VERSION = 'v160';
 
 const CHANGELOG = [
+  { v: '2.0.57', items: [
+    '혼합 시뮬β — 랜선 배선 포트 8개→16개로 확장',
+  ] },
   { v: '2.0.56', items: [
     '혼합 시뮬β — 면적 입력칸 너비 축소, white-space:nowrap 적용으로 한 행 표시 안정화',
   ] },
@@ -476,8 +479,8 @@ const State = {
   betaAreaH:    0,
   betaZones:    [],
   betaMode:     'edit',
-  betaPorts:    Array.from({ length: 8 }, () => new Set()),
-  betaPH2:      Array.from({ length: 8 }, () => []),
+  betaPorts:    Array.from({ length: 16 }, () => new Set()),
+  betaPH2:      Array.from({ length: 16 }, () => []),
   betaAPort:    0,
   betaSpareAdj: { l1: 2, sl: 20 },
   _betaDragSt:  null,
@@ -1872,8 +1875,8 @@ function loadAppState(st) {
     State.betaAreaH    = st.betaAreaH || 0;
     State.betaZones    = st.betaZones;
     State.betaMode     = st.betaMode || 'edit';
-    State.betaPorts    = st.betaPorts ? st.betaPorts.map(a => new Set(a)) : Array.from({ length: 8 }, () => new Set());
-    State.betaPH2      = st.betaPH2   ? st.betaPH2.map(a => [...a])       : Array.from({ length: 8 }, () => []);
+    State.betaPorts    = st.betaPorts ? st.betaPorts.map(a => new Set(a)) : Array.from({ length: 16 }, () => new Set());
+    State.betaPH2      = st.betaPH2   ? st.betaPH2.map(a => [...a])       : Array.from({ length: 16 }, () => []);
     State.betaAPort    = st.betaAPort || 0;
     State.betaSpareAdj = st.betaSpareAdj ? { ...st.betaSpareAdj } : { l1: 2, sl: 20 };
     State._betaCache   = null;
@@ -5662,7 +5665,7 @@ function betaDrawLan() {
   });
 
   // pass2: 배선 경로
-  for (let pi = 0; pi < 8; pi++) {
+  for (let pi = 0; pi < 16; pi++) {
     const path = State.betaPH2[pi];
     if (path.length < 2) { continue; }
     for (let i = 0; i < path.length - 1; i++) {
@@ -5725,7 +5728,7 @@ function betaRenderPorts() {
   if (!el) { return; }
   const pi = State.betaAPort;
   let html = '<div class="beta-port-strip">';
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 16; i++) {
     const sz = State.betaPorts[i].size;
     const on = i === pi;
     html += `<button class="beta-port-btn${on ? ' sel' : ''}"
@@ -5789,8 +5792,8 @@ function betaRstPort(pi) {
 
 function betaRstAllPorts() {
   openConfirm('배선 초기화', '모든 포트 배선을 초기화할까요?', () => {
-    State.betaPorts = Array.from({ length: 8 }, () => new Set());
-    State.betaPH2   = Array.from({ length: 8 }, () => []);
+    State.betaPorts = Array.from({ length: 16 }, () => new Set());
+    State.betaPH2   = Array.from({ length: 16 }, () => []);
     State.betaAPort = 0;
     betaDrawLan(); betaRenderLanUI(); saveState();
   });
@@ -5800,8 +5803,8 @@ function betaReset() {
   if (State.betaMode === 'lan') { betaRstAllPorts(); return; }
   openConfirm('혼합 시뮬 초기화', '구역과 배선을 모두 초기화할까요?', () => {
     State.betaZones    = []; State._betaCache = null;
-    State.betaPorts    = Array.from({ length: 8 }, () => new Set());
-    State.betaPH2      = Array.from({ length: 8 }, () => []);
+    State.betaPorts    = Array.from({ length: 16 }, () => new Set());
+    State.betaPH2      = Array.from({ length: 16 }, () => []);
     State.betaAPort    = 0;
     State._betaSelNew  = null; State._betaSelEdit = null;
     betaRender(); saveState();
@@ -5811,7 +5814,7 @@ function betaReset() {
 // ─ 자동 할당 ─
 
 function _betaNextEmpty() {
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 16; i++) {
     if (State.betaPorts[i].size === 0) { return i; }
   }
   return State.betaAPort;
@@ -5839,13 +5842,13 @@ function _betaAutoAssignZone(zone, portOff) {
 
   const maxRaw  = Math.max(1, Math.floor(MAX_PX / maxColPx));
   const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
-  const numPorts = Math.min(8 - portOff, Math.ceil(totalCols / maxEven));
+  const numPorts = Math.min(16 - portOff, Math.ceil(totalCols / maxEven));
   const takes = _balancedCols(totalCols, numPorts, maxRaw, maxEven);
 
   let colStart = 0;
   for (let pi = 0; pi < takes.length; pi++) {
     const portIdx = portOff + pi;
-    if (portIdx >= 8) { break; }
+    if (portIdx >= 16) { break; }
     for (let ci = 0; ci < takes[pi]; ci++) {
       const col = colMap.get(colKeys[colStart + ci]).slice().sort((a, b) => a.y - b.y);
       // 짝수 ci → 하→상, 홀수 ci → 상→하 (뱀형)
@@ -5858,8 +5861,8 @@ function _betaAutoAssignZone(zone, portOff) {
 }
 
 function betaAutoAssign() {
-  State.betaPorts  = Array.from({ length: 8 }, () => new Set());
-  State.betaPH2    = Array.from({ length: 8 }, () => []);
+  State.betaPorts  = Array.from({ length: 16 }, () => new Set());
+  State.betaPH2    = Array.from({ length: 16 }, () => []);
   State.betaAPort  = 0;
   State._betaFCell = null;
   const sorted = [...State.betaZones].sort((a, b) =>
@@ -5867,7 +5870,7 @@ function betaAutoAssign() {
   );
   let portOff = 0;
   for (const zone of sorted) {
-    portOff = Math.min(8, portOff + _betaAutoAssignZone(zone, portOff));
+    portOff = Math.min(16, portOff + _betaAutoAssignZone(zone, portOff));
   }
   State.betaAPort = 0;
   betaDrawLan(); betaRenderLanUI(); saveState();
