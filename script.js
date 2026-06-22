@@ -5277,16 +5277,16 @@ function betaRender() {
   if (State.betaMode === 'edit') {
     document.getElementById('betaLanUI').style.display = 'none';
     document.getElementById('betaZoneList').style.display = '';
+    betaAttachEditEv();
     betaDrawEdit();
     betaRenderZoneList();
-    betaAttachEditEv();
   } else {
     document.getElementById('betaZoneList').style.display = 'none';
     document.getElementById('betaZoneCfg').style.display = 'none';
     document.getElementById('betaLanUI').style.display = '';
+    betaAttachLanEv();
     betaDrawLan();
     betaRenderLanUI();
-    betaAttachLanEv();
   }
 }
 
@@ -5512,11 +5512,11 @@ function betaAttachEditEv() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   if (cv._betaEvMode === 'edit') { return; }
-  // 이전 이벤트 제거를 위해 캔버스 복제
-  const fresh = cv.cloneNode(true);
-  cv.parentNode.replaceChild(fresh, cv);
-  const ncv = document.getElementById('betaCanvas');
-  ncv._betaEvMode = 'edit';
+  if (cv._betaAbort) { cv._betaAbort.abort(); }
+  const ctrl = new AbortController();
+  cv._betaAbort  = ctrl;
+  cv._betaEvMode = 'edit';
+  const ncv = cv;
 
   let wasDrag = false;
 
@@ -5575,12 +5575,13 @@ function betaAttachEditEv() {
     betaShowCfgPanel();
   }
 
-  ncv.addEventListener('mousedown',  onStart, { passive: false });
-  ncv.addEventListener('mousemove',  onMove,  { passive: false });
-  ncv.addEventListener('mouseup',    onEnd,   { passive: false });
-  ncv.addEventListener('touchstart', onStart, { passive: false });
-  ncv.addEventListener('touchmove',  onMove,  { passive: false });
-  ncv.addEventListener('touchend',   onEnd,   { passive: false });
+  const sig = { signal: ctrl.signal, passive: false };
+  ncv.addEventListener('mousedown',  onStart, sig);
+  ncv.addEventListener('mousemove',  onMove,  sig);
+  ncv.addEventListener('mouseup',    onEnd,   sig);
+  ncv.addEventListener('touchstart', onStart, sig);
+  ncv.addEventListener('touchmove',  onMove,  sig);
+  ncv.addEventListener('touchend',   onEnd,   sig);
 }
 
 // ─ LAN 캔버스 ─
@@ -5825,10 +5826,11 @@ function betaAttachLanEv() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   if (cv._betaEvMode === 'lan') { return; }
-  const fresh = cv.cloneNode(true);
-  cv.parentNode.replaceChild(fresh, cv);
-  const ncv = document.getElementById('betaCanvas');
-  ncv._betaEvMode = 'lan';
+  if (cv._betaAbort) { cv._betaAbort.abort(); }
+  const ctrl = new AbortController();
+  cv._betaAbort  = ctrl;
+  cv._betaEvMode = 'lan';
+  const ncv = cv;
 
   let lpT = null;
 
@@ -5920,12 +5922,13 @@ function betaAttachLanEv() {
     betaRenderSum(); saveState();
   }
 
-  ncv.addEventListener('mousedown',  onDown, { passive: false });
-  ncv.addEventListener('mousemove',  onMove, { passive: false });
-  ncv.addEventListener('mouseup',    onUp,   { passive: false });
-  ncv.addEventListener('touchstart', onDown, { passive: false });
-  ncv.addEventListener('touchmove',  onMove, { passive: false });
-  ncv.addEventListener('touchend',   onUp,   { passive: false });
+  const sig = { signal: ctrl.signal, passive: false };
+  ncv.addEventListener('mousedown',  onDown, sig);
+  ncv.addEventListener('mousemove',  onMove, sig);
+  ncv.addEventListener('mouseup',    onUp,   sig);
+  ncv.addEventListener('touchstart', onDown, sig);
+  ncv.addEventListener('touchmove',  onMove, sig);
+  ncv.addEventListener('touchend',   onUp,   sig);
 }
 
 
