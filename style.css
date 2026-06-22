@@ -453,7 +453,8 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 #tab-beta{padding:12px 12px 80px;}
 /* ── §β 혼합 시뮬레이터 스타일 ─────────────────────────── */
 .beta-hdr{padding:10px 0 6px;display:flex;flex-direction:column;gap:8px;}
-.beta-area-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.beta-area-col{display:flex;flex-direction:column;gap:6px;width:fit-content;}
+.beta-area-row{display:flex;align-items:center;gap:6px;}
 .beta-area-label{font-size:13px;color:#555;}
 .beta-area-inp{width:80px;padding:5px 8px;border:1px solid #ccc;border-radius:7px;font-size:14px;text-align:center;}
 .beta-apply-btn{padding:6px 14px;background:#0F6E56;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;}

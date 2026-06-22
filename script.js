@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.53';
-const APP_SW_VERSION = 'v156';
+const APP_VERSION = '2.0.54';
+const APP_SW_VERSION = 'v157';
 
 const CHANGELOG = [
+  { v: '2.0.54', items: [
+    '혼합 시뮬β — 꾹 누르기 시 다음 빈 포트 자동 전환, mouseleave/touchcancel 정리, 구역별 균등 자동할당(_balancedCols) 적용, 면적 입력 세로 배치',
+  ] },
   { v: '2.0.53', items: [
     '혼합 시뮬β — PC 창 크기 변화 시 격자 좌표 오류 수정, resize 리렌더링 추가',
   ] },
@@ -479,6 +482,7 @@ const State = {
   _betaLanDStk: [],
   _betaLanLpT:  null,
   _betaFCell:   null,
+  _betaLanDHov: null,
   _betaCache:   null,
 };
 (function() {
@@ -5640,8 +5644,8 @@ function betaDrawLan() {
       ctx.restore();
     }
 
-    // 호버
-    if (State._betaFCell === p.key) {
+    // 호버 (드래그 중: 현재 셀 / 단순 탭: 마지막 선택 셀)
+    if (State._betaLanDHov === p.key || (!State._betaLanDrag && State._betaFCell === p.key)) {
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
       ctx.fillRect(px, py, pw, ph);
     }
@@ -5800,31 +5804,64 @@ function betaReset() {
 
 // ─ 자동 할당 ─
 
+function _betaNextEmpty() {
+  for (let i = 0; i < 8; i++) {
+    if (State.betaPorts[i].size === 0) { return i; }
+  }
+  return State.betaAPort;
+}
+
+function _betaAutoAssignZone(zone, portOff) {
+  const panels = betaPanels(zone);
+  const colMap = new Map();
+  for (const p of panels) {
+    if (!colMap.has(p.x)) { colMap.set(p.x, []); }
+    colMap.get(p.x).push(p);
+  }
+  const colKeys = [...colMap.keys()].sort((a, b) => a - b);
+  const totalCols = colKeys.length;
+  if (totalCols === 0) { return 0; }
+
+  // 열당 최대 픽셀 수 → 포트당 최대 열 수 산출
+  const maxColPx = Math.max(...colKeys.map(ck =>
+    colMap.get(ck).reduce((sum, p) => {
+      const sp = SPECS[p.led];
+      return sum + Math.round(sp.px500.w / 500 * p.w) * Math.round(sp.px500.h / 500 * p.h);
+    }, 0)
+  ));
+  if (maxColPx === 0) { return 0; }
+
+  const maxRaw  = Math.max(1, Math.floor(MAX_PX / maxColPx));
+  const maxEven = maxRaw >= 2 ? (maxRaw % 2 === 0 ? maxRaw : maxRaw - 1) : maxRaw;
+  const numPorts = Math.min(8 - portOff, Math.ceil(totalCols / maxEven));
+  const takes = _balancedCols(totalCols, numPorts, maxRaw, maxEven);
+
+  let colStart = 0;
+  for (let pi = 0; pi < takes.length; pi++) {
+    const portIdx = portOff + pi;
+    if (portIdx >= 8) { break; }
+    for (let ci = 0; ci < takes[pi]; ci++) {
+      const col = colMap.get(colKeys[colStart + ci]).slice().sort((a, b) => a.y - b.y);
+      // 짝수 ci → 하→상, 홀수 ci → 상→하 (뱀형)
+      const ordered = ci % 2 === 0 ? col.slice().reverse() : col;
+      for (const p of ordered) { betaAssign(portIdx, p.key); }
+    }
+    colStart += takes[pi];
+  }
+  return takes.length;
+}
+
 function betaAutoAssign() {
-  State.betaPorts = Array.from({ length: 8 }, () => new Set());
-  State.betaPH2   = Array.from({ length: 8 }, () => []);
-  let curPort = 0;
+  State.betaPorts  = Array.from({ length: 8 }, () => new Set());
+  State.betaPH2    = Array.from({ length: 8 }, () => []);
+  State.betaAPort  = 0;
+  State._betaFCell = null;
   const sorted = [...State.betaZones].sort((a, b) =>
     a.startRow !== b.startRow ? a.startRow - b.startRow : a.startCol - b.startCol
   );
+  let portOff = 0;
   for (const zone of sorted) {
-    const panels = betaPanels(zone);
-    const colMap = new Map();
-    for (const p of panels) {
-      if (!colMap.has(p.x)) { colMap.set(p.x, []); }
-      colMap.get(p.x).push(p);
-    }
-    const colKeys = [...colMap.keys()].sort((a, b) => a - b);
-    colKeys.forEach((ck, ci) => {
-      const col = colMap.get(ck).sort((a, b) => a.y - b.y);
-      const ordered = ci % 2 === 0 ? col.slice().reverse() : col;
-      for (const p of ordered) {
-        const sp  = SPECS[p.led];
-        const ppx = Math.round(sp.px500.w / 500 * p.w) * Math.round(sp.px500.h / 500 * p.h);
-        if (curPort < 7 && _betaPxOf(curPort) + ppx > MAX_PX) { curPort++; }
-        betaAssign(curPort, p.key);
-      }
-    });
+    portOff = Math.min(8, portOff + _betaAutoAssignZone(zone, portOff));
   }
   State.betaAPort = 0;
   betaDrawLan(); betaRenderLanUI(); saveState();
@@ -5855,28 +5892,11 @@ function betaAttachLanEv() {
     return { x: (e.clientX - bcr.left) * scX, y: (e.clientY - bcr.top) * scY };
   }
 
-  function tryAssign(panel) {
-    const pi  = State.betaAPort;
-    const key = panel.key;
-    const own = _betaOwner(key);
-    if (own >= 0 && own !== pi) { return; }
-    if (!State.betaPorts[pi].has(key)) {
-      betaAssign(pi, key);
-      if (navigator.vibrate) { navigator.vibrate(15); }
-    }
-    State._betaFCell = key;
-    State._betaLanDStk.push(key);
-    betaDrawLan(); betaRenderPorts();
-  }
-
-  function tryDeassign(panel) {
-    const pi  = State.betaAPort;
-    const key = panel.key;
-    if (!State.betaPorts[pi].has(key)) { return; }
-    betaDeassign(pi, key);
-    if (navigator.vibrate) { navigator.vibrate(25); }
-    State._betaFCell = key;
-    betaDrawLan(); betaRenderPorts();
+  // mouseleave / touchcancel 공통 정리
+  function cl() {
+    clearTimeout(lpT); lpT = null;
+    State._betaLanDrag = false; State._betaLanDStk = []; State._betaLanDHov = null;
+    betaDrawLan();
   }
 
   function onDown(e) {
@@ -5884,12 +5904,21 @@ function betaAttachLanEv() {
     const { x, y } = getXY(e);
     const panel = _betaPanelAt(x, y);
     if (!panel) { return; }
-    State._betaLanDStk = [panel.key];
+    State._betaLanDStk = [];
     State._betaFCell   = panel.key;
     State._betaLanDrag = false;
     lpT = setTimeout(() => {
+      const own = _betaOwner(panel.key);
+      // 이미 할당된 셀이면 해당 포트로 전환, 비어있으면 다음 빈 포트 자동 선택
+      State.betaAPort = own >= 0 ? own : _betaNextEmpty();
       State._betaLanDrag = true;
-      tryAssign(panel);
+      State._betaLanDStk = [panel.key];
+      State._betaLanDHov = panel.key;
+      if (own < 0) {
+        betaAssign(State.betaAPort, panel.key);
+        if (navigator.vibrate) { navigator.vibrate(15); }
+      }
+      betaDrawLan(); betaRenderPorts();
     }, e.touches ? LP_TOUCH : LP_MS);
   }
 
@@ -5898,54 +5927,74 @@ function betaAttachLanEv() {
     if (!State._betaLanDrag) { return; }
     const { x, y } = getXY(e);
     const panel = _betaPanelAt(x, y);
-    if (!panel) { return; }
+    State._betaLanDHov = panel ? panel.key : null;
+    if (!panel) { betaDrawLan(); return; }
     const stk = State._betaLanDStk;
+    // 역방향 → 마지막 해제
     if (stk.length >= 2 && stk[stk.length - 2] === panel.key) {
-      // 역방향 → 마지막 해제
-      const lastPanel = _betaAllPanels().find(p => p.key === stk[stk.length - 1]);
-      if (lastPanel) { tryDeassign(lastPanel); }
+      const last = stk[stk.length - 1];
+      if (State.betaPorts[State.betaAPort].has(last)) {
+        betaDeassign(State.betaAPort, last);
+        if (navigator.vibrate) { navigator.vibrate(25); }
+      }
       stk.pop();
+      betaDrawLan(); betaRenderPorts();
       return;
     }
-    if (stk[stk.length - 1] !== panel.key) { tryAssign(panel); }
+    if (stk[stk.length - 1] !== panel.key) {
+      const own = _betaOwner(panel.key);
+      if (own >= 0 && own !== State.betaAPort) { betaDrawLan(); return; }
+      if (!State.betaPorts[State.betaAPort].has(panel.key)) {
+        betaAssign(State.betaAPort, panel.key);
+        if (navigator.vibrate) { navigator.vibrate(15); }
+      }
+      stk.push(panel.key);
+      betaDrawLan(); betaRenderPorts();
+    }
   }
 
   function onUp(e) {
     e.preventDefault();
-    clearTimeout(lpT);
-    if (!State._betaLanDrag) {
-      // 단순 탭 (changedTouches도 mm 변환)
-      const bcr2 = ncv.getBoundingClientRect();
-      const scX2 = State.betaAreaW / (bcr2.width  || State.betaAreaW);
-      const scY2 = State.betaAreaH / (bcr2.height || State.betaAreaH);
-      const pt = e.changedTouches
-        ? { x: (e.changedTouches[0].clientX - bcr2.left) * scX2, y: (e.changedTouches[0].clientY - bcr2.top) * scY2 }
-        : getXY(e);
-      const panel = _betaPanelAt(pt.x, pt.y);
-      if (panel) {
-        const pi  = State.betaAPort;
-        const own = _betaOwner(panel.key);
-        if (own === pi) {
-          betaDeassign(pi, panel.key);
-          if (navigator.vibrate) { navigator.vibrate(25); }
-        } else if (own < 0) {
-          betaAssign(pi, panel.key);
-          if (navigator.vibrate) { navigator.vibrate(15); }
-        }
-        betaDrawLan(); betaRenderPorts();
-      }
+    clearTimeout(lpT); lpT = null;
+    if (State._betaLanDrag) {
+      State._betaLanDrag = false; State._betaLanDStk = []; State._betaLanDHov = null;
+      betaDrawLan(); betaRenderPorts(); betaRenderSum(); saveState();
+      return;
     }
-    State._betaLanDrag = false; State._betaLanDStk = []; State._betaFCell = null;
+    // 단순 탭 (changedTouches도 mm 변환)
+    const bcr2 = ncv.getBoundingClientRect();
+    const scX2 = State.betaAreaW / (bcr2.width  || State.betaAreaW);
+    const scY2 = State.betaAreaH / (bcr2.height || State.betaAreaH);
+    const pt = e.changedTouches
+      ? { x: (e.changedTouches[0].clientX - bcr2.left) * scX2, y: (e.changedTouches[0].clientY - bcr2.top) * scY2 }
+      : getXY(e);
+    const panel = _betaPanelAt(pt.x, pt.y);
+    if (panel) {
+      const pi  = State.betaAPort;
+      const own = _betaOwner(panel.key);
+      if (own === pi) {
+        betaDeassign(pi, panel.key);
+        if (navigator.vibrate) { navigator.vibrate(25); }
+      } else if (own < 0) {
+        betaAssign(pi, panel.key);
+        if (navigator.vibrate) { navigator.vibrate(15); }
+      }
+      State._betaFCell = panel.key;
+      betaDrawLan(); betaRenderPorts();
+    }
+    State._betaLanDrag = false; State._betaLanDStk = []; State._betaLanDHov = null;
     betaRenderSum(); saveState();
   }
 
   const sig = { signal: ctrl.signal, passive: false };
-  ncv.addEventListener('mousedown',  onDown, sig);
-  ncv.addEventListener('mousemove',  onMove, sig);
-  ncv.addEventListener('mouseup',    onUp,   sig);
-  ncv.addEventListener('touchstart', onDown, sig);
-  ncv.addEventListener('touchmove',  onMove, sig);
-  ncv.addEventListener('touchend',   onUp,   sig);
+  ncv.addEventListener('mousedown',   onDown, sig);
+  ncv.addEventListener('mousemove',   onMove, sig);
+  ncv.addEventListener('mouseup',     onUp,   sig);
+  ncv.addEventListener('mouseleave',  cl,     sig);
+  ncv.addEventListener('touchstart',  onDown, sig);
+  ncv.addEventListener('touchmove',   onMove, sig);
+  ncv.addEventListener('touchend',    onUp,   sig);
+  ncv.addEventListener('touchcancel', cl,     { signal: ctrl.signal, passive: true });
 }
 
 
