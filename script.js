@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.52';
-const APP_SW_VERSION = 'v155';
+const APP_VERSION = '2.0.53';
+const APP_SW_VERSION = 'v156';
 
 const CHANGELOG = [
+  { v: '2.0.53', items: [
+    '혼합 시뮬β — PC 창 크기 변화 시 격자 좌표 오류 수정, resize 리렌더링 추가',
+  ] },
   { v: '2.0.52', items: [
     '혼합 시뮬β — 설치 면적 입력 단위 mm → m로 변경',
   ] },
@@ -2876,6 +2879,7 @@ document.addEventListener('fullscreenchange', () => {
 
 window.addEventListener('resize', () => {
   if (document.getElementById('simFsBg')) { buildCv(); }
+  if (document.getElementById('tab-beta')?.classList.contains('on') && State.betaAreaW) { betaRender(); }
 });
 
 function _execRstAll() {
@@ -5123,10 +5127,10 @@ function _betaSc() {
   return W / (State.betaAreaW || 1);
 }
 
-function _betaCellAt(mx, my) {
-  const sc = _betaSc();
-  const col = Math.floor(mx / sc / 500);
-  const row = Math.floor(my / sc / 500);
+// mx, my는 mm 단위 (이벤트 핸들러에서 BCR 기반으로 변환해서 전달)
+function _betaCellAt(mmX, mmY) {
+  const col = Math.floor(mmX / 500);
+  const row = Math.floor(mmY / 500);
   if (col < 0 || row < 0 || col >= _betaGW() || row >= _betaGH()) { return null; }
   return { r: row, c: col };
 }
@@ -5199,10 +5203,8 @@ function _betaAllPanels() {
   return State._betaCache;
 }
 
-function _betaPanelAt(mx, my) {
-  const sc = _betaSc();
-  const mmX = mx / sc;
-  const mmY = my / sc;
+// mmX, mmY는 mm 단위 (이벤트 핸들러에서 BCR 기반으로 변환해서 전달)
+function _betaPanelAt(mmX, mmY) {
   for (const p of _betaAllPanels()) {
     if (mmX >= p.x && mmX < p.x + p.w && mmY >= p.y && mmY < p.y + p.h) { return p; }
   }
@@ -5523,10 +5525,15 @@ function betaAttachEditEv() {
 
   let wasDrag = false;
 
+  // BCR 기반으로 CSS 스케일링 보정 → mm 좌표 반환
   function pos(e) {
-    const r = ncv.getBoundingClientRect();
-    if (e.touches) { return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }; }
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    const bcr = ncv.getBoundingClientRect();
+    const scX = State.betaAreaW / (bcr.width  || State.betaAreaW);
+    const scY = State.betaAreaH / (bcr.height || State.betaAreaH);
+    if (e.touches) {
+      return { x: (e.touches[0].clientX - bcr.left) * scX, y: (e.touches[0].clientY - bcr.top) * scY };
+    }
+    return { x: (e.clientX - bcr.left) * scX, y: (e.clientY - bcr.top) * scY };
   }
 
   function onStart(e) {
@@ -5837,10 +5844,15 @@ function betaAttachLanEv() {
 
   let lpT = null;
 
+  // BCR 기반으로 CSS 스케일링 보정 → mm 좌표 반환
   function getXY(e) {
-    const r = ncv.getBoundingClientRect();
-    if (e.touches) { return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }; }
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    const bcr = ncv.getBoundingClientRect();
+    const scX = State.betaAreaW / (bcr.width  || State.betaAreaW);
+    const scY = State.betaAreaH / (bcr.height || State.betaAreaH);
+    if (e.touches) {
+      return { x: (e.touches[0].clientX - bcr.left) * scX, y: (e.touches[0].clientY - bcr.top) * scY };
+    }
+    return { x: (e.clientX - bcr.left) * scX, y: (e.clientY - bcr.top) * scY };
   }
 
   function tryAssign(panel) {
@@ -5902,10 +5914,12 @@ function betaAttachLanEv() {
     e.preventDefault();
     clearTimeout(lpT);
     if (!State._betaLanDrag) {
-      // 단순 탭
-      const r = ncv.getBoundingClientRect();
+      // 단순 탭 (changedTouches도 mm 변환)
+      const bcr2 = ncv.getBoundingClientRect();
+      const scX2 = State.betaAreaW / (bcr2.width  || State.betaAreaW);
+      const scY2 = State.betaAreaH / (bcr2.height || State.betaAreaH);
       const pt = e.changedTouches
-        ? { x: e.changedTouches[0].clientX - r.left, y: e.changedTouches[0].clientY - r.top }
+        ? { x: (e.changedTouches[0].clientX - bcr2.left) * scX2, y: (e.changedTouches[0].clientY - bcr2.top) * scY2 }
         : getXY(e);
       const panel = _betaPanelAt(pt.x, pt.y);
       if (panel) {
