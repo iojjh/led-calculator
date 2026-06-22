@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.50';
-const APP_SW_VERSION = 'v153';
+const APP_VERSION = '2.0.51';
+const APP_SW_VERSION = 'v154';
 
 const CHANGELOG = [
+  { v: '2.0.51', items: [
+    '혼합 시뮬레이터 β 재설계 — 격자 드래그 구역 선택, LED·패널 혼합, 랜선 시뮬레이터 완전 구현',
+  ] },
   { v: '2.0.50', items: [
     '혼합 시뮬레이터 β 탭 추가 — Zone·행·패널 단위 자유 배치, 패널별 LED 피치·사이즈 독립 설정, LAN 포트 클릭 할당',
   ] },
@@ -454,10 +457,23 @@ const State = {
   _savedPwr: null,  // 랜선 탭 활성 중 저장해 둔 파워콘 상태
 
   // 혼합 시뮬레이터 β
-  betaZones:  [],
-  betaPorts:  Array.from({ length: 8 }, () => new Set()),
-  betaPH2:    Array.from({ length: 8 }, () => []),
-  betaAPort:  0,
+  betaAreaW:    0,
+  betaAreaH:    0,
+  betaZones:    [],
+  betaMode:     'edit',
+  betaPorts:    Array.from({ length: 8 }, () => new Set()),
+  betaPH2:      Array.from({ length: 8 }, () => []),
+  betaAPort:    0,
+  betaSpareAdj: { l1: 2, sl: 20 },
+  _betaDragSt:  null,
+  _betaDragCur: null,
+  _betaSelNew:  null,
+  _betaSelEdit: null,
+  _betaLanDrag: false,
+  _betaLanDStk: [],
+  _betaLanLpT:  null,
+  _betaFCell:   null,
+  _betaCache:   null,
 };
 (function() {
   const raw = localStorage.getItem('ledCalcChkCustom');
@@ -658,7 +674,7 @@ function swTab(id, btn) {
   document.getElementById('tab-' + id).classList.add('on');
   btn.classList.add('on');
   _updateBarForTab(id);
-  if (id === 'beta') { betaRenderEditor(); betaDrawCv(); }
+  if (id === 'beta') { betaRender(); }
 }
 
 function _updateBarForTab(id) {
@@ -1733,10 +1749,14 @@ function getAppState(name) {
     COND: [...State.COND],
     pwrPA: (State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA)?.map(s => [...s]) || null,
     pwrPH: (State.simTab === 'pwr' ? State.pH2 : State._savedPwr?.pH2)?.map(a => [...a]) || null,
-    betaZones:  State.betaZones,
-    betaPorts:  State.betaPorts.map(s => [...s]),
-    betaPH2:    State.betaPH2.map(a => [...a]),
-    betaAPort:  State.betaAPort,
+    betaAreaW:    State.betaAreaW,
+    betaAreaH:    State.betaAreaH,
+    betaZones:    State.betaZones,
+    betaMode:     State.betaMode,
+    betaPorts:    State.betaPorts.map(s => [...s]),
+    betaPH2:      State.betaPH2.map(a => [...a]),
+    betaAPort:    State.betaAPort,
+    betaSpareAdj: { ...State.betaSpareAdj },
   };
 }
 
@@ -1832,10 +1852,15 @@ function loadAppState(st) {
   }
   // 혼합 시뮬레이터 β 복원
   if (st.betaZones) {
-    State.betaZones  = st.betaZones;
-    State.betaPorts  = st.betaPorts ? st.betaPorts.map(a => new Set(a)) : Array.from({ length: 8 }, () => new Set());
-    State.betaPH2    = st.betaPH2   ? st.betaPH2.map(a => [...a])       : Array.from({ length: 8 }, () => []);
-    State.betaAPort  = st.betaAPort || 0;
+    State.betaAreaW    = st.betaAreaW || 0;
+    State.betaAreaH    = st.betaAreaH || 0;
+    State.betaZones    = st.betaZones;
+    State.betaMode     = st.betaMode || 'edit';
+    State.betaPorts    = st.betaPorts ? st.betaPorts.map(a => new Set(a)) : Array.from({ length: 8 }, () => new Set());
+    State.betaPH2      = st.betaPH2   ? st.betaPH2.map(a => [...a])       : Array.from({ length: 8 }, () => []);
+    State.betaAPort    = st.betaAPort || 0;
+    State.betaSpareAdj = st.betaSpareAdj ? { ...st.betaSpareAdj } : { l1: 2, sl: 20 };
+    State._betaCache   = null;
   }
 }
 
@@ -5074,387 +5099,833 @@ function vmixDownload() {
 
 // ── §14 혼합 시뮬레이터 β ────────────────────────────────
 
-// 안정적인 ID 생성 (재로드 후에도 uniqueness 보장)
-function _betaId() {
-  return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-}
+// ─ 구역 색상 ─
+const BETA_ZONE_BG = [
+  'rgba(79,140,255,0.18)',  'rgba(255,120,80,0.18)',  'rgba(60,200,100,0.18)',
+  'rgba(220,80,220,0.18)', 'rgba(255,200,0,0.18)',   'rgba(0,200,220,0.18)',
+];
+const BETA_ZONE_LINE = [
+  '#4F8CFF', '#FF7850', '#3CC864', '#DC50DC', '#FFC800', '#00C8DC',
+];
 
 // ─ 헬퍼 ─
 
-function betaPanelFromKey(key) {
-  // key = "{zone.id}:{row.id}:{panel.id}"
-  const [zid, rid, pid] = key.split(':');
-  const zone = State.betaZones.find(z => z.id === zid);
-  if (!zone) { return null; }
-  const row = zone.rows.find(r => r.id === rid);
-  if (!row) { return null; }
-  return row.panels.find(p => p.id === pid) || null;
+function _betaGW() { return Math.max(1, Math.round(State.betaAreaW / 500)); }
+function _betaGH() { return Math.max(1, Math.round(State.betaAreaH / 500)); }
+
+function _betaSc() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return 1; }
+  const W = (cv.parentElement.clientWidth || 320) - 2;
+  return W / (State.betaAreaW || 1);
 }
 
-function betaOwner(key) {
-  return State.betaPorts.findIndex(s => s.has(key));
+function _betaCellAt(mx, my) {
+  const sc = _betaSc();
+  const col = Math.floor(mx / sc / 500);
+  const row = Math.floor(my / sc / 500);
+  if (col < 0 || row < 0 || col >= _betaGW() || row >= _betaGH()) { return null; }
+  return { r: row, c: col };
 }
 
-function betaPanelPx(panel) {
-  const sp = SPECS[panel.led];
-  if (!sp) { return 0; }
-  const ref = sp.px500.w; // pixels per 500mm
-  return Math.floor(panel.w / 500 * ref) * Math.floor(panel.h / 500 * ref);
+function _betaOverlaps(sr, sc2, rows, cols, skipId) {
+  for (const z of State.betaZones) {
+    if (z.id === skipId) { continue; }
+    if (sr < z.startRow + z.rows && sr + rows > z.startRow &&
+        sc2 < z.startCol + z.cols && sc2 + cols > z.startCol) { return true; }
+  }
+  return false;
 }
 
-function betaPortPx(pi) {
-  let total = 0;
-  State.betaPorts[pi].forEach(key => {
-    const panel = betaPanelFromKey(key);
-    if (panel) { total += betaPanelPx(panel); }
-  });
-  return total;
+function _betaZoneAt(r, c) {
+  return State.betaZones.find(z =>
+    r >= z.startRow && r < z.startRow + z.rows &&
+    c >= z.startCol && c < z.startCol + z.cols
+  ) || null;
 }
 
-function _betaBBox() {
-  let maxX = 500, maxY = 500;
-  State.betaZones.forEach(zone => {
-    let zW = 0, zH = 0;
-    zone.rows.forEach(row => {
-      if (!row.panels.length) { return; }
-      const rw = row.panels.reduce((s, p) => s + p.w, 0);
-      const rh = Math.max(...row.panels.map(p => p.h));
-      if (rw > zW) { zW = rw; }
-      zH += rh;
-    });
-    if (zone.x + zW > maxX) { maxX = zone.x + zW; }
-    if (zone.y + zH > maxY) { maxY = zone.y + zH; }
-  });
-  return { maxX, maxY };
+// Zone → 패널 배열 [{key, x, y, w, h, led, zoneId}]
+function betaPanels(zone) {
+  const spanC = zone.panelW / 500;
+  const spanR = zone.panelH / 500;
+  const fullC = Math.floor(zone.cols / spanC);
+  const fullR = Math.floor(zone.rows / spanR);
+  const remC  = zone.cols % spanC;
+  const remR  = zone.rows % spanR;
+  const panels = [];
+  for (let pr = 0; pr < fullR; pr++) {
+    for (let pc = 0; pc < fullC; pc++) {
+      panels.push({
+        key: `${zone.id}:${pr}:${pc}`,
+        x: (zone.startCol + pc * spanC) * 500,
+        y: (zone.startRow + pr * spanR) * 500,
+        w: zone.panelW, h: zone.panelH,
+        led: zone.led, zoneId: zone.id,
+      });
+    }
+    if (remC) {
+      for (let rs = 0; rs < spanR; rs++) {
+        panels.push({
+          key: `${zone.id}:${pr}:rc${rs}`,
+          x: (zone.startCol + fullC * spanC) * 500,
+          y: (zone.startRow + pr * spanR + rs) * 500,
+          w: 500, h: 500,
+          led: zone.led, zoneId: zone.id,
+        });
+      }
+    }
+  }
+  if (remR) {
+    for (let cc = 0; cc < zone.cols; cc++) {
+      panels.push({
+        key: `${zone.id}:rr:${cc}`,
+        x: (zone.startCol + cc) * 500,
+        y: (zone.startRow + fullR * spanR) * 500,
+        w: 500, h: 500,
+        led: zone.led, zoneId: zone.id,
+      });
+    }
+  }
+  return panels;
 }
 
-function _betaScale() {
-  const cvEl = document.getElementById('betaCanvas');
-  if (!cvEl) { return 1; }
-  const wrapW = (cvEl.parentElement.clientWidth - 2) || 300;
-  const { maxX } = _betaBBox();
-  return wrapW / maxX;
+function _betaAllPanels() {
+  if (!State._betaCache) {
+    State._betaCache = State.betaZones.flatMap(z => betaPanels(z));
+  }
+  return State._betaCache;
 }
 
-function betaCellAt(mx, my) {
-  const sc = _betaScale();
+function _betaPanelAt(mx, my) {
+  const sc = _betaSc();
   const mmX = mx / sc;
   const mmY = my / sc;
-  for (const zone of State.betaZones) {
-    let py = zone.y;
-    for (const row of zone.rows) {
-      if (!row.panels.length) { continue; }
-      const rh = Math.max(...row.panels.map(p => p.h));
-      if (mmY >= py && mmY < py + rh) {
-        let px = zone.x;
-        for (const panel of row.panels) {
-          if (mmX >= px && mmX < px + panel.w) {
-            return `${zone.id}:${row.id}:${panel.id}`;
-          }
-          px += panel.w;
-        }
-      }
-      py += rh;
-    }
+  for (const p of _betaAllPanels()) {
+    if (mmX >= p.x && mmX < p.x + p.w && mmY >= p.y && mmY < p.y + p.h) { return p; }
   }
   return null;
 }
 
-// ─ 존/행/패널 편집 ─
+function _betaPxOf(pi) {
+  let total = 0;
+  for (const key of State.betaPorts[pi]) {
+    const p = _betaAllPanels().find(x => x.key === key);
+    if (!p) { continue; }
+    const sp = SPECS[p.led];
+    total += Math.round(sp.px500.w / 500 * p.w) * Math.round(sp.px500.h / 500 * p.h);
+  }
+  return total;
+}
 
-function betaReset() {
-  openConfirm('혼합 시뮬 초기화', '혼합 시뮬레이터 데이터를 모두 초기화할까요?', () => {
-    State.betaZones  = [];
-    State.betaPorts  = Array.from({ length: 8 }, () => new Set());
-    State.betaPH2    = Array.from({ length: 8 }, () => []);
-    State.betaAPort  = 0;
-    betaRenderEditor();
-    betaDrawCv();
+function _betaOwner(key) {
+  return State.betaPorts.findIndex(s => s.has(key));
+}
+
+function _betaPanelCx(p) { return (p.x + p.w / 2) * _betaSc(); }
+function _betaPanelCy(p) { return (p.y + p.h / 2) * _betaSc(); }
+
+let _betaZidSeq = 0;
+function _betaZid() { return 'z' + (++_betaZidSeq); }
+
+// ─ 면적 입력 & 모드 전환 ─
+
+function betaApplyArea() {
+  const w = parseInt(document.getElementById('betaW').value, 10) || 0;
+  const h = parseInt(document.getElementById('betaH').value, 10) || 0;
+  if (w < 500 || h < 500) { _toast('최소 500mm × 500mm 이상 입력해주세요.'); return; }
+  State.betaAreaW = w;
+  State.betaAreaH = h;
+  const gW = _betaGW(); const gH = _betaGH();
+  State.betaZones = State.betaZones.filter(z => z.startRow < gH && z.startCol < gW);
+  State.betaZones.forEach(z => {
+    if (z.startRow + z.rows > gH) { z.rows = gH - z.startRow; }
+    if (z.startCol + z.cols > gW) { z.cols = gW - z.startCol; }
   });
+  State._betaCache = null;
+  betaRender();
+  saveState();
 }
 
-function betaAddZone() {
-  State.betaZones.push({ id: _betaId(), x: 0, y: 0, rows: [] });
-  betaRenderEditor();
-  betaDrawCv();
+function betaSetMode(m) {
+  if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
+  if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
+  State.betaMode = m;
+  betaRender();
 }
 
-function betaDeleteZone(zi) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  // 해당 존의 모든 포트 할당 해제
-  State.betaPorts.forEach(s => {
-    [...s].forEach(k => { if (k.startsWith(zone.id + ':')) { s.delete(k); } });
-  });
-  State.betaZones.splice(zi, 1);
-  betaRenderEditor();
-  betaDrawCv();
-}
+function betaRender() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return; }
+  if (State.betaAreaW) { document.getElementById('betaW').value = State.betaAreaW; }
+  if (State.betaAreaH) { document.getElementById('betaH').value = State.betaAreaH; }
+  document.getElementById('betaModeEdit').classList.toggle('on', State.betaMode === 'edit');
+  document.getElementById('betaModeLan').classList.toggle('on',  State.betaMode === 'lan');
 
-function betaUpdateZone(zi, key, val) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  zone[key] = +val || 0;
-  betaDrawCv();
-}
+  if (!State.betaAreaW || !State.betaAreaH) {
+    cv.style.display = 'none';
+    document.getElementById('betaZoneList').innerHTML = '<div class="beta-empty-hint">설치 면적을 입력 후 [적용]을 누르세요.</div>';
+    document.getElementById('betaLanUI').style.display = 'none';
+    document.getElementById('betaZoneCfg').style.display = 'none';
+    return;
+  }
 
-function betaAddRow(zi) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  zone.rows.push({ id: _betaId(), panels: [] });
-  betaRenderEditor();
-  betaDrawCv();
-}
+  cv.style.display = 'block';
+  const sc = _betaSc();
+  cv.width  = Math.round(State.betaAreaW * sc);
+  cv.height = Math.round(State.betaAreaH * sc);
 
-function betaDeleteRow(zi, ri) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  const row = zone.rows[ri];
-  if (!row) { return; }
-  // 해당 행의 모든 포트 할당 해제
-  State.betaPorts.forEach(s => {
-    [...s].forEach(k => { if (k.startsWith(zone.id + ':' + row.id + ':')) { s.delete(k); } });
-  });
-  zone.rows.splice(ri, 1);
-  betaRenderEditor();
-  betaDrawCv();
-}
-
-function betaAddPanel(zi, ri) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  const row = zone.rows[ri];
-  if (!row) { return; }
-  row.panels.push({ id: _betaId(), w: 500, h: 500, led: '2mm' });
-  betaRenderEditor();
-  betaDrawCv();
-}
-
-function betaDeletePanel(zi, ri, pi) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  const row = zone.rows[ri];
-  if (!row) { return; }
-  const panel = row.panels[pi];
-  if (!panel) { return; }
-  const key = `${zone.id}:${row.id}:${panel.id}`;
-  State.betaPorts.forEach(s => s.delete(key));
-  row.panels.splice(pi, 1);
-  betaRenderEditor();
-  betaDrawCv();
-}
-
-function betaUpdatePanel(zi, ri, pi, key, val) {
-  const zone = State.betaZones[zi];
-  if (!zone) { return; }
-  const row = zone.rows[ri];
-  if (!row) { return; }
-  const panel = row.panels[pi];
-  if (!panel) { return; }
-  panel[key] = (key === 'led') ? val : (+val || 0);
-  betaRenderPorts();
-  betaDrawCv();
-}
-
-// ─ 포트 할당 ─
-
-function betaAssign(key) {
-  const pi = State.betaAPort;
-  State.betaPorts.forEach((s, i) => { if (i !== pi) { s.delete(key); } });
-  if (State.betaPorts[pi].has(key)) {
-    State.betaPorts[pi].delete(key);
+  if (State.betaMode === 'edit') {
+    document.getElementById('betaLanUI').style.display = 'none';
+    document.getElementById('betaZoneList').style.display = '';
+    betaDrawEdit();
+    betaRenderZoneList();
+    betaAttachEditEv();
   } else {
-    State.betaPorts[pi].add(key);
+    document.getElementById('betaZoneList').style.display = 'none';
+    document.getElementById('betaZoneCfg').style.display = 'none';
+    document.getElementById('betaLanUI').style.display = '';
+    betaDrawLan();
+    betaRenderLanUI();
+    betaAttachLanEv();
+  }
+}
+
+// ─ 편집 캔버스 ─
+
+function betaDrawEdit() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return; }
+  const ctx = cv.getContext('2d');
+  const sc  = _betaSc();
+  const gW  = _betaGW(); const gH = _betaGH();
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // pass1: 격자
+  ctx.fillStyle = '#f0f0f0';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 0.5;
+  for (let c = 0; c <= gW; c++) {
+    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
+  }
+  for (let r = 0; r <= gH; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
+  }
+
+  // pass2: Zone 채우기 + 패널 경계
+  State.betaZones.forEach((zone, zi) => {
+    const ci  = zi % BETA_ZONE_BG.length;
+    const zx  = zone.startCol * 500 * sc; const zy = zone.startRow * 500 * sc;
+    const zw  = zone.cols * 500 * sc; const zh = zone.rows * 500 * sc;
+    ctx.fillStyle = BETA_ZONE_BG[ci];
+    ctx.fillRect(zx, zy, zw, zh);
+    // 패널 경계
+    const spanC = zone.panelW / 500; const spanR = zone.panelH / 500;
+    const fullC = Math.floor(zone.cols / spanC); const fullR = Math.floor(zone.rows / spanR);
+    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 1.2;
+    for (let pr = 0; pr < fullR; pr++) {
+      for (let pc = 0; pc < fullC; pc++) {
+        ctx.strokeRect(
+          (zone.startCol + pc * spanC) * 500 * sc + 0.6,
+          (zone.startRow + pr * spanR) * 500 * sc + 0.6,
+          zone.panelW * sc - 1.2, zone.panelH * sc - 1.2
+        );
+      }
+    }
+    // Zone 외곽선
+    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
+    ctx.strokeRect(zx + 1, zy + 1, zw - 2, zh - 2);
+    // Zone 정보 텍스트
+    const fs = Math.max(9, Math.min(14, 500 * sc * 0.22));
+    ctx.font = `700 ${fs}px sans-serif`;
+    ctx.fillStyle = BETA_ZONE_LINE[ci];
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${zone.led} / ${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, zy + zh / 2);
+    ctx.textBaseline = 'alphabetic';
+  });
+
+  // pass3: 드래그 선택 미리보기
+  if (State._betaDragSt && State._betaDragCur) {
+    const r0 = Math.min(State._betaDragSt.r, State._betaDragCur.r);
+    const c0 = Math.min(State._betaDragSt.c, State._betaDragCur.c);
+    const r1 = Math.max(State._betaDragSt.r, State._betaDragCur.r);
+    const c1 = Math.max(State._betaDragSt.c, State._betaDragCur.c);
+    const sx = c0 * 500 * sc; const sy = r0 * 500 * sc;
+    const sw = (c1 - c0 + 1) * 500 * sc; const sh = (r1 - r0 + 1) * 500 * sc;
+    ctx.fillStyle = 'rgba(79,140,255,0.22)';
+    ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeStyle = '#4F8CFF'; ctx.lineWidth = 2;
+    ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+    const wm = ((c1 - c0 + 1) * 0.5).toFixed(1).replace(/\.0$/, '');
+    const hm = ((r1 - r0 + 1) * 0.5).toFixed(1).replace(/\.0$/, '');
+    const fs2 = Math.max(11, Math.min(16, sw * 0.18));
+    ctx.font = `700 ${fs2}px sans-serif`;
+    ctx.fillStyle = '#1a4fcc'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${wm}m × ${hm}m`, sx + sw / 2, sy + sh / 2);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // pass4: 팝업 대기 구역
+  if (State._betaSelNew) {
+    const { startR, startC, rows, cols } = State._betaSelNew;
+    const sx = startC * 500 * sc; const sy = startR * 500 * sc;
+    const sw = cols * 500 * sc; const sh = rows * 500 * sc;
+    ctx.fillStyle = 'rgba(40,200,80,0.18)';
+    ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeStyle = '#28C850'; ctx.lineWidth = 2.5;
+    ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+  }
+}
+
+// ─ 구역 목록 ─
+
+function betaRenderZoneList() {
+  const el = document.getElementById('betaZoneList');
+  if (!el) { return; }
+  if (State.betaZones.length === 0) {
+    el.innerHTML = '<div class="beta-empty-hint">캔버스를 드래그해서 구역을 추가하세요.</div>';
+    return;
+  }
+  const wm = mm => (mm / 1000).toFixed(1).replace(/\.0$/, '') + 'm';
+  el.innerHTML = State.betaZones.map((z, i) => {
+    const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
+    return `<div class="beta-zone-card" style="border-left:4px solid ${col}">
+      <span class="beta-zone-tag" style="color:${col}">구역 ${i + 1}</span>
+      <span class="beta-zone-info">${wm(z.cols * 500)} × ${wm(z.rows * 500)} | ${z.led} | ${z.panelW}×${z.panelH}mm</span>
+      <button class="beta-zone-edit-btn" onclick="betaEditZone('${z.id}')">편집</button>
+      <button class="beta-zone-del-btn" onclick="betaDeleteZone('${z.id}')">삭제</button>
+    </div>`;
+  }).join('');
+}
+
+function betaDeleteZone(id) {
+  const zone = State.betaZones.find(z => z.id === id);
+  if (zone) {
+    const keys = new Set(betaPanels(zone).map(p => p.key));
+    State.betaPorts.forEach(s => keys.forEach(k => s.delete(k)));
+    State.betaPH2.forEach(arr => {
+      for (let i = arr.length - 1; i >= 0; i--) { if (keys.has(arr[i])) { arr.splice(i, 1); } }
+    });
+  }
+  State.betaZones = State.betaZones.filter(z => z.id !== id);
+  State._betaCache = null;
+  betaRender();
+  saveState();
+}
+
+function betaEditZone(id) {
+  const zone = State.betaZones.find(z => z.id === id);
+  if (!zone) { return; }
+  State._betaSelEdit = id;
+  State._betaSelNew  = { startR: zone.startRow, startC: zone.startCol, rows: zone.rows, cols: zone.cols };
+  betaShowCfgPanel();
+  betaDrawEdit();
+}
+
+// ─ 구역 설정 팝업 ─
+
+function betaShowCfgPanel() {
+  const el = document.getElementById('betaZoneCfg');
+  if (!el || !State._betaSelNew) { return; }
+  const ev = State._betaSelEdit ? State.betaZones.find(z => z.id === State._betaSelEdit) : null;
+  const curLed = ev ? ev.led : '3mm';
+  const curPW  = ev ? ev.panelW : 500;
+  const curPH  = ev ? ev.panelH : 500;
+  const leds = ['2mm', '3mm', '4mm'];
+  const panelOpts = [
+    { w: 500,  h: 500,  label: '500×500mm' },
+    { w: 500,  h: 1000, label: '500×1000mm (세로)' },
+    { w: 1000, h: 500,  label: '1000×500mm (가로)' },
+  ];
+  el.style.display = '';
+  el.innerHTML = `<div class="beta-cfg-title">구역 설정</div>
+    <div class="beta-cfg-row">
+      <span class="beta-cfg-label">LED 피치</span>
+      <div class="beta-cfg-chips" id="betaCfgLed">${
+        leds.map(v => `<button class="beta-cfg-chip${v === curLed ? ' on' : ''}" onclick="_betaCfgSelLed(this,'${v}')">${v}</button>`).join('')
+      }</div>
+    </div>
+    <div class="beta-cfg-row">
+      <span class="beta-cfg-label">패널 사이즈</span>
+      <div class="beta-cfg-chips" id="betaCfgPanel">${
+        panelOpts.map(p => `<button class="beta-cfg-chip${p.w === curPW && p.h === curPH ? ' on' : ''}" data-w="${p.w}" data-h="${p.h}" onclick="_betaCfgSelPanel(this)">${p.label}</button>`).join('')
+      }</div>
+    </div>
+    <div class="beta-cfg-actions">
+      <button class="beta-cfg-ok" onclick="betaCfgApply()">적용</button>
+      <button class="beta-cfg-cancel" onclick="betaCfgCancel()">취소</button>
+    </div>`;
+}
+
+function _betaCfgSelLed(btn) {
+  btn.closest('.beta-cfg-chips').querySelectorAll('.beta-cfg-chip').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function _betaCfgSelPanel(btn) {
+  btn.closest('.beta-cfg-chips').querySelectorAll('.beta-cfg-chip').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function betaCfgApply() {
+  if (!State._betaSelNew) { return; }
+  const ledBtn   = document.querySelector('#betaCfgLed .beta-cfg-chip.on');
+  const panelBtn = document.querySelector('#betaCfgPanel .beta-cfg-chip.on');
+  const led = ledBtn ? ledBtn.textContent : '3mm';
+  const pw  = panelBtn ? parseInt(panelBtn.dataset.w) : 500;
+  const ph  = panelBtn ? parseInt(panelBtn.dataset.h) : 500;
+  const { startR, startC, rows, cols } = State._betaSelNew;
+
+  if (State._betaSelEdit) {
+    if (_betaOverlaps(startR, startC, rows, cols, State._betaSelEdit)) { _toast('다른 구역과 겹칩니다.'); return; }
+    const zone = State.betaZones.find(z => z.id === State._betaSelEdit);
+    if (zone) {
+      const oldKeys = new Set(betaPanels(zone).map(p => p.key));
+      State.betaPorts.forEach(s => oldKeys.forEach(k => s.delete(k)));
+      State.betaPH2.forEach(arr => {
+        for (let i = arr.length - 1; i >= 0; i--) { if (oldKeys.has(arr[i])) { arr.splice(i, 1); } }
+      });
+      Object.assign(zone, { startRow: startR, startCol: startC, rows, cols, led, panelW: pw, panelH: ph });
+    }
+  } else {
+    if (_betaOverlaps(startR, startC, rows, cols, null)) { _toast('다른 구역과 겹칩니다.'); return; }
+    State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC, rows, cols, led, panelW: pw, panelH: ph });
+  }
+
+  State._betaSelNew  = null;
+  State._betaSelEdit = null;
+  State._betaCache   = null;
+  document.getElementById('betaZoneCfg').style.display = 'none';
+  betaRender();
+  saveState();
+}
+
+function betaCfgCancel() {
+  State._betaSelNew  = null;
+  State._betaSelEdit = null;
+  document.getElementById('betaZoneCfg').style.display = 'none';
+  betaDrawEdit();
+}
+
+// ─ 편집 모드 이벤트 ─
+
+function betaAttachEditEv() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return; }
+  if (cv._betaEvMode === 'edit') { return; }
+  // 이전 이벤트 제거를 위해 캔버스 복제
+  const fresh = cv.cloneNode(true);
+  cv.parentNode.replaceChild(fresh, cv);
+  const ncv = document.getElementById('betaCanvas');
+  ncv._betaEvMode = 'edit';
+
+  let wasDrag = false;
+
+  function pos(e) {
+    const r = ncv.getBoundingClientRect();
+    if (e.touches) { return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }; }
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    const { x, y } = pos(e);
+    const cell = _betaCellAt(x, y);
+    if (!cell) { return; }
+    wasDrag = false;
+    State._betaDragSt  = cell;
+    State._betaDragCur = cell;
+  }
+
+  function onMove(e) {
+    e.preventDefault();
+    if (!State._betaDragSt) { return; }
+    const { x, y } = pos(e);
+    const cell = _betaCellAt(x, y);
+    if (!cell) { return; }
+    const prev = State._betaDragCur;
+    if (!prev || prev.r !== cell.r || prev.c !== cell.c) {
+      State._betaDragCur = cell;
+      wasDrag = true;
+      betaDrawEdit();
+    }
+  }
+
+  function onEnd(e) {
+    e.preventDefault();
+    if (!State._betaDragSt) { return; }
+    const r0 = Math.min(State._betaDragSt.r, State._betaDragCur.r);
+    const c0 = Math.min(State._betaDragSt.c, State._betaDragCur.c);
+    const r1 = Math.max(State._betaDragSt.r, State._betaDragCur.r);
+    const c1 = Math.max(State._betaDragSt.c, State._betaDragCur.c);
+    const startR = r0; const startC = c0;
+    const rows = r1 - r0 + 1; const cols = c1 - c0 + 1;
+    const drag = wasDrag;
+    State._betaDragSt = null; State._betaDragCur = null; wasDrag = false;
+
+    if (!drag) {
+      // 단순 탭 → 기존 구역 편집
+      const zone = _betaZoneAt(r0, c0);
+      if (zone) { betaEditZone(zone.id); return; }
+      betaDrawEdit();
+      return;
+    }
+    State._betaSelNew  = { startR, startC, rows, cols };
+    State._betaSelEdit = null;
+    betaDrawEdit();
+    betaShowCfgPanel();
+  }
+
+  ncv.addEventListener('mousedown',  onStart, { passive: false });
+  ncv.addEventListener('mousemove',  onMove,  { passive: false });
+  ncv.addEventListener('mouseup',    onEnd,   { passive: false });
+  ncv.addEventListener('touchstart', onStart, { passive: false });
+  ncv.addEventListener('touchmove',  onMove,  { passive: false });
+  ncv.addEventListener('touchend',   onEnd,   { passive: false });
+}
+
+// ─ LAN 캔버스 ─
+
+function betaDrawLan() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return; }
+  const ctx = cv.getContext('2d');
+  const sc  = _betaSc();
+  const panels = _betaAllPanels();
+  const curPi  = State.betaAPort;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // pass1: 배경
+  ctx.fillStyle = '#d8d8d8';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  const gW = _betaGW(); const gH = _betaGH();
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.5;
+  for (let c = 0; c <= gW; c++) {
+    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
+  }
+  for (let r = 0; r <= gH; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
+  }
+
+  panels.forEach(p => {
+    const pi = _betaOwner(p.key);
+    const px = p.x * sc; const py = p.y * sc;
+    const pw = p.w * sc; const ph = p.h * sc;
+
+    if (pi >= 0) {
+      ctx.fillStyle = PC[pi % PC.length] + '44';
+    } else {
+      ctx.fillStyle = '#ffffff';
+    }
+    ctx.fillRect(px, py, pw, ph);
+
+    // 다른 포트 소유 → 빗금
+    if (pi >= 0 && pi !== curPi) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(px, py, pw, ph); ctx.clip();
+      ctx.strokeStyle = PC[pi % PC.length] + '55'; ctx.lineWidth = 3;
+      for (let d = -ph; d < pw + ph; d += 8) {
+        ctx.beginPath(); ctx.moveTo(px + d, py); ctx.lineTo(px + d + ph, py + ph); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 호버
+    if (State._betaFCell === p.key) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(px, py, pw, ph);
+    }
+
+    ctx.strokeStyle = pi >= 0 ? PC[pi % PC.length] : '#bbb';
+    ctx.lineWidth = pi === curPi ? 2 : 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+  });
+
+  // pass2: 배선 경로
+  for (let pi = 0; pi < 8; pi++) {
+    const path = State.betaPH2[pi];
+    if (path.length < 2) { continue; }
+    for (let i = 0; i < path.length - 1; i++) {
+      const pa = panels.find(x => x.key === path[i]);
+      const pb = panels.find(x => x.key === path[i + 1]);
+      if (!pa || !pb) { continue; }
+      const ax = _betaPanelCx(pa); const ay = _betaPanelCy(pa);
+      const bx = _betaPanelCx(pb); const by = _betaPanelCy(pb);
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+      ctx.strokeStyle = PC[pi % PC.length]; ctx.lineWidth = 2; ctx.stroke();
+      const dx = bx - ax; const dy = by - ay;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 1) { continue; }
+      const ux = dx / len; const uy = dy / len;
+      const mx2 = ax + dx * 0.6; const my2 = ay + dy * 0.6; const aw = 6;
+      ctx.beginPath();
+      ctx.moveTo(mx2 + ux * aw, my2 + uy * aw);
+      ctx.lineTo(mx2 - uy * aw * 0.6, my2 + ux * aw * 0.6);
+      ctx.lineTo(mx2 + uy * aw * 0.6, my2 - ux * aw * 0.6);
+      ctx.closePath(); ctx.fillStyle = PC[pi % PC.length]; ctx.fill();
+    }
+  }
+
+  // pass3: 번호 배지
+  panels.forEach(p => {
+    const pi = _betaOwner(p.key);
+    if (pi < 0) { return; }
+    const cx = _betaPanelCx(p); const cy = _betaPanelCy(p);
+    const idx = State.betaPH2[pi].indexOf(p.key);
+    const rad = Math.max(9, Math.min(14, p.w * sc * 0.18));
+    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fillStyle = PC[pi % PC.length]; ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = `700 ${Math.round(rad * 1.1)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(idx + 1, cx, cy);
+    ctx.textBaseline = 'alphabetic';
+  });
+}
+
+// ─ LAN UI ─
+
+function betaRenderLanUI() {
+  const el = document.getElementById('betaLanBtns');
+  if (el) {
+    el.innerHTML = `<div class="beta-lan-btns-row">
+      <button class="beta-lan-btn" onclick="betaAutoAssign()">자동 할당</button>
+      <button class="beta-lan-btn danger" onclick="betaRstAllPorts()">전체 배선 초기화</button>
+    </div>`;
   }
   betaRenderPorts();
-  betaDrawCv();
+  betaRenderSum();
+  betaRenderLeg();
 }
-
-function betaCanvasClick(e) {
-  const cvEl = document.getElementById('betaCanvas');
-  if (!cvEl) { return; }
-  const rect = cvEl.getBoundingClientRect();
-  const scaleX = cvEl.width / rect.width;
-  const scaleY = cvEl.height / rect.height;
-  const mx = (e.clientX - rect.left) * scaleX;
-  const my = (e.clientY - rect.top) * scaleY;
-  const key = betaCellAt(mx, my);
-  if (key) { betaAssign(key); }
-}
-
-// ─ 렌더 ─
 
 function betaRenderPorts() {
   const el = document.getElementById('betaPortRow');
   if (!el) { return; }
   const pi = State.betaAPort;
-  const cnt = State.betaPorts[pi].size;
-  const px = betaPortPx(pi);
-  const over = px > MAX_PX;
+  let html = '<div class="beta-port-strip">';
+  for (let i = 0; i < 8; i++) {
+    const sz = State.betaPorts[i].size;
+    const on = i === pi;
+    html += `<button class="beta-port-btn${on ? ' sel' : ''}"
+      style="border-color:${PC[i % PC.length]};background:${on ? PC[i % PC.length] : '#f5f5f5'};color:${on ? '#fff' : '#333'}"
+      onclick="State.betaAPort=${i};betaDrawLan();betaRenderPorts()">P${i + 1}<span style="font-size:10px;display:block">${sz}개</span></button>`;
+  }
+  html += '</div>';
+  const sz  = State.betaPorts[pi].size;
+  const px  = _betaPxOf(pi);
+  const pct = Math.min(100, Math.round(px / MAX_PX * 100));
+  const warn = px > MAX_PX ? ' <span class="beta-port-warn">픽셀 초과!</span>' : '';
+  html += `<div class="beta-port-info">P${pi + 1}: ${sz}패널 / ${px.toLocaleString()}px (${pct}%)${warn}
+    <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">P${pi + 1} 초기화</button>
+  </div>
+  <div class="beta-px-bar-wrap"><div class="beta-px-bar" style="width:${pct}%;background:${px > MAX_PX ? '#c00' : PC[pi % PC.length]}"></div></div>`;
+  el.innerHTML = html;
+}
 
-  const strip = State.betaPorts.map((s, i) => {
-    const col = PC[i];
-    const hasData = s.size > 0;
-    const isActive = i === pi;
-    return `<button class="beta-port-btn" style="` +
-      `background:${hasData ? col + '33' : '#f5f5f5'};` +
-      `color:${hasData ? col : '#555'};` +
-      `border-color:${isActive ? (hasData ? col : '#555') : 'transparent'}"` +
-      ` onclick="State.betaAPort=${i};betaRenderPorts();betaDrawCv()">P${i + 1}</button>`;
-  }).join('');
-
-  el.innerHTML = `<div class="beta-port-wrap">
-    <div class="beta-port-strip">${strip}</div>
-    <div class="beta-port-info">
-      <span>P${pi + 1}: 패널 ${cnt}장</span>
-      <span>${px.toLocaleString()} px` +
-    (over ? ` <span class="beta-port-warn">⚠ ${(px - MAX_PX).toLocaleString()}px 초과</span>` : '') +
-    `</span>
-    </div>
+function betaRenderSum() {
+  const el = document.getElementById('betaLanSum');
+  if (!el) { return; }
+  const ports  = State.betaPorts;
+  const active = ports.filter(s => s.size > 0).length;
+  const l1 = active * 2 + State.betaSpareAdj.l1;
+  const sl = ports.reduce((acc, s) => acc + Math.max(0, s.size - 1), 0) + State.betaSpareAdj.sl;
+  el.innerHTML = `<div class="beta-sum-row">
+    1번 랜: <strong>${l1}개</strong>&nbsp; 숏랜: <strong>${sl}개</strong>
+    <span class="beta-spare-label">(예비 포함)</span>
   </div>`;
 }
 
-function betaDrawCv() {
-  const cvEl = document.getElementById('betaCanvas');
-  if (!cvEl) { return; }
-  const { maxX, maxY } = _betaBBox();
-  const sc = _betaScale();
-  const W = Math.max(1, Math.round(maxX * sc));
-  const H = Math.max(1, Math.round(maxY * sc));
-  cvEl.width  = W;
-  cvEl.height = H;
-  const ctx = cvEl.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
+function betaRenderLeg() {
+  const el = document.getElementById('betaLeg');
+  if (!el) { return; }
+  const leds = [...new Set(State.betaZones.map(z => z.led))];
+  el.innerHTML = leds.map(led => {
+    const sp = SPECS[led];
+    return `<span class="beta-leg-item">${led}: ${sp.px500.w}×${sp.px500.h}px/패널</span>`;
+  }).join(' ');
+}
 
-  if (!State.betaZones.length || !State.betaZones.some(z => z.rows.some(r => r.panels.length))) {
-    ctx.fillStyle = '#bbb';
-    ctx.font = '14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('존을 추가하고 패널을 구성하세요', W / 2, H / 2);
-    return;
-  }
+// ─ 포트 할당 ─
 
-  // pass1: 배경 + 테두리
-  State.betaZones.forEach(zone => {
-    let py = zone.y;
-    zone.rows.forEach(row => {
-      if (!row.panels.length) { return; }
-      const rh = Math.max(...row.panels.map(p => p.h));
-      let px = zone.x;
-      row.panels.forEach(panel => {
-        const key = `${zone.id}:${row.id}:${panel.id}`;
-        const ow = betaOwner(key);
-        const x = Math.round(px * sc);
-        const y = Math.round(py * sc);
-        const w = Math.max(2, Math.round(panel.w * sc));
-        const h = Math.max(2, Math.round(rh * sc));
-        ctx.fillStyle = ow >= 0 ? PC[ow] + '66' : '#C0DD97';
-        ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
-        ctx.strokeStyle = ow >= 0 ? PC[ow] : '#639922';
-        ctx.lineWidth = ow >= 0 ? 2 : 0.5;
-        ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
-        px += panel.w;
-      });
-      py += rh;
-    });
-  });
+function betaAssign(pi, key) {
+  if (State.betaPorts[pi].has(key)) { return; }
+  State.betaPorts[pi].add(key);
+  State.betaPH2[pi].push(key);
+}
 
-  // pass2: 레이블
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  State.betaZones.forEach(zone => {
-    let py = zone.y;
-    zone.rows.forEach(row => {
-      if (!row.panels.length) { return; }
-      const rh = Math.max(...row.panels.map(p => p.h));
-      let px = zone.x;
-      row.panels.forEach(panel => {
-        const key = `${zone.id}:${row.id}:${panel.id}`;
-        const ow = betaOwner(key);
-        const cx = Math.round((px + panel.w / 2) * sc);
-        const rh_px = rh * sc;
-        const cy_base = Math.round((py + rh / 2) * sc);
+function betaDeassign(pi, key) {
+  State.betaPorts[pi].delete(key);
+  const idx = State.betaPH2[pi].indexOf(key);
+  if (idx >= 0) { State.betaPH2[pi].splice(idx, 1); }
+}
 
-        if (ow >= 0) {
-          const fs = Math.max(9, Math.min(15, rh_px * 0.3));
-          ctx.font = `bold ${fs}px sans-serif`;
-          ctx.strokeStyle = PC[ow];
-          ctx.lineWidth = 3;
-          ctx.strokeText(`P${ow + 1}`, cx, cy_base - (rh_px > 30 ? rh_px * 0.12 : 0));
-          ctx.fillStyle = '#fff';
-          ctx.fillText(`P${ow + 1}`, cx, cy_base - (rh_px > 30 ? rh_px * 0.12 : 0));
-        }
+function betaRstPort(pi) {
+  State.betaPorts[pi] = new Set();
+  State.betaPH2[pi]   = [];
+  betaDrawLan(); betaRenderPorts(); betaRenderSum(); saveState();
+}
 
-        if (rh_px >= 28) {
-          const fs2 = Math.max(8, Math.min(11, rh_px * 0.14));
-          ctx.font = `${fs2}px sans-serif`;
-          ctx.fillStyle = '#444';
-          const infoY = cy_base + (ow >= 0 && rh_px > 30 ? rh_px * 0.15 : 0);
-          ctx.fillText(`${panel.w}×${panel.h} ${panel.led}`, cx, infoY);
-        }
-        px += panel.w;
-      });
-      py += rh;
-    });
+function betaRstAllPorts() {
+  openConfirm('배선 초기화', '모든 포트 배선을 초기화할까요?', () => {
+    State.betaPorts = Array.from({ length: 8 }, () => new Set());
+    State.betaPH2   = Array.from({ length: 8 }, () => []);
+    State.betaAPort = 0;
+    betaDrawLan(); betaRenderLanUI(); saveState();
   });
 }
 
-function betaRenderEditor() {
-  const el = document.getElementById('betaEditor');
-  if (!el) { return; }
+function betaReset() {
+  if (State.betaMode === 'lan') { betaRstAllPorts(); return; }
+  openConfirm('혼합 시뮬 초기화', '구역과 배선을 모두 초기화할까요?', () => {
+    State.betaZones    = []; State._betaCache = null;
+    State.betaPorts    = Array.from({ length: 8 }, () => new Set());
+    State.betaPH2      = Array.from({ length: 8 }, () => []);
+    State.betaAPort    = 0;
+    State._betaSelNew  = null; State._betaSelEdit = null;
+    betaRender(); saveState();
+  });
+}
 
-  let html = `<button class="beta-add-zone-btn" onclick="betaAddZone()">+ 존 추가</button>`;
+// ─ 자동 할당 ─
 
-  if (!State.betaZones.length) {
-    html += `<div class="beta-empty-hint">존을 추가해서 패널 구성을 시작하세요</div>`;
-    el.innerHTML = html;
-    betaRenderPorts();
-    return;
+function betaAutoAssign() {
+  State.betaPorts = Array.from({ length: 8 }, () => new Set());
+  State.betaPH2   = Array.from({ length: 8 }, () => []);
+  let curPort = 0;
+  const sorted = [...State.betaZones].sort((a, b) =>
+    a.startRow !== b.startRow ? a.startRow - b.startRow : a.startCol - b.startCol
+  );
+  for (const zone of sorted) {
+    const panels = betaPanels(zone);
+    const colMap = new Map();
+    for (const p of panels) {
+      if (!colMap.has(p.x)) { colMap.set(p.x, []); }
+      colMap.get(p.x).push(p);
+    }
+    const colKeys = [...colMap.keys()].sort((a, b) => a - b);
+    colKeys.forEach((ck, ci) => {
+      const col = colMap.get(ck).sort((a, b) => a.y - b.y);
+      const ordered = ci % 2 === 0 ? col.slice().reverse() : col;
+      for (const p of ordered) {
+        const sp  = SPECS[p.led];
+        const ppx = Math.round(sp.px500.w / 500 * p.w) * Math.round(sp.px500.h / 500 * p.h);
+        if (curPort < 7 && _betaPxOf(curPort) + ppx > MAX_PX) { curPort++; }
+        betaAssign(curPort, p.key);
+      }
+    });
+  }
+  State.betaAPort = 0;
+  betaDrawLan(); betaRenderLanUI(); saveState();
+}
+
+// ─ LAN 모드 이벤트 ─
+
+function betaAttachLanEv() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return; }
+  if (cv._betaEvMode === 'lan') { return; }
+  const fresh = cv.cloneNode(true);
+  cv.parentNode.replaceChild(fresh, cv);
+  const ncv = document.getElementById('betaCanvas');
+  ncv._betaEvMode = 'lan';
+
+  let lpT = null;
+
+  function getXY(e) {
+    const r = ncv.getBoundingClientRect();
+    if (e.touches) { return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }; }
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  State.betaZones.forEach((zone, zi) => {
-    html += `<div class="beta-zone-card">
-      <div class="beta-zone-hdr">
-        <span class="beta-zone-hdr-label">존 ${zi + 1}</span>
-        X: <input type="number" class="beta-num-input" value="${zone.x}"
-            onchange="betaUpdateZone(${zi},'x',this.value)"> mm
-        &nbsp;Y: <input type="number" class="beta-num-input" value="${zone.y}"
-            onchange="betaUpdateZone(${zi},'y',this.value)"> mm
-        <button class="beta-zone-del" onclick="betaDeleteZone(${zi})">존 삭제</button>
-      </div>
-      <div class="beta-zone-body">`;
+  function tryAssign(panel) {
+    const pi  = State.betaAPort;
+    const key = panel.key;
+    const own = _betaOwner(key);
+    if (own >= 0 && own !== pi) { return; }
+    if (!State.betaPorts[pi].has(key)) {
+      betaAssign(pi, key);
+      if (navigator.vibrate) { navigator.vibrate(15); }
+    }
+    State._betaFCell = key;
+    State._betaLanDStk.push(key);
+    betaDrawLan(); betaRenderPorts();
+  }
 
-    zone.rows.forEach((row, ri) => {
-      html += `<div class="beta-row-wrap">
-        <span class="beta-row-label">행${ri + 1}</span>`;
-      row.panels.forEach((panel, pi) => {
-        const opts = ['2mm', '3mm', '4mm'].map(v =>
-          `<option value="${v}"${panel.led === v ? ' selected' : ''}>${v}</option>`
-        ).join('');
-        html += `<span class="beta-panel-chip">
-          <select onchange="betaUpdatePanel(${zi},${ri},${pi},'led',this.value)">${opts}</select>
-          <input type="number" class="beta-num-input" value="${panel.w}" min="1"
-              onchange="betaUpdatePanel(${zi},${ri},${pi},'w',this.value)">×
-          <input type="number" class="beta-num-input" value="${panel.h}" min="1"
-              onchange="betaUpdatePanel(${zi},${ri},${pi},'h',this.value)">mm
-          <button class="beta-del-btn" onclick="betaDeletePanel(${zi},${ri},${pi})">✕</button>
-        </span>`;
-      });
-      html += `<span class="beta-row-actions">
-          <button class="beta-add-panel-btn" onclick="betaAddPanel(${zi},${ri})">+ 패널</button>
-          <button class="beta-del-row-btn" onclick="betaDeleteRow(${zi},${ri})">행 삭제</button>
-        </span>
-      </div>`;
-    });
+  function tryDeassign(panel) {
+    const pi  = State.betaAPort;
+    const key = panel.key;
+    if (!State.betaPorts[pi].has(key)) { return; }
+    betaDeassign(pi, key);
+    if (navigator.vibrate) { navigator.vibrate(25); }
+    State._betaFCell = key;
+    betaDrawLan(); betaRenderPorts();
+  }
 
-    html += `<button class="beta-add-row-btn" onclick="betaAddRow(${zi})">+ 행 추가</button>
-      </div>
-    </div>`;
-  });
+  function onDown(e) {
+    e.preventDefault();
+    const { x, y } = getXY(e);
+    const panel = _betaPanelAt(x, y);
+    if (!panel) { return; }
+    State._betaLanDStk = [panel.key];
+    State._betaFCell   = panel.key;
+    State._betaLanDrag = false;
+    lpT = setTimeout(() => {
+      State._betaLanDrag = true;
+      tryAssign(panel);
+    }, e.touches ? LP_TOUCH : LP_MS);
+  }
 
-  el.innerHTML = html;
-  betaRenderPorts();
+  function onMove(e) {
+    e.preventDefault();
+    if (!State._betaLanDrag) { return; }
+    const { x, y } = getXY(e);
+    const panel = _betaPanelAt(x, y);
+    if (!panel) { return; }
+    const stk = State._betaLanDStk;
+    if (stk.length >= 2 && stk[stk.length - 2] === panel.key) {
+      // 역방향 → 마지막 해제
+      const lastPanel = _betaAllPanels().find(p => p.key === stk[stk.length - 1]);
+      if (lastPanel) { tryDeassign(lastPanel); }
+      stk.pop();
+      return;
+    }
+    if (stk[stk.length - 1] !== panel.key) { tryAssign(panel); }
+  }
+
+  function onUp(e) {
+    e.preventDefault();
+    clearTimeout(lpT);
+    if (!State._betaLanDrag) {
+      // 단순 탭
+      const r = ncv.getBoundingClientRect();
+      const pt = e.changedTouches
+        ? { x: e.changedTouches[0].clientX - r.left, y: e.changedTouches[0].clientY - r.top }
+        : getXY(e);
+      const panel = _betaPanelAt(pt.x, pt.y);
+      if (panel) {
+        const pi  = State.betaAPort;
+        const own = _betaOwner(panel.key);
+        if (own === pi) {
+          betaDeassign(pi, panel.key);
+          if (navigator.vibrate) { navigator.vibrate(25); }
+        } else if (own < 0) {
+          betaAssign(pi, panel.key);
+          if (navigator.vibrate) { navigator.vibrate(15); }
+        }
+        betaDrawLan(); betaRenderPorts();
+      }
+    }
+    State._betaLanDrag = false; State._betaLanDStk = []; State._betaFCell = null;
+    betaRenderSum(); saveState();
+  }
+
+  ncv.addEventListener('mousedown',  onDown, { passive: false });
+  ncv.addEventListener('mousemove',  onMove, { passive: false });
+  ncv.addEventListener('mouseup',    onUp,   { passive: false });
+  ncv.addEventListener('touchstart', onDown, { passive: false });
+  ncv.addEventListener('touchmove',  onMove, { passive: false });
+  ncv.addEventListener('touchend',   onUp,   { passive: false });
 }
 
 

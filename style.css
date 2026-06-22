@@ -451,31 +451,47 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 
 /* ── §β 혼합 시뮬레이터 ─────────────────────────────────── */
 #tab-beta{padding:12px 12px 80px;}
-.beta-add-zone-btn{display:block;width:100%;padding:10px;background:#0F6E56;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;}
-.beta-add-zone-btn:active{opacity:.85;}
-.beta-zone-card{border:1px solid #e0e0e0;border-radius:10px;margin-bottom:12px;overflow:hidden;}
-.beta-zone-hdr{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f8f8f8;border-bottom:1px solid #eee;flex-wrap:wrap;}
-.beta-zone-hdr-label{font-size:13px;font-weight:700;color:#333;margin-right:4px;}
-.beta-num-input{width:58px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;font-size:13px;text-align:center;}
-.beta-zone-del{margin-left:auto;background:none;border:1px solid #f44;color:#f44;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;}
-.beta-zone-body{padding:8px 12px;}
-.beta-row-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed #eee;}
-.beta-row-wrap:last-of-type{border-bottom:none;}
-.beta-row-label{font-size:12px;color:#888;min-width:30px;flex-shrink:0;}
-.beta-panel-chip{display:inline-flex;align-items:center;gap:4px;background:#f0f7ff;border:1px solid #b3d1f5;border-radius:8px;padding:4px 8px;font-size:12px;}
-.beta-panel-chip select{border:none;background:transparent;font-size:12px;color:#1a6fd8;cursor:pointer;padding:0;}
-.beta-panel-chip .beta-num-input{width:46px;font-size:12px;padding:2px 4px;}
-.beta-del-btn{background:none;border:none;color:#bbb;cursor:pointer;padding:0 2px;font-size:15px;line-height:1;}
-.beta-del-btn:active{color:#f44;}
-.beta-row-actions{display:inline-flex;align-items:center;gap:5px;}
-.beta-add-panel-btn{background:none;border:1px solid #0F6E56;color:#0F6E56;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;}
-.beta-del-row-btn{background:none;border:1px solid #ccc;color:#999;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;}
-.beta-add-row-btn{display:block;width:calc(100% - 0px);margin:6px 0 2px;background:none;border:1px dashed #ccc;color:#888;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;}
-.beta-port-wrap{padding:10px 0 4px;border-top:1px solid #eee;margin-top:4px;}
+/* ── §β 혼합 시뮬레이터 스타일 ─────────────────────────── */
+.beta-hdr{padding:10px 0 6px;display:flex;flex-direction:column;gap:8px;}
+.beta-area-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.beta-area-label{font-size:13px;color:#555;}
+.beta-area-inp{width:80px;padding:5px 8px;border:1px solid #ccc;border-radius:7px;font-size:14px;text-align:center;}
+.beta-apply-btn{padding:6px 14px;background:#0F6E56;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;}
+.beta-apply-btn:active{opacity:.85;}
+.beta-mode-row{display:flex;gap:6px;}
+.beta-mode-btn{flex:1;padding:7px 0;border:2px solid #0F6E56;background:#fff;color:#0F6E56;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+.beta-mode-btn.on{background:#0F6E56;color:#fff;}
+.beta-canvas-wrap{margin-top:8px;overflow:auto;border:1px solid #e0e0e0;border-radius:8px;background:#f5f5f5;}
+#betaCanvas{display:block;cursor:crosshair;touch-action:none;}
+.beta-zone-cfg{margin-top:8px;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px;}
+.beta-cfg-title{font-size:14px;font-weight:700;color:#333;margin-bottom:10px;}
+.beta-cfg-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.beta-cfg-label{font-size:12px;color:#888;min-width:64px;padding-top:4px;}
+.beta-cfg-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.beta-cfg-chip{padding:5px 11px;border:1px solid #ccc;border-radius:20px;background:#f5f5f5;color:#555;font-size:12px;cursor:pointer;}
+.beta-cfg-chip.on{background:#0F6E56;color:#fff;border-color:#0F6E56;}
+.beta-cfg-actions{display:flex;gap:8px;margin-top:4px;}
+.beta-cfg-ok{flex:1;padding:8px 0;background:#0F6E56;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+.beta-cfg-cancel{padding:8px 16px;background:none;border:1px solid #ccc;color:#888;border-radius:8px;font-size:13px;cursor:pointer;}
+.beta-zone-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+.beta-zone-card{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:8px;border:1px solid #e0e0e0;flex-wrap:wrap;}
+.beta-zone-tag{font-size:12px;font-weight:700;}
+.beta-zone-info{font-size:12px;color:#555;flex:1;}
+.beta-zone-edit-btn{padding:3px 10px;border:1px solid #0F6E56;color:#0F6E56;background:none;border-radius:6px;font-size:12px;cursor:pointer;}
+.beta-zone-del-btn{padding:3px 10px;border:1px solid #f44;color:#f44;background:none;border-radius:6px;font-size:12px;cursor:pointer;}
+.beta-empty-hint{text-align:center;color:#bbb;font-size:13px;padding:28px 0;}
+#betaLanUI{margin-top:8px;}
+.beta-lan-btns-row{display:flex;gap:8px;margin-bottom:8px;}
+.beta-lan-btn{flex:1;padding:8px 0;border:1px solid #0F6E56;background:#fff;color:#0F6E56;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+.beta-lan-btn.danger{border-color:#f44;color:#f44;}
 .beta-port-strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
-.beta-port-btn{padding:5px 10px;border-radius:6px;border:2px solid transparent;font-size:13px;font-weight:700;cursor:pointer;background:#f5f5f5;color:#333;}
-.beta-port-info{font-size:12px;color:#555;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.beta-port-btn{padding:5px 10px;border-radius:6px;border:2px solid transparent;font-size:13px;font-weight:700;cursor:pointer;background:#f5f5f5;color:#333;text-align:center;}
+.beta-port-btn.sel{}
+.beta-port-info{font-size:12px;color:#555;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
 .beta-port-warn{color:#c00;font-weight:700;}
-.beta-canvas-wrap{margin-top:12px;overflow:auto;border:1px solid #e0e0e0;border-radius:8px;background:#f5f5f5;}
-#betaCanvas{display:block;cursor:pointer;}
-.beta-empty-hint{text-align:center;color:#bbb;font-size:13px;padding:30px 0;}
+.beta-rst-port-btn{padding:2px 8px;border:1px solid #ccc;color:#888;background:none;border-radius:6px;font-size:11px;cursor:pointer;}
+.beta-px-bar-wrap{height:4px;background:#eee;border-radius:2px;margin-bottom:8px;}
+.beta-px-bar{height:4px;border-radius:2px;transition:width .3s;}
+.beta-sum-row{font-size:13px;color:#444;padding:4px 0;}
+.beta-spare-label{font-size:11px;color:#999;}
+.beta-leg-item{font-size:11px;color:#888;margin-right:10px;}

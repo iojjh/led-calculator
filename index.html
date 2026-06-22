@@ -217,10 +217,29 @@
 
 <!-- 탭4: 혼합 시뮬레이터 β -->
 <div id="tab-beta" class="tab-page">
-  <div id="betaEditor"></div>
-  <div id="betaPortRow"></div>
+  <div class="beta-hdr">
+    <div class="beta-area-row">
+      <span class="beta-area-label">가로</span>
+      <input id="betaW" type="number" class="beta-area-inp" placeholder="mm" min="500">
+      <span class="beta-area-label">× 세로</span>
+      <input id="betaH" type="number" class="beta-area-inp" placeholder="mm" min="500">
+      <button class="beta-apply-btn" onclick="betaApplyArea()">적용</button>
+    </div>
+    <div class="beta-mode-row">
+      <button id="betaModeEdit" class="beta-mode-btn on" onclick="betaSetMode('edit')">구역 편집</button>
+      <button id="betaModeLan"  class="beta-mode-btn"    onclick="betaSetMode('lan')">랜선 배선</button>
+    </div>
+  </div>
+  <div id="betaZoneCfg" class="beta-zone-cfg" style="display:none"></div>
   <div class="beta-canvas-wrap">
-    <canvas id="betaCanvas" onclick="betaCanvasClick(event)"></canvas>
+    <canvas id="betaCanvas" style="display:none"></canvas>
+  </div>
+  <div id="betaZoneList" class="beta-zone-list"></div>
+  <div id="betaLanUI" style="display:none">
+    <div id="betaLanBtns"></div>
+    <div id="betaPortRow"></div>
+    <div id="betaLanSum"></div>
+    <div id="betaLeg"></div>
   </div>
 </div>
 
