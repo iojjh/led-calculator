@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.51';
-const APP_SW_VERSION = 'v154';
+const APP_VERSION = '2.0.52';
+const APP_SW_VERSION = 'v155';
 
 const CHANGELOG = [
+  { v: '2.0.52', items: [
+    '혼합 시뮬β — 설치 면적 입력 단위 mm → m로 변경',
+  ] },
   { v: '2.0.51', items: [
     '혼합 시뮬레이터 β 재설계 — 격자 드래그 구역 선택, LED·패널 혼합, 랜선 시뮬레이터 완전 구현',
   ] },
@@ -5230,9 +5233,9 @@ function _betaZid() { return 'z' + (++_betaZidSeq); }
 // ─ 면적 입력 & 모드 전환 ─
 
 function betaApplyArea() {
-  const w = parseInt(document.getElementById('betaW').value, 10) || 0;
-  const h = parseInt(document.getElementById('betaH').value, 10) || 0;
-  if (w < 500 || h < 500) { _toast('최소 500mm × 500mm 이상 입력해주세요.'); return; }
+  const w = Math.round((parseFloat(document.getElementById('betaW').value) || 0) * 1000);
+  const h = Math.round((parseFloat(document.getElementById('betaH').value) || 0) * 1000);
+  if (w < 500 || h < 500) { _toast('최소 0.5m × 0.5m 이상 입력해주세요.'); return; }
   State.betaAreaW = w;
   State.betaAreaH = h;
   const gW = _betaGW(); const gH = _betaGH();
@@ -5256,8 +5259,8 @@ function betaSetMode(m) {
 function betaRender() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
-  if (State.betaAreaW) { document.getElementById('betaW').value = State.betaAreaW; }
-  if (State.betaAreaH) { document.getElementById('betaH').value = State.betaAreaH; }
+  if (State.betaAreaW) { document.getElementById('betaW').value = State.betaAreaW / 1000; }
+  if (State.betaAreaH) { document.getElementById('betaH').value = State.betaAreaH / 1000; }
   document.getElementById('betaModeEdit').classList.toggle('on', State.betaMode === 'edit');
   document.getElementById('betaModeLan').classList.toggle('on',  State.betaMode === 'lan');
 
