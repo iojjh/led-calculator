@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.60';
-const APP_SW_VERSION = 'v163';
+const APP_VERSION = '2.0.61';
+const APP_SW_VERSION = 'v164';
 
 const CHANGELOG = [
+  { v: '2.0.61', items: [
+    '혼합 시뮬β 계산기로 내보내기: 탭 활성화·PNG저장 버튼·결과 즉시 표시 수정',
+  ]},
   { v: '2.0.60', items: [
     '혼합 시뮬β 내보내기 즉시 렌더링 수정 (Issue 1)',
     '혼합 패널 레이아웃(500×500+500×1000 등) 랜선 시뮬레이터에 그대로 반영 (Issue 2)',
@@ -6075,7 +6078,7 @@ function betaExportToCalc() {
   }
 
   // 탭 전환 후 calc() 호출 → simArea HTML 완전 초기화 (Issue 1 수정)
-  swTab('calc');
+  swTab('calc', document.querySelector(".tab-btn[onclick*=\"'calc'\"]"));
   calc();
 
   // calc()가 betaImport=null로 만들었으므로 복원, LAN 배선도 복원
