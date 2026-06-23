@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.74';
-const APP_SW_VERSION = 'v177';
+const APP_VERSION = '2.0.75';
+const APP_SW_VERSION = 'v178';
 
 const CHANGELOG = [
+  { v: '2.0.75', items: [
+    'betaImport PWR 시뮬: 500×1000mm 패널을 LAN sim처럼 실물 크기 하나의 직사각형으로 렌더링 (기존 서브셀 분할 방식 제거)',
+  ] },
   { v: '2.0.74', items: [
     'betaImport PWR 시뮬: _drawImportedCvPwr() 신규 — 패널 실물 형태 기반 그리드 렌더링',
     'betaImport PWR: buildCv/cellAt 모두 imp.areaW/areaH 기반으로 통일 (LAN sim과 동일 좌표계)',
@@ -3658,23 +3661,23 @@ function _drawImportedCv(ctx, cv) {
   });
 }
 
-// betaImport PWR 전용 — 패널 형태 기반 격자 렌더링 (각 격자 셀을 물리 mm 좌표에 그림)
+// betaImport PWR 전용 — 패널 실물 형태 렌더링 (LAN sim과 동일한 좌표계, ri,ci 키 기반 할당)
 function _drawImportedCvPwr(ctx, cv) {
-  const imp = State.betaImport;
-  const sc  = cv.width / imp.areaW;
-  const pW  = imp.areaW / imp.cols;  // mm per grid column
-  const pH  = imp.areaH / imp.rows;  // mm per grid row
+  const imp   = State.betaImport;
+  const sc    = cv.width / imp.areaW;
+  const pW    = imp.areaW / imp.cols;  // mm per grid cell
+  const pH    = imp.areaH / imp.rows;
   const curPi = State.aPort;
 
-  // 배경 격자
-  ctx.fillStyle = '#d8d8d8';
-  ctx.fillRect(0, 0, cv.width, cv.height);
+  // 배경 격자 (LAN sim과 동일)
+  ctx.fillStyle = '#d8d8d8'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const gW = Math.round(imp.areaW / 500), gH = Math.round(imp.areaH / 500);
   ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.5;
-  for (let c = 0; c <= imp.cols; c++) {
-    ctx.beginPath(); ctx.moveTo(c*pW*sc, 0); ctx.lineTo(c*pW*sc, cv.height); ctx.stroke();
+  for (let c = 0; c <= gW; c++) {
+    ctx.beginPath(); ctx.moveTo(c*500*sc, 0); ctx.lineTo(c*500*sc, cv.height); ctx.stroke();
   }
-  for (let r = 0; r <= imp.rows; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r*pH*sc); ctx.lineTo(cv.width, r*pH*sc); ctx.stroke();
+  for (let r = 0; r <= gH; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r*500*sc); ctx.lineTo(cv.width, r*500*sc); ctx.stroke();
   }
 
   // 배선 순서 번호 맵
@@ -3683,84 +3686,81 @@ function _drawImportedCvPwr(ctx, cv) {
     State.pH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
   });
 
-  // 데드존 집합 (패널 없는 셀)
-  const deadSet = new Set();
+  // pass 1: 패널 전체를 실물 크기로 하나의 직사각형으로 그리기 (LAN sim 방식)
+  // 색상은 패널의 primary 셀(top-left ri,ci) 소유 포트 기준
+  imp.allPanels.forEach(p => {
+    const ci0    = Math.round(p.x / pW), ri0 = Math.round(p.y / pH);
+    const ci1    = Math.round((p.x + p.w) / pW), ri1 = Math.round((p.y + p.h) / pH);
+    const primOw = owner(`${ri0},${ci0}`);
+    const lk     = primOw >= 0 && primOw !== curPi;
+    const px = p.x * sc, py = p.y * sc, pw = p.w * sc, ph = p.h * sc;
+
+    // 패널 내 어떤 서브셀이 현재 hover/last/selected 인지 확인
+    let isHov = false, isLast = false, isSel = false;
+    for (let ri = ri0; ri < ri1 && !isHov && !isLast && !isSel; ri++) {
+      for (let ci = ci0; ci < ci1; ci++) {
+        const k = `${ri},${ci}`;
+        if (State.drag && State.dHov === k && primOw < 0) isHov = true;
+        if (State.drag && State.dStk.length > 0 && State.dStk[State.dStk.length-1].key === k) isLast = true;
+        if (!State.drag && State.fCell === k) isSel = true;
+      }
+    }
+
+    ctx.fillStyle = primOw >= 0
+      ? portColor(primOw) + (lk ? '55' : '99')
+      : (p.h > 500 ? '#9FE1CB' : '#9FE1CB');  // 500×1000 미할당도 동일 초록
+    ctx.fillRect(px+1, py+1, pw-2, ph-2);
+
+    if (isHov) { ctx.fillStyle = portColor(curPi)+'44'; ctx.fillRect(px+1, py+1, pw-2, ph-2); }
+
+    ctx.strokeStyle = primOw >= 0 ? portColor(primOw) : '#1D9E75';
+    ctx.lineWidth   = primOw >= 0 ? 1.5 : 0.5;
+    ctx.strokeRect(px+1, py+1, pw-2, ph-2);
+
+    if (lk) {
+      ctx.save(); ctx.beginPath(); ctx.rect(px+1, py+1, pw-2, ph-2); ctx.clip();
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
+      for (let d = -ph; d < pw+ph; d += 6) {
+        ctx.beginPath(); ctx.moveTo(px+d, py+1); ctx.lineTo(px+d+ph, py+ph); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if (isLast) {
+      ctx.strokeStyle = 'white';          ctx.lineWidth = 2.5; ctx.strokeRect(px+3, py+3, pw-6, ph-6);
+      ctx.strokeStyle = portColor(curPi); ctx.lineWidth = 2;   ctx.strokeRect(px+3, py+3, pw-6, ph-6);
+    }
+    if (isHov) {
+      ctx.setLineDash([3,3]); ctx.strokeStyle = portColor(curPi); ctx.lineWidth = 1.5;
+      ctx.strokeRect(px+2, py+2, pw-4, ph-4); ctx.setLineDash([]);
+    }
+    if (isSel) {
+      ctx.strokeStyle = 'white';   ctx.lineWidth = 3; ctx.strokeRect(px+4, py+4, pw-8, ph-8);
+      ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(px+4, py+4, pw-8, ph-8);
+    }
+  });
+
+  // 데드존 (패널 없는 셀)
   for (let ri = 0; ri < imp.rows; ri++) {
     for (let ci = 0; ci < imp.cols; ci++) {
       if (!imp.allPanels.some(p =>
         Math.round(p.x/pW) <= ci && Math.round((p.x+p.w)/pW) > ci &&
         Math.round(p.y/pH) <= ri && Math.round((p.y+p.h)/pH) > ri
-      )) { deadSet.add(`${ri},${ci}`); }
+      )) {
+        const spx=ci*pW*sc, spy=ri*pH*sc, spw=pW*sc, sph=pH*sc;
+        ctx.fillStyle = '#d4d4d4'; ctx.fillRect(spx+1, spy+1, spw-2, sph-2);
+        ctx.save(); ctx.beginPath(); ctx.rect(spx+1, spy+1, spw-2, sph-2); ctx.clip();
+        ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
+        for (let d = -sph; d < spw+sph; d += 8) {
+          ctx.beginPath(); ctx.moveTo(spx+d, spy+1); ctx.lineTo(spx+d+sph, spy+sph); ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = '#b0b0b0'; ctx.lineWidth = 0.5;
+        ctx.strokeRect(spx+1, spy+1, spw-2, sph-2);
+      }
     }
   }
 
-  // pass 1: 각 패널의 서브셀 배경·테두리 → 실제 물리 위치에 격자 셀 표시
-  imp.allPanels.forEach(p => {
-    const ci0 = Math.round(p.x / pW), ri0 = Math.round(p.y / pH);
-    const ci1 = Math.round((p.x + p.w) / pW), ri1 = Math.round((p.y + p.h) / pH);
-    for (let ri = ri0; ri < ri1; ri++) {
-      for (let ci = ci0; ci < ci1; ci++) {
-        const key = `${ri},${ci}`;
-        const ow  = owner(key);
-        const lk  = ow >= 0 && ow !== curPi;
-        const hov  = State.drag && State.dHov === key && ow < 0;
-        const last = State.drag && State.dStk.length > 0 && State.dStk[State.dStk.length-1].key === key;
-        const spx = ci*pW*sc, spy = ri*pH*sc, spw = pW*sc, sph = pH*sc;
-
-        ctx.fillStyle = ow >= 0
-          ? portColor(ow) + (lk ? '55' : '99')
-          : '#9FE1CB';
-        ctx.fillRect(spx+1, spy+1, spw-2, sph-2);
-
-        if (hov) { ctx.fillStyle = portColor(curPi)+'44'; ctx.fillRect(spx+1, spy+1, spw-2, sph-2); }
-
-        ctx.strokeStyle = ow >= 0 ? portColor(ow) : '#1D9E75';
-        ctx.lineWidth   = ow >= 0 ? 1.5 : 0.5;
-        ctx.strokeRect(spx+1, spy+1, spw-2, sph-2);
-
-        if (last) {
-          ctx.strokeStyle = 'white';         ctx.lineWidth = 2.5; ctx.strokeRect(spx+3, spy+3, spw-6, sph-6);
-          ctx.strokeStyle = portColor(curPi); ctx.lineWidth = 2;   ctx.strokeRect(spx+3, spy+3, spw-6, sph-6);
-        }
-        if (hov) {
-          ctx.setLineDash([3,3]); ctx.strokeStyle = portColor(curPi); ctx.lineWidth = 1.5;
-          ctx.strokeRect(spx+2, spy+2, spw-4, sph-4); ctx.setLineDash([]);
-        }
-        if (lk) {
-          ctx.save(); ctx.beginPath(); ctx.rect(spx+1, spy+1, spw-2, sph-2); ctx.clip();
-          ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
-          for (let d = -sph; d < spw+sph; d += 6) {
-            ctx.beginPath(); ctx.moveTo(spx+d, spy+1); ctx.lineTo(spx+d+sph, spy+sph); ctx.stroke();
-          }
-          ctx.restore();
-        }
-        if (!State.drag && State.fCell === key) {
-          ctx.strokeStyle = 'white';   ctx.lineWidth = 3; ctx.strokeRect(spx+4, spy+4, spw-8, sph-8);
-          ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(spx+4, spy+4, spw-8, sph-8);
-        }
-      }
-    }
-    // 패널 경계 굵은 외곽선 (서브셀 경계와 구분)
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2;
-    ctx.strokeRect(p.x*sc+1, p.y*sc+1, p.w*sc-2, p.h*sc-2);
-  });
-
-  // 데드존
-  deadSet.forEach(key => {
-    const [ri, ci] = key.split(',').map(Number);
-    const spx = ci*pW*sc, spy = ri*pH*sc, spw = pW*sc, sph = pH*sc;
-    ctx.fillStyle = '#d4d4d4'; ctx.fillRect(spx+1, spy+1, spw-2, sph-2);
-    ctx.save(); ctx.beginPath(); ctx.rect(spx+1, spy+1, spw-2, sph-2); ctx.clip();
-    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
-    for (let d = -sph; d < spw+sph; d += 8) {
-      ctx.beginPath(); ctx.moveTo(spx+d, spy+1); ctx.lineTo(spx+d+sph, spy+sph); ctx.stroke();
-    }
-    ctx.restore();
-    ctx.strokeStyle = '#b0b0b0'; ctx.lineWidth = 0.5;
-    ctx.strokeRect(spx+1, spy+1, spw-2, sph-2);
-  });
-
-  // pass 2: 포트 배선 경로
+  // pass 2: 포트 배선 경로 (셀 중심점 기준)
   State.pA.forEach((s, pi) => {
     const h = State.pH2[pi].filter(k => s.has(k));
     if (h.length < 2) { return; }
@@ -3773,7 +3773,7 @@ function _drawImportedCvPwr(ctx, cv) {
     const ldx = pL1.x-pL0.x, ldy = pL1.y-pL0.y;
     const strokePath = (style, lw) => {
       ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) { ctx.lineTo(pts[i].x, pts[i].y); }
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
       ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
     };
     const fillArrow = (style) => {
@@ -3793,7 +3793,7 @@ function _drawImportedCvPwr(ctx, cv) {
     ctx.restore();
   });
 
-  // pass 3: 순서 번호 & 포트 레이블
+  // pass 3: 순서 번호 & 포트 레이블 (서브셀 중심에 표시)
   State.pA.forEach((s, pi) => {
     State.pH2[pi].filter(k => s.has(k)).forEach(k => {
       const [ri, ci] = k.split(',').map(Number);
