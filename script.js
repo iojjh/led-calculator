@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.69';
-const APP_SW_VERSION = 'v172';
+const APP_VERSION = '2.0.70';
+const APP_SW_VERSION = 'v173';
 
 const CHANGELOG = [
+  { v: '2.0.70', items: [
+    '혼합 내보내기 파워콘 자동할당: 구역(zone)별 분리 포트 배선',
+  ]},
   { v: '2.0.69', items: [
     '혼합 내보내기 시 파워콘 시뮬레이터 데드존 회색 표시·선택 불가',
   ]},
@@ -2858,17 +2861,26 @@ function _applyDefaultPwrWiring() {
   let pi = 0;
   if (State.betaImport) {
     const imp = State.betaImport;
-    const pW = imp.areaW / imp.cols;
-    const pH = imp.areaH / imp.rows;
-    const hp = (ri, ci) => imp.allPanels.some(p =>
-      p.x < (ci + 1) * pW && p.x + p.w > ci * pW && p.y < (ri + 1) * pH && p.y + p.h > ri * pH
-    );
-    const C = imp.cols, R = imp.rows;
-    for (let ci = 0; ci < C && pi < PWR_PORT_COUNT; ci += 2) {
-      for (let ri = R - 1; ri >= 0; ri--) { if (hp(ri, ci)) { assign(pi, `${ri},${ci}`); } }
-      if (ci + 1 < C) { for (let ri = 0; ri < R; ri++) { if (hp(ri, ci + 1)) { assign(pi, `${ri},${ci + 1}`); } } }
-      pi++;
-    }
+    const R = imp.rows, pW = imp.areaW / imp.cols, pH = imp.areaH / imp.rows;
+    const zones = imp.zones && imp.zones.length ? imp.zones : [null];
+    zones.forEach(z => {
+      if (pi >= PWR_PORT_COUNT) { return; }
+      const panels = z ? imp.allPanels.filter(p => p.zoneId === z.id) : imp.allPanels;
+      const zCells = new Set();
+      panels.forEach(p => {
+        const ci0 = Math.round(p.x / pW), ri0 = Math.round(p.y / pH);
+        const ci1 = Math.round((p.x + p.w) / pW), ri1 = Math.round((p.y + p.h) / pH);
+        for (let ri = ri0; ri < ri1; ri++) { for (let ci = ci0; ci < ci1; ci++) { zCells.add(`${ri},${ci}`); } }
+      });
+      if (!zCells.size) { return; }
+      const colList = [...new Set([...zCells].map(k => +k.split(',')[1]))].sort((a, b) => a - b);
+      for (let i = 0; i < colList.length && pi < PWR_PORT_COUNT; i += 2) {
+        const c0 = colList[i], c1 = i + 1 < colList.length ? colList[i + 1] : null;
+        for (let ri = R - 1; ri >= 0; ri--) { if (zCells.has(`${ri},${c0}`)) { assign(pi, `${ri},${c0}`); } }
+        if (c1 !== null) { for (let ri = 0; ri < R; ri++) { if (zCells.has(`${ri},${c1}`)) { assign(pi, `${ri},${c1}`); } } }
+        pi++;
+      }
+    });
     return;
   }
   if (State.areaMode === 'multi') {
@@ -6306,26 +6318,31 @@ function betaExportToCalc() {
     });
   }
 
-  // PWR 자동 배선 (calc 격자 기반, 2열당 1포트 스네이크, 데드존 제외)
+  // PWR 자동 배선 (구역별 2열당 1포트 스네이크, 데드존 제외)
   const tmpPwrPA  = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
   const tmpPwrPH2 = Array.from({ length: PWR_PORT_COUNT }, () => []);
-  const _pwrCellW = State.betaAreaW / calcCols;
-  const _pwrCellH = State.betaAreaH / calcRows;
-  const _hasPwrPanel = (ri, ci) => allPanels.some(p =>
-    p.x < (ci + 1) * _pwrCellW && p.x + p.w > ci * _pwrCellW &&
-    p.y < (ri + 1) * _pwrCellH && p.y + p.h > ri * _pwrCellH
-  );
+  const _pCellW = State.betaAreaW / calcCols, _pCellH = State.betaAreaH / calcRows;
+  const _pa = (pi, k) => { tmpPwrPA[pi].add(k); tmpPwrPH2[pi].push(k); };
   let pwrPi = 0;
-  for (let ci = 0; ci < calcCols && pwrPi < PWR_PORT_COUNT; ci++) {
-    const isEven = ci % 2 === 0;
-    for (let ri = 0; ri < calcRows; ri++) {
-      const r = isEven ? calcRows - 1 - ri : ri;
-      if (!_hasPwrPanel(r, ci)) { continue; }
-      const k = `${r},${ci}`;
-      tmpPwrPA[pwrPi].add(k); tmpPwrPH2[pwrPi].push(k);
+  const _zoneList = State.betaZones && State.betaZones.length ? State.betaZones : [null];
+  _zoneList.forEach(z => {
+    if (pwrPi >= PWR_PORT_COUNT) { return; }
+    const panels = z ? allPanels.filter(p => p.zoneId === z.id) : allPanels;
+    const zCells = new Set();
+    panels.forEach(p => {
+      const ci0 = Math.round(p.x / _pCellW), ri0 = Math.round(p.y / _pCellH);
+      const ci1 = Math.round((p.x + p.w) / _pCellW), ri1 = Math.round((p.y + p.h) / _pCellH);
+      for (let ri = ri0; ri < ri1; ri++) { for (let ci = ci0; ci < ci1; ci++) { zCells.add(`${ri},${ci}`); } }
+    });
+    if (!zCells.size) { return; }
+    const colList = [...new Set([...zCells].map(k => +k.split(',')[1]))].sort((a, b) => a - b);
+    for (let i = 0; i < colList.length && pwrPi < PWR_PORT_COUNT; i += 2) {
+      const c0 = colList[i], c1 = i + 1 < colList.length ? colList[i + 1] : null;
+      for (let ri = calcRows - 1; ri >= 0; ri--) { if (zCells.has(`${ri},${c0}`)) { _pa(pwrPi, `${ri},${c0}`); } }
+      if (c1 !== null) { for (let ri = 0; ri < calcRows; ri++) { if (zCells.has(`${ri},${c1}`)) { _pa(pwrPi, `${ri},${c1}`); } } }
+      pwrPi++;
     }
-    if (ci % 2 === 1 || ci === calcCols - 1) { pwrPi++; }
-  }
+  });
 
   // 탭 전환 후 calc() 호출 → simArea HTML 완전 초기화 (Issue 1 수정)
   swTab('calc', document.querySelector(".tab-btn[onclick*=\"'calc'\"]"));
