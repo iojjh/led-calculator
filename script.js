@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.68';
-const APP_SW_VERSION = 'v171';
+const APP_VERSION = '2.0.69';
+const APP_SW_VERSION = 'v172';
 
 const CHANGELOG = [
+  { v: '2.0.69', items: [
+    '혼합 내보내기 시 파워콘 시뮬레이터 데드존 회색 표시·선택 불가',
+  ]},
   { v: '2.0.68', items: [
     '합계 열에 총 랙 수 표시 (HTML 결과·PNG 모두 적용)',
   ]},
@@ -3349,6 +3352,12 @@ function cellAt(mx, my) {
   const c = Math.floor(mx / State.cellW); let y = 0, ri = -1;
   State.rH.forEach((h, i) => { if (ri < 0 && my >= y && my < y + h) ri = i; y += h; });
   if (ri < 0 || c < 0 || c >= State.cols) { return null; }
+  // betaImport 데드존 셀 선택 불가
+  if (State.betaImport && State.simTab === 'pwr') {
+    const imp = State.betaImport;
+    const pW = imp.areaW / imp.cols, pH = imp.areaH / imp.rows;
+    if (!imp.allPanels.some(p => p.x < (c+1)*pW && p.x+p.w > c*pW && p.y < (ri+1)*pH && p.y+p.h > ri*pH)) { return null; }
+  }
   return { key: `${ri},${c}`, r: ri, c, cx: cxOf(c), cy: cyOf(ri) };
 }
 
@@ -3565,6 +3574,22 @@ function _drawSingleSection(ctx, secName, passOnly) {
   const doP1 = !passOnly || passOnly === 1;
   const doP3 = !passOnly || passOnly === 3;
   const pfx = secName ? secName + ':' : '';
+
+  // betaImport 데드존 셀 집합 (PWR 탭 전용)
+  let deadSet = null;
+  if (State.betaImport && !secName && State.simTab === 'pwr') {
+    const imp = State.betaImport;
+    const pW = imp.areaW / imp.cols, pH = imp.areaH / imp.rows;
+    deadSet = new Set();
+    for (let ri = 0; ri < imp.rows; ri++) {
+      for (let ci = 0; ci < imp.cols; ci++) {
+        if (!imp.allPanels.some(p => p.x < (ci+1)*pW && p.x+p.w > ci*pW && p.y < (ri+1)*pH && p.y+p.h > ri*pH)) {
+          deadSet.add(`${ri},${ci}`);
+        }
+      }
+    }
+  }
+
   // 셀별 순서 번호 — 전 섹션 통합 계산 (멀티 모드에서도 번호 연속)
   const stepOf = new Map();
   State.pA.forEach((s, pi) => {
@@ -3577,6 +3602,23 @@ function _drawSingleSection(ctx, secName, passOnly) {
     const ch = State.rH[ri];
     for (let c = 0; c < State.cols; c++) {
       const k = pfx + `${ri},${c}`;
+
+      // 데드존 셀: 회색 + 사선 패턴
+      if (deadSet && deadSet.has(`${ri},${c}`)) {
+        ctx.fillStyle = '#d4d4d4';
+        ctx.fillRect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2); ctx.clip();
+        ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
+        for (let d = -ch; d < State.cellW + ch; d += 8) {
+          ctx.beginPath(); ctx.moveTo(c * State.cellW + d, y + 1); ctx.lineTo(c * State.cellW + d + ch, y + ch); ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = '#b0b0b0'; ctx.lineWidth = 0.5;
+        ctx.strokeRect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2);
+        continue;
+      }
+
       const ow = owner(k);
       const lk = ow >= 0 && ow !== State.aPort;
       const hov = State.drag && k === State.dHov && ow < 0;
