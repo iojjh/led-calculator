@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.67';
-const APP_SW_VERSION = 'v170';
+const APP_VERSION = '2.0.68';
+const APP_SW_VERSION = 'v171';
 
 const CHANGELOG = [
+  { v: '2.0.68', items: [
+    '합계 열에 총 랙 수 표시 (HTML 결과·PNG 모두 적용)',
+  ]},
   { v: '2.0.67', items: [
     'PNG 저장 계산결과에 LED×패널 표 반영 (일반·혼합 모드)',
     '혼합 내보내기 최종 해상도: 최고 픽셀 LED 기준 + 구역별 해상도 표시',
@@ -1620,11 +1623,15 @@ async function saveCalcPng() {
     const hTW = hs ? Math.round(imp.areaW / 500) * hs.px500.w : 0;
     const hTH = hs ? Math.round(imp.areaH / 500) * hs.px500.h : 0;
     const grand = imp.allPanels.length;
-    const bTotRow = '<tr><td style="' + TDT + '">합계</td>' + bSizes.map(sk => { const t = bLeds.reduce((s, l) => s + (bCounts[l]?.[sk] || 0), 0); return `<td style="${TDT}">${t}ea</td>`; }).join('') + `<td style="${TDT}">${grand}ea</td></tr>`;
+    const bColTots = bSizes.map(sk => bLeds.reduce((s, l) => s + (bCounts[l]?.[sk] || 0), 0));
+    const bColRacks = bSizes.map((sk, i) => bColTots[i] > 0 ? pRack(sk, bColTots[i]) : 0);
+    const grandRack = bColRacks.reduce((a, b) => a + b, 0);
+    const bTotRow = '<tr><td style="' + TDT + '">합계</td>' + bColTots.map((t, i) => `<td style="${TDT}">${t}ea / 랙 ${bColRacks[i]}개</td>`).join('') + `<td style="${TDT}">${grand}ea / 랙 ${grandRack}개</td></tr>`;
     const bTh = `<tr><th style="${TH}">LED</th>${bSizes.map(sk => `<th style="${TH}">${sk}mm</th>`).join('')}<th style="${TH}">합계</th></tr>`;
     const bTb = bLeds.map(led => {
       const tot = bSizes.reduce((s, sk) => s + (bCounts[led]?.[sk] || 0), 0);
-      return `<tr><td style="${TDL}">${led}</td>${bSizes.map(sk => { const n = bCounts[led]?.[sk] || 0; return `<td style="${TD}">${n ? `${n}ea / 랙 ${pRack(sk, n)}개` : '-'}</td>`; }).join('')}<td style="${TDT}">${tot}ea</td></tr>`;
+      const totRack = bSizes.reduce((s, sk) => s + (bCounts[led]?.[sk] ? pRack(sk, bCounts[led][sk]) : 0), 0);
+      return `<tr><td style="${TDL}">${led}</td>${bSizes.map(sk => { const n = bCounts[led]?.[sk] || 0; return `<td style="${TD}">${n ? `${n}ea / 랙 ${pRack(sk, n)}개` : '-'}</td>`; }).join('')}<td style="${TDT}">${tot}ea / 랙 ${totRack}개</td></tr>`;
     }).join('');
     let zoneHtml = '';
     if (imp.zones && imp.zones.length) {
@@ -1652,8 +1659,9 @@ async function saveCalcPng() {
     if (c5  > 0) { colDefs.push({ sk: '500×500',  label: '500×500mm',  count: c5,  rack: pRack('500×500', c5) }); }
     if (c10 > 0) { colDefs.push({ sk: '500×1000', label: isLand ? '1000×500mm' : '500×1000mm', count: c10, rack: pRack('500×1000', c10) }); }
     const total = c5 + c10;
+    const totalRackPng = colDefs.reduce((s, cd) => s + cd.rack, 0);
     const th = `<tr><th style="${TH}">LED</th>${colDefs.map(cd => `<th style="${TH}">${cd.label}</th>`).join('')}<th style="${TH}">합계</th></tr>`;
-    const tb = `<tr><td style="${TDL}">${State.curLed}</td>${colDefs.map(cd => `<td style="${TD}">${cd.count}ea / 랙 ${cd.rack}개</td>`).join('')}<td style="${TDT}">${total}ea</td></tr>`;
+    const tb = `<tr><td style="${TDL}">${State.curLed}</td>${colDefs.map(cd => `<td style="${TD}">${cd.count}ea / 랙 ${cd.rack}개</td>`).join('')}<td style="${TDT}">${total}ea / 랙 ${totalRackPng}개</td></tr>`;
     ledInfoVal = State.curLed;
     calcResHtml = `
       <div style="font-size:11px;color:#999;margin:6px 0 2px;">가로 ${State.cols}ea × 세로 ${State.layout.length}행</div>
@@ -2614,16 +2622,19 @@ function _renderResBeta() {
   ).join('') + '<th>합계</th></tr>';
   const tbody = leds.map(led => {
     const total = sizes.reduce((s, sk) => s + (counts[led]?.[sk] || 0), 0);
+    const totalRack = sizes.reduce((s, sk) => s + (counts[led]?.[sk] ? rackCount(sk, counts[led][sk]) : 0), 0);
     const cells = sizes.map(sk => {
       const n = counts[led]?.[sk] || 0;
       if (!n) { return '<td>-</td>'; }
       return `<td>${n}ea<span class="beta-px-sub">랙 ${rackCount(sk, n)}개</span></td>`;
     }).join('');
-    return `<tr><td class="led-cell">${led}</td>${cells}<td class="total-cell">${total}ea</td></tr>`;
+    return `<tr><td class="led-cell">${led}</td>${cells}<td class="total-cell">${total}ea<span class="beta-px-sub">랙 ${totalRack}개</span></td></tr>`;
   }).join('');
   const colTots = sizes.map(sk => leds.reduce((s, led) => s + (counts[led]?.[sk] || 0), 0));
+  const colRacks = sizes.map((sk, i) => colTots[i] > 0 ? rackCount(sk, colTots[i]) : 0);
   const grand = colTots.reduce((a, b) => a + b, 0);
-  const totRow = '<tr class="trow-total"><td>합계</td>' + colTots.map(t => `<td>${t}ea</td>`).join('') + `<td>${grand}ea</td></tr>`;
+  const grandRack = colRacks.reduce((a, b) => a + b, 0);
+  const totRow = '<tr class="trow-total"><td>합계</td>' + colTots.map((t, i) => `<td>${t}ea<span class="beta-px-sub">랙 ${colRacks[i]}개</span></td>`).join('') + `<td>${grand}ea<span class="beta-px-sub">랙 ${grandRack}개</span></td></tr>`;
 
   let h = `<table class="beta-panel-table">${th}${tbody}${totRow}</table>`;
 
@@ -2690,12 +2701,13 @@ function renderRes() {
     : { label: '500×1000mm', resPx: `${sp.px1000.w}×${sp.px1000.h}`, count: c10, rack: Math.ceil(c10 / 12) }
   ); }
   const total = c5 + c10;
+  const totalRack = colDefs.reduce((s, cd) => s + cd.rack, 0);
   const thCols = colDefs.map(cd => `<th>${cd.label}<span class="beta-px-sub">(${cd.resPx}px)</span></th>`).join('');
   const tdCols = colDefs.map(cd => `<td>${cd.count}ea<span class="beta-px-sub">랙 ${cd.rack}개</span></td>`).join('');
 
   let h = `<div class="res-layout-info">가로 ${State.cols}ea × 세로 ${State.layout.length}행</div>`;
   h += `<table class="beta-panel-table"><thead><tr><th>LED</th>${thCols}<th>합계</th></tr></thead>`;
-  h += `<tbody><tr><td class="led-cell">${State.curLed}</td>${tdCols}<td class="total-cell">${total}ea</td></tr></tbody></table>`;
+  h += `<tbody><tr><td class="led-cell">${State.curLed}</td>${tdCols}<td class="total-cell">${total}ea<span class="beta-px-sub">랙 ${totalRack}개</span></td></tr></tbody></table>`;
   h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px <span class="res-inch">${diagInch}"</span></div><button class="res-img-btn" onclick="genResImage()">이미지 생성 →</button></div>`;
   h += _buildCoverHtml(tW, tH);
   document.getElementById('resultBody').innerHTML = h;
@@ -2755,7 +2767,8 @@ function renderResMulti() {
   const mTdCols = mColDefs.map(cd => `<td>${cd.count}ea<span class="beta-px-sub">랙 ${cd.rack}개</span></td>`).join('');
 
   let h = `<table class="beta-panel-table"><thead><tr><th>LED</th>${mThCols}<th>합계</th></tr></thead>`;
-  h += `<tbody><tr><td class="led-cell">${State.curLed}</td>${mTdCols}<td class="total-cell">${mGrand}ea</td></tr></tbody></table>`;
+  const mGrandRack = mColDefs.reduce((s, cd) => s + cd.rack, 0);
+  h += `<tbody><tr><td class="led-cell">${State.curLed}</td>${mTdCols}<td class="total-cell">${mGrand}ea<span class="beta-px-sub">랙 ${mGrandRack}개</span></td></tr></tbody></table>`;
 
   // 전체 해상도 배너
   if (totalTW && maxTH) {
