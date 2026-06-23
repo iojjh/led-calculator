@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.64';
-const APP_SW_VERSION = 'v167';
+const APP_VERSION = '2.0.65';
+const APP_SW_VERSION = 'v168';
 
 const CHANGELOG = [
+  { v: '2.0.65', items: [
+    '혼합 LED 내보내기 저장/불러오기 시 LED 칩 다중선택 상태 복원',
+  ]},
   { v: '2.0.64', items: [
     '혼합 시뮬 내보내기 계산결과: 랙 수 표시 추가 (기존 계산기탭 양식 통일)',
   ]},
@@ -1914,6 +1917,15 @@ function loadAppState(st) {
   State.lanExpanded = !!(st.lanExpanded);
   if (st.betaImport) {
     State.betaImport = st.betaImport;
+    // 혼합 LED 칩 다중선택 복원 (betaImport.usedLeds 기준)
+    const usedLeds = st.betaImport.usedLeds;
+    if (usedLeds && usedLeds.length > 1) {
+      document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
+      usedLeds.forEach(led => {
+        const el = document.querySelector(`#ledChips .chip[data-v="${led}"]`);
+        if (el) { el.classList.add('on'); }
+      });
+    }
     renderRes();
     buildCv(); drawCv(); renderPorts(); renderLeg(); renderSum();
   } else {
