@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.72';
-const APP_SW_VERSION = 'v175';
+const APP_VERSION = '2.0.73';
+const APP_SW_VERSION = 'v176';
 
 const CHANGELOG = [
+  { v: '2.0.73', items: [
+    '파워콘 + 포트 / − 포트 버튼을 힌트 바 오른쪽 고정 위치로 이동',
+    'portColor() hex 변환 수정 — hsl 문자열 반환 시 alpha 접미가 깨지던 버그 수정',
+  ]},
   { v: '2.0.72', items: [
     '포트 색상 시스템 개선 — portColor() 헬퍼로 18개 초과 포트에 골든앵글 HSL 색상 자동 생성',
     '비어있는 포트도 고유 색상 테두리 표시',
@@ -424,11 +428,16 @@ const PC = [
   '#2196F3','#9C27B0','#FF5722','#00BCD4','#8BC34A','#FF9800','#607D8B','#E91E63',
   '#795548','#009688',
 ];
+function _hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0'); };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
 function portColor(i) {
   if (i < PC.length) { return PC[i]; }
-  // PC 범위 초과 시 골든 앵글 HSL 분산으로 새 색상 생성
-  const h = Math.round((i * 137.508) % 360);
-  return `hsl(${h},65%,42%)`;
+  // PC 범위 초과 시 골든 앵글 분산으로 hex 색상 생성 (alpha 접미 호환)
+  return _hslToHex(Math.round((i * 137.508) % 360), 65, 42);
 }
 
 // 콘솔 장비 스펙
@@ -3062,13 +3071,22 @@ function buildSim() {
     </div>`;
   }
 
-  const hint2 = isPwr
+  const _hint2Text = isPwr
     ? '<b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp; <b style="color:#333">꾹+드래그</b> 연속 할당 &nbsp;·&nbsp; <b style="color:#333">기본값</b> 2열당 1개'
     : '<b style="color:#333">탭/클릭</b> 할당·해제 &nbsp;·&nbsp; <b style="color:#333">꾹+드래그</b> 자동 포트 선택 후 연속 할당 &nbsp;·&nbsp; <b style="color:#333">역방향</b> 취소';
+  const hintBar = isPwr
+    ? `<div class="sim-hint" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span>${_hint2Text}</span>
+        <span style="display:flex;gap:4px;flex-shrink:0;">
+          <button class="port-btn expand-port-btn" onclick="addPwrPort()" title="포트 추가">+ 포트</button>
+          <button class="port-btn expand-port-btn" onclick="removePwrPort()" title="마지막 포트 제거">− 포트</button>
+        </span>
+      </div>`
+    : `<div class="sim-hint">${_hint2Text}</div>`;
 
   document.getElementById('simArea').innerHTML = `
     ${tabRow}
-    <div class="sim-hint">${hint2}</div>
+    ${hintBar}
     <div class="port-strip" id="portStrip"></div>
     <div class="port-info-bar" id="portInfo"></div>
     ${controlRow}
@@ -3242,12 +3260,6 @@ function renderPorts() {
         _h += `<button class="port-btn expand-port-btn" onclick="expandLanPorts()" title="샌딩카드 확장 — 포트 16개">샌딩카드 확장</button>`;
       }
     });
-    if (State.simTab === 'pwr') {
-      _h += `<button class="port-btn expand-port-btn" onclick="addPwrPort()" title="포트 추가">+ 포트</button>`;
-      if (State.pA.length > 1) {
-        _h += `<button class="port-btn expand-port-btn" onclick="removePwrPort()" title="마지막 포트 제거">− 포트</button>`;
-      }
-    }
     return _h;
   })();
 
