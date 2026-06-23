@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.63';
-const APP_SW_VERSION = 'v166';
+const APP_VERSION = '2.0.64';
+const APP_SW_VERSION = 'v167';
 
 const CHANGELOG = [
+  { v: '2.0.64', items: [
+    '혼합 시뮬 내보내기 계산결과: 랙 수 표시 추가 (기존 계산기탭 양식 통일)',
+  ]},
   { v: '2.0.63', items: [
     '계산결과 패널 표 형식 적용 (단일·멀티): LED×패널크기별 장 수·랙 수·해상도 표시',
   ]},
@@ -2520,14 +2523,20 @@ function _renderResBeta() {
     if (ph === 1000) { return `${sp.px1000.w}×${sp.px1000.h}`; }
     return `${sp.px500.w}×${sp.px500.h}`;
   };
+  // 패널 크기별 랙 수 계산 (500×500: 24장/랙, 그 외: 12장/랙)
+  const rackCount = (sk, n) => Math.ceil(n / (sk === '500×500' ? 24 : 12));
+  // 헤더 해상도: 대표 LED(첫 번째) 기준 표시
+  const repLed = leds[0];
 
-  const th = '<tr><th>LED</th>' + sizes.map(sk => `<th>${sk}mm</th>`).join('') + '<th>합계</th></tr>';
+  const th = '<tr><th>LED</th>' + sizes.map(sk =>
+    `<th>${sk}mm<span class="beta-px-sub">(${panelPx(repLed, sk)}px)</span></th>`
+  ).join('') + '<th>합계</th></tr>';
   const tbody = leds.map(led => {
     const total = sizes.reduce((s, sk) => s + (counts[led]?.[sk] || 0), 0);
     const cells = sizes.map(sk => {
       const n = counts[led]?.[sk] || 0;
       if (!n) { return '<td>-</td>'; }
-      return `<td>${n}ea<span class="beta-px-sub">${panelPx(led, sk)}px</span></td>`;
+      return `<td>${n}ea<span class="beta-px-sub">랙 ${rackCount(sk, n)}개</span></td>`;
     }).join('');
     return `<tr><td class="led-cell">${led}</td>${cells}<td class="total-cell">${total}ea</td></tr>`;
   }).join('');
