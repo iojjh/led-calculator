@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.65';
-const APP_SW_VERSION = 'v168';
+const APP_VERSION = '2.0.66';
+const APP_SW_VERSION = 'v169';
 
 const CHANGELOG = [
+  { v: '2.0.66', items: [
+    '내보내기 계산결과 표: 500×1000·1000×500 동일 패널로 열 통합',
+  ]},
   { v: '2.0.65', items: [
     '혼합 LED 내보내기 저장/불러오기 시 LED 칩 다중선택 상태 복원',
   ]},
@@ -2515,11 +2518,11 @@ function _renderResBeta() {
     return;
   }
 
-  // LED × 패널 크기 집계
+  // LED × 패널 크기 집계 (1000×500 가로 패널은 500×1000으로 정규화 — 동일 제품)
   const counts = {};
   const sizeSet = new Set();
   imp.allPanels.forEach(p => {
-    const sk = `${p.w}×${p.h}`;
+    const sk = (p.w === 1000 && p.h === 500) ? '500×1000' : `${p.w}×${p.h}`;
     sizeSet.add(sk);
     if (!counts[p.led]) { counts[p.led] = {}; }
     counts[p.led][sk] = (counts[p.led][sk] || 0) + 1;
