@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.62';
-const APP_SW_VERSION = 'v165';
+const APP_VERSION = '2.0.63';
+const APP_SW_VERSION = 'v166';
 
 const CHANGELOG = [
+  { v: '2.0.63', items: [
+    '계산결과 패널 표 형식 적용 (단일·멀티): LED×패널크기별 장 수·랙 수·해상도 표시',
+  ]},
   { v: '2.0.62', items: [
     '내보내기 계산결과: LED×패널 크기별 장 수 표 및 해상도 표시',
     '파워콘 자동배선 데드존 제외 (내보내기·기본값 초기화 모두)',
@@ -2563,20 +2566,22 @@ function renderRes() {
   State.layout.forEach(r => { physH += isLand ? 500 : (r.type === 'half' ? 500 : State.basePH); });
   const diagInch = Math.round(Math.sqrt(physW ** 2 + physH ** 2) / 25.4);
 
-  let h = '<div class="metric-grid">';
-  h += `<div class="metric"><div class="ml">가로 패널 수</div><div class="mv">${State.cols}<span class="mu"> ea</span></div></div>`;
-  h += `<div class="metric"><div class="ml">세로 패널 수</div><div class="mv">${State.layout.length}<span class="mu"> 행</span></div></div>`;
-  const rack5  = c5  ? `<span class="rack-cnt">(랙 ${Math.ceil(c5  / 24)}개)</span>` : '';
-  const rack10 = c10 ? `<span class="rack-cnt">(랙 ${Math.ceil(c10 / 12)}개)</span>` : '';
-  h += `<div class="metric"><div class="ml">500×500 패널</div><div class="mv">${c5}<span class="mu"> ea</span> ${rack5}</div></div>`;
-  h += `<div class="metric"><div class="ml">500×1000 패널</div><div class="mv">${c10}<span class="mu"> ea</span> ${rack10}</div></div>`;
-  h += '</div>';
+  // 패널 크기별 컬럼 정의 (실제 패널이 있는 크기만 표시)
+  const colDefs = [];
+  if (c5  > 0) { colDefs.push({ label: '500×500mm',  resPx: `${sp.px500.w}×${sp.px500.h}`,   count: c5,  rack: Math.ceil(c5  / 24) }); }
+  if (c10 > 0) { colDefs.push(isLand
+    ? { label: '1000×500mm', resPx: `${sp.px1000.h}×${sp.px1000.w}`, count: c10, rack: Math.ceil(c10 / 12) }
+    : { label: '500×1000mm', resPx: `${sp.px1000.w}×${sp.px1000.h}`, count: c10, rack: Math.ceil(c10 / 12) }
+  ); }
+  const total = c5 + c10;
+  const thCols = colDefs.map(cd => `<th>${cd.label}<span class="beta-px-sub">(${cd.resPx}px)</span></th>`).join('');
+  const tdCols = colDefs.map(cd => `<td>${cd.count}ea<span class="beta-px-sub">랙 ${cd.rack}개</span></td>`).join('');
+
+  let h = `<div class="res-layout-info">가로 ${State.cols}ea × 세로 ${State.layout.length}행</div>`;
+  h += `<table class="beta-panel-table"><thead><tr><th>LED</th>${thCols}<th>합계</th></tr></thead>`;
+  h += `<tbody><tr><td class="led-cell">${State.curLed}</td>${tdCols}<td class="total-cell">${total}ea</td></tr></tbody></table>`;
   h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${tW} × ${tH} px <span class="res-inch">${diagInch}"</span></div><button class="res-img-btn" onclick="genResImage()">이미지 생성 →</button></div>`;
   h += _buildCoverHtml(tW, tH);
-  const specNote = isLand
-    ? `1000×500(가로): ${sp.px1000.h}×${sp.px1000.w}px`
-    : `500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px`;
-  h += `<div class="panel-spec-note">패널 해상도 — ${specNote}</div>`;
   document.getElementById('resultBody').innerHTML = h;
 }
 
@@ -2622,13 +2627,19 @@ function renderResMulti() {
     secInfo[k] = { c5, c10, tW, tH, cols: sec.cols, rows: sec.layout.length };
   });
 
-  // 합산 패널 수
-  let h = '<div class="metric-grid">';
-  const track5  = totalC5  ? `<span class="rack-cnt">(랙 ${Math.ceil(totalC5  / 24)}개)</span>` : '';
-  const track10 = totalC10 ? `<span class="rack-cnt">(랙 ${Math.ceil(totalC10 / 12)}개)</span>` : '';
-  h += `<div class="metric"><div class="ml">500×500 패널 (합계)</div><div class="mv">${totalC5}<span class="mu"> ea</span> ${track5}</div></div>`;
-  h += `<div class="metric"><div class="ml">500×1000 패널 (합계)</div><div class="mv">${totalC10}<span class="mu"> ea</span> ${track10}</div></div>`;
-  h += '</div>';
+  // 패널 표 (합계)
+  const mColDefs = [];
+  if (totalC5  > 0 && !isLand) { mColDefs.push({ label: '500×500mm',  resPx: `${sp.px500.w}×${sp.px500.h}`,   count: totalC5,  rack: Math.ceil(totalC5  / 24) }); }
+  if (totalC10 > 0) { mColDefs.push(isLand
+    ? { label: '1000×500mm', resPx: `${sp.px1000.h}×${sp.px1000.w}`, count: totalC10, rack: Math.ceil(totalC10 / 12) }
+    : { label: '500×1000mm', resPx: `${sp.px1000.w}×${sp.px1000.h}`, count: totalC10, rack: Math.ceil(totalC10 / 12) }
+  ); }
+  const mGrand = totalC5 + totalC10;
+  const mThCols = mColDefs.map(cd => `<th>${cd.label}<span class="beta-px-sub">(${cd.resPx}px)</span></th>`).join('');
+  const mTdCols = mColDefs.map(cd => `<td>${cd.count}ea<span class="beta-px-sub">랙 ${cd.rack}개</span></td>`).join('');
+
+  let h = `<table class="beta-panel-table"><thead><tr><th>LED</th>${mThCols}<th>합계</th></tr></thead>`;
+  h += `<tbody><tr><td class="led-cell">${State.curLed}</td>${mTdCols}<td class="total-cell">${mGrand}ea</td></tr></tbody></table>`;
 
   // 전체 해상도 배너
   if (totalTW && maxTH) {
@@ -2641,10 +2652,6 @@ function renderResMulti() {
   h += '<div class="res-section-list">';
   ['left','center','right'].forEach(k => { h += _buildSectionRowHtml(k, secInfo[k], totalTW); });
   h += '</div>';
-  const specNote = isLand
-    ? `1000×500(가로): ${sp.px1000.h}×${sp.px1000.w}px`
-    : `500×500: ${sp.px500.w}×${sp.px500.h}px · 500×1000: ${sp.px1000.w}×${sp.px1000.h}px`;
-  h += `<div class="panel-spec-note">패널 해상도 — ${specNote}</div>`;
 
   document.getElementById('resultBody').innerHTML = h;
 }
