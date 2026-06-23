@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.66';
-const APP_SW_VERSION = 'v169';
+const APP_VERSION = '2.0.67';
+const APP_SW_VERSION = 'v170';
 
 const CHANGELOG = [
+  { v: '2.0.67', items: [
+    'PNG 저장 계산결과에 LED×패널 표 반영 (일반·혼합 모드)',
+    '혼합 내보내기 최종 해상도: 최고 픽셀 LED 기준 + 구역별 해상도 표시',
+  ]},
   { v: '2.0.66', items: [
     '내보내기 계산결과 표: 500×1000·1000×500 동일 패널로 열 통합',
   ]},
@@ -1591,25 +1595,87 @@ async function saveCalcPng() {
     ? SEC('메모') + State.memoList.map(t => `<div style="font-size:13px;color:#444;padding:3px 0;">• ${t}</div>`).join('')
     : '';
 
+  // 패널 표 인라인 스타일 (html2canvas용)
+  const TS  = 'width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;';
+  const TH  = 'background:#f0f8f5;color:#0F6E56;font-weight:600;font-size:10px;padding:5px 6px;border:1px solid #e0e0e0;text-align:center;';
+  const TD  = 'padding:5px 6px;border:1px solid #e0e0e0;text-align:center;font-size:12px;';
+  const TDL = 'padding:5px 6px;border:1px solid #e0e0e0;font-weight:600;background:#f8f8f8;font-size:12px;';
+  const TDT = 'padding:5px 6px;border:1px solid #e0e0e0;text-align:center;font-weight:700;background:#e8f5ee;color:#085041;font-size:12px;';
+  const pRack = (sk, n) => Math.ceil(n / (sk === '500×500' ? 24 : 12));
+
+  // 계산결과 섹션 HTML — 일반/betaImport 분기
+  let calcResHtml, ledInfoVal;
+  const imp = State.betaImport;
+  if (imp && imp.allPanels && imp.allPanels.length) {
+    // betaImport 모드: LED × 패널 크기 표
+    const bCounts = {}, bSzSet = new Set();
+    imp.allPanels.forEach(p => {
+      const sk = (p.w === 1000 && p.h === 500) ? '500×1000' : `${p.w}×${p.h}`;
+      bSzSet.add(sk); if (!bCounts[p.led]) { bCounts[p.led] = {}; }
+      bCounts[p.led][sk] = (bCounts[p.led][sk] || 0) + 1;
+    });
+    const bLeds = Object.keys(bCounts).sort(), bSizes = [...bSzSet].sort();
+    const highL = bLeds.reduce((b, l) => { const s = SPECS[l], bs = SPECS[b]; return (s && bs && s.px500.w * s.px500.h > bs.px500.w * bs.px500.h) ? l : b; }, bLeds[0]);
+    const hs = SPECS[highL];
+    const hTW = hs ? Math.round(imp.areaW / 500) * hs.px500.w : 0;
+    const hTH = hs ? Math.round(imp.areaH / 500) * hs.px500.h : 0;
+    const grand = imp.allPanels.length;
+    const bTotRow = '<tr><td style="' + TDT + '">합계</td>' + bSizes.map(sk => { const t = bLeds.reduce((s, l) => s + (bCounts[l]?.[sk] || 0), 0); return `<td style="${TDT}">${t}ea</td>`; }).join('') + `<td style="${TDT}">${grand}ea</td></tr>`;
+    const bTh = `<tr><th style="${TH}">LED</th>${bSizes.map(sk => `<th style="${TH}">${sk}mm</th>`).join('')}<th style="${TH}">합계</th></tr>`;
+    const bTb = bLeds.map(led => {
+      const tot = bSizes.reduce((s, sk) => s + (bCounts[led]?.[sk] || 0), 0);
+      return `<tr><td style="${TDL}">${led}</td>${bSizes.map(sk => { const n = bCounts[led]?.[sk] || 0; return `<td style="${TD}">${n ? `${n}ea / 랙 ${pRack(sk, n)}개` : '-'}</td>`; }).join('')}<td style="${TDT}">${tot}ea</td></tr>`;
+    }).join('');
+    let zoneHtml = '';
+    if (imp.zones && imp.zones.length) {
+      zoneHtml = '<div style="font-size:11px;color:#888;margin:8px 0 3px;">구역별 해상도</div>' + imp.zones.map(z => {
+        const zsp = SPECS[z.led]; if (!zsp) { return ''; }
+        const pC = Math.floor(z.cols / (z.panelW / 500)), pR = Math.floor(z.rows / (z.panelH / 500));
+        let pxW, pxH;
+        if (z.panelW === 1000) { pxW = zsp.px1000.h; pxH = zsp.px1000.w; }
+        else if (z.panelH === 1000) { pxW = zsp.px1000.w; pxH = zsp.px1000.h; }
+        else { pxW = zsp.px500.w; pxH = zsp.px500.h; }
+        return `<div style="display:flex;gap:6px;font-size:11px;background:#f8f8f8;border-radius:5px;padding:4px 7px;margin-bottom:3px;"><b style="color:#0F6E56;min-width:22px">${z.id}</b><span style="color:#666;flex:1">${z.led} · ${z.panelW}×${z.panelH}mm</span><b style="color:#1a1a1a">${pC * pxW}×${pR * pxH}px</b><span style="color:#999;font-size:10px">${(z.cols * 500 / 1000).toFixed(1)}×${(z.rows * 500 / 1000).toFixed(1)}m</span></div>`;
+      }).join('');
+    }
+    ledInfoVal = bLeds.join(' · ') + ' (혼합)';
+    calcResHtml = `
+      <table style="${TS}">${bTh}${bTb}${bTotRow}</table>
+      <div style="background:#E1F5EE;border-radius:8px;padding:10px 14px;margin:10px 0;text-align:center;">
+        <div style="font-size:11px;color:#0F6E56;margin-bottom:3px;">최종 해상도 (${highL} 기준 최대)</div>
+        <div style="font-size:20px;font-weight:600;color:#085041;">${hTW ? `${hTW.toLocaleString()} × ${hTH.toLocaleString()} px` : '—'}</div>
+      </div>
+      ${zoneHtml}`;
+  } else {
+    // 일반 모드: 단일 LED 표
+    const colDefs = [];
+    if (c5  > 0) { colDefs.push({ sk: '500×500',  label: '500×500mm',  count: c5,  rack: pRack('500×500', c5) }); }
+    if (c10 > 0) { colDefs.push({ sk: '500×1000', label: isLand ? '1000×500mm' : '500×1000mm', count: c10, rack: pRack('500×1000', c10) }); }
+    const total = c5 + c10;
+    const th = `<tr><th style="${TH}">LED</th>${colDefs.map(cd => `<th style="${TH}">${cd.label}</th>`).join('')}<th style="${TH}">합계</th></tr>`;
+    const tb = `<tr><td style="${TDL}">${State.curLed}</td>${colDefs.map(cd => `<td style="${TD}">${cd.count}ea / 랙 ${cd.rack}개</td>`).join('')}<td style="${TDT}">${total}ea</td></tr>`;
+    ledInfoVal = State.curLed;
+    calcResHtml = `
+      <div style="font-size:11px;color:#999;margin:6px 0 2px;">가로 ${State.cols}ea × 세로 ${State.layout.length}행</div>
+      <table style="${TS}">${th}${tb}</table>
+      <div style="background:#E1F5EE;border-radius:8px;padding:10px 14px;margin:10px 0;text-align:center;">
+        <div style="font-size:11px;color:#0F6E56;margin-bottom:3px;">최종 해상도</div>
+        <div style="font-size:20px;font-weight:600;color:#085041;">${tW} × ${tH} px</div>
+      </div>`;
+  }
+
   const body = `
     ${SEC('기본 정보')}
-    ${S('설치 면적', `${W}m × ${H}m`)}
-    ${S('LED 종류', State.curLed)}
-    ${S('패널 사이즈', panelEl ? (isLand ? '1000 × 500 mm (가로 사용)' : panelEl.textContent.trim()) : '-')}
+    ${S('설치 면적', imp ? `${(imp.areaW/1000).toFixed(1)}m × ${(imp.areaH/1000).toFixed(1)}m` : `${W}m × ${H}m`)}
+    ${S('LED 종류', ledInfoVal)}
+    ${imp ? '' : S('패널 사이즈', panelEl ? (isLand ? '1000 × 500 mm (가로 사용)' : panelEl.textContent.trim()) : '-')}
     ${consoleName || State.curSending || mainLen ? SEC('장비') : ''}
     ${consoleName ? S('콘솔', `${consoleName} (${consoleSpec.cable} · ${consoleSpec.rep})`) : ''}
     ${consoleName && fiberLen ? S('광케이블 길이', fiberLen + 'm') : ''}
     ${State.curSending  ? S('샌딩카드', sendingSpec.label) : ''}
     ${mainLen     ? S('분전함 메인선', mainLen + 'm') : ''}
     ${SEC('계산 결과')}
-    ${S('가로 패널', State.cols + ' ea')}
-    ${S('세로 패널', State.layout.length + ' 행')}
-    ${c5  ? S('500×500 패널',  c5  + ' ea') : ''}
-    ${c10 ? S('500×1000 패널', c10 + ' ea') : ''}
-    <div style="background:#E1F5EE;border-radius:8px;padding:10px 14px;margin:10px 0;text-align:center;">
-      <div style="font-size:11px;color:#0F6E56;margin-bottom:3px;">최종 해상도</div>
-      <div style="font-size:20px;font-weight:600;color:#085041;">${tW} × ${tH} px</div>
-    </div>
+    ${calcResHtml}
     ${coverHtml}
     ${lanDataUrl ? SEC('랜선 시뮬레이터') + `<img src="${lanDataUrl}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">` : ''}
     ${pwrDataUrl ? SEC('파워콘 배선') + `<img src="${pwrDataUrl}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">` : ''}
@@ -2561,11 +2627,37 @@ function _renderResBeta() {
 
   let h = `<table class="beta-panel-table">${th}${tbody}${totRow}</table>`;
 
-  const resStr = imp.isRect && imp.tW ? `${imp.tW.toLocaleString()} × ${imp.tH.toLocaleString()} px` : '혼합 레이아웃';
-  const resNote = imp.isRect
-    ? '<span style="font-size:11px;color:#aaa">(데드존 포함)</span>'
-    : '<span style="font-size:11px;color:#888">— 구역별 해상도 상이</span>';
+  // 최고 픽셀 LED로 설치 면적 전체 해상도 계산
+  const highLed = leds.reduce((best, led) => {
+    const s = SPECS[led]; const bs = SPECS[best];
+    return (s && bs && s.px500.w * s.px500.h > bs.px500.w * bs.px500.h) ? led : best;
+  }, leds[0]);
+  const hsp = SPECS[highLed];
+  const maxTW = hsp ? Math.round(imp.areaW / 500) * hsp.px500.w : 0;
+  const maxTH = hsp ? Math.round(imp.areaH / 500) * hsp.px500.h : 0;
+  const resStr = maxTW ? `${maxTW.toLocaleString()} × ${maxTH.toLocaleString()} px` : '—';
+  const resNote = leds.length > 1
+    ? `<span style="font-size:11px;color:#aaa">(${highLed} 기준 최대)</span>`
+    : '<span style="font-size:11px;color:#aaa">(설치 면적 기준)</span>';
   h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${resStr} ${resNote}</div></div>`;
+
+  // 구역별 해상도
+  if (imp.zones && imp.zones.length) {
+    const zoneRows = imp.zones.map(z => {
+      const zsp = SPECS[z.led]; if (!zsp) { return ''; }
+      const spanC = z.panelW / 500, spanR = z.panelH / 500;
+      const pCols = Math.floor(z.cols / spanC), pRows = Math.floor(z.rows / spanR);
+      let pxW, pxH;
+      if (z.panelW === 1000) { pxW = zsp.px1000.h; pxH = zsp.px1000.w; }
+      else if (z.panelH === 1000) { pxW = zsp.px1000.w; pxH = zsp.px1000.h; }
+      else { pxW = zsp.px500.w; pxH = zsp.px500.h; }
+      const physW = (z.cols * 500 / 1000).toFixed(1);
+      const physH = (z.rows * 500 / 1000).toFixed(1);
+      return `<div class="zone-res-row"><span class="zr-id">${z.id}</span><span class="zr-spec">${z.led} · ${z.panelW}×${z.panelH}mm</span><span class="zr-px">${pCols * pxW}×${pRows * pxH}px</span><span class="zr-phys">${physW}×${physH}m</span></div>`;
+    }).join('');
+    h += `<div style="font-size:11px;color:#888;margin:4px 0 2px;">구역별 해상도</div><div class="zone-res-list">${zoneRows}</div>`;
+  }
+
   document.getElementById('resultBody').innerHTML = h;
 }
 
@@ -6143,6 +6235,7 @@ function betaExportToCalc() {
     usedLeds,
     areaW: State.betaAreaW, areaH: State.betaAreaH,
     allPanels: allPanels.map(p => ({ ...p })),
+    zones: State.betaZones.map(z => ({ id: z.id, startRow: z.startRow, startCol: z.startCol, rows: z.rows, cols: z.cols, led: z.led, panelW: z.panelW, panelH: z.panelH })),
   };
 
   // LAN 배선: beta 패널 키 그대로 유지 (변환 없음)
