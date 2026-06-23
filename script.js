@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.71';
-const APP_SW_VERSION = 'v174';
+const APP_VERSION = '2.0.72';
+const APP_SW_VERSION = 'v175';
 
 const CHANGELOG = [
+  { v: '2.0.72', items: [
+    '포트 색상 시스템 개선 — portColor() 헬퍼로 18개 초과 포트에 골든앵글 HSL 색상 자동 생성',
+    '비어있는 포트도 고유 색상 테두리 표시',
+  ]},
   { v: '2.0.71', items: [
     '혼합 내보내기 LAN 자동할당 수정 — 초기화 후 자동할당 시 원본 배치 복원',
     '파워콘 포트 동적 추가/제거 — + 포트 / − 포트 버튼',
@@ -414,12 +418,18 @@ const LP_TOUCH = 600;   // 터치 롱프레스 임계값 (ms) — 일반 탭과 
 
 const PWR_PORT_COUNT = 18;
 
-// 포트 색상 (18개 — LAN: 8개, 파워콘: 최대 18개)
+// 포트 색상 (기본 18개 + 확장 색상 생성)
 const PC = [
   '#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#D85A30','#5DCAA5','#D4537E',
   '#2196F3','#9C27B0','#FF5722','#00BCD4','#8BC34A','#FF9800','#607D8B','#E91E63',
   '#795548','#009688',
 ];
+function portColor(i) {
+  if (i < PC.length) { return PC[i]; }
+  // PC 범위 초과 시 골든 앵글 HSL 분산으로 새 색상 생성
+  const h = Math.round((i * 137.508) % 360);
+  return `hsl(${h},65%,42%)`;
+}
 
 // 콘솔 장비 스펙
 const CSPEC = {
@@ -1186,7 +1196,7 @@ function _buildPwrCanvas(sp, tW, tH, pwrPA) {
     for (let ci = 0; ci < C; ci++) {
       const key = `${ri},${ci}`;
       const pi = pwrPA.findIndex(s => s.has(key));
-      ctx.fillStyle = pi >= 0 ? PC[pi] : '#2e2e2e';
+      ctx.fillStyle = pi >= 0 ? portColor(pi) : '#2e2e2e';
       ctx.fillRect(ci * cellW + 1, y + 1, cellW - 2, cellH - 2);
     }
     y += cellH;
@@ -1232,7 +1242,7 @@ function _buildPwrCanvasMulti(sp, secInfo, totalTW, maxTH, pwrPA) {
       const cellH = ppx(row.type).h;
       for (let ci = 0; ci < cols; ci++) {
         const pi = pwrPA.findIndex(s => s.has(`${sn}:${ri},${ci}`));
-        ctx.fillStyle = pi >= 0 ? PC[pi] : '#2e2e2e';
+        ctx.fillStyle = pi >= 0 ? portColor(pi) : '#2e2e2e';
         ctx.fillRect(xOff + ci * cellW + 1, y + 1, cellW - 2, cellH - 2);
       }
       y += cellH;
@@ -3224,8 +3234,9 @@ function renderPorts() {
     let _h = '';
     State.pA.forEach((set, i) => {
       const on = i === State.aPort, has = set.size > 0;
+      const _col = portColor(i);
       _h += `<button class="port-btn${on?' active':''}${has?' has-data':''}"
-        style="${on ? `background:${PC[i % PC.length]};border-color:${PC[i % PC.length]};` : has ? `border-color:${PC[i % PC.length]};color:${PC[i % PC.length]};` : ''}"
+        style="${on ? `background:${_col};border-color:${_col};` : `border-color:${_col};color:${_col};`}"
         onclick="setP(${i})">P${i+1}</button>`;
       if (i === 7 && !State.lanExpanded && State.simTab === 'lan') {
         _h += `<button class="port-btn expand-port-btn" onclick="expandLanPorts()" title="샌딩카드 확장 — 포트 16개">샌딩카드 확장</button>`;
@@ -3244,12 +3255,13 @@ function renderPorts() {
   if (pi) {
     const fsMode = !!document.getElementById('simFsBg');
     const cnt = State.pA[State.aPort].size;
+    const _aCol = portColor(State.aPort);
     if (State.simTab === 'pwr') {
       const label = fsMode ? `P${State.aPort+1}` : `파워콘 ${State.aPort+1}`;
       pi.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:${fsMode?12:13}px;font-weight:${fsMode?600:500};color:${PC[State.aPort]}">${label}</span>
+        <span style="font-size:${fsMode?12:13}px;font-weight:${fsMode?600:500};color:${_aCol}">${label}</span>
         <span style="font-size:${fsMode?12:13}px;color:#333;">${cnt}장</span>
-        ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+        ${State.drag ? `<span class="drag-badge" style="background:${_aCol}">드래그 중</span>` : ''}
       </div>`;
     } else {
       const px = pxOf(State.aPort);
@@ -3257,19 +3269,19 @@ function renderPorts() {
       const ov = px > MAX_PX;
       pi.innerHTML = fsMode
         ? `<div style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
-            <span style="font-size:12px;font-weight:600;color:${PC[State.aPort]}">P${State.aPort+1}</span>
+            <span style="font-size:12px;font-weight:600;color:${_aCol}">P${State.aPort+1}</span>
             <span style="font-size:12px;color:#333;">${cnt}장 · ${px.toLocaleString()} px</span>
             <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
-            ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+            ${State.drag ? `<span class="drag-badge" style="background:${_aCol}">드래그 중</span>` : ''}
           </div>`
         : `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span style="font-size:13px;font-weight:500;color:${PC[State.aPort]}">포트 ${State.aPort+1}</span>
+            <span style="font-size:13px;font-weight:500;color:${_aCol}">포트 ${State.aPort+1}</span>
             <span style="font-size:13px;color:#333;">${cnt}장 · ${px.toLocaleString()} px</span>
             <span style="font-size:12px;color:${ov?'#A32D2D':'#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov?' ⚠ 초과':''}</span>
-            ${State.drag ? `<span class="drag-badge" style="background:${PC[State.aPort]}">드래그 중</span>` : ''}
+            ${State.drag ? `<span class="drag-badge" style="background:${_aCol}">드래그 중</span>` : ''}
           </div>
           <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
-            <div style="height:5px;width:${pct}%;background:${ov?'#E24B4A':PC[State.aPort]};border-radius:3px;"></div>
+            <div style="height:5px;width:${pct}%;background:${ov?'#E24B4A':_aCol};border-radius:3px;"></div>
           </div>`;
     }
   }
@@ -3435,7 +3447,7 @@ function drawPortPaths(ctx, secName) {
   State.pA.forEach((s, pi) => {
     const h = State.pH2[pi].filter(k => s.has(k) && (!pfx || k.startsWith(pfx)));
     if (h.length < 2) { return; }
-    const col = PC[pi];
+    const col = portColor(pi);
     const pts = h.map(k => {
       const raw = pfx ? k.slice(pfx.length) : k;
       const [r, c] = raw.split(',').map(Number);
@@ -3511,12 +3523,12 @@ function _drawImportedCv(ctx, cv) {
     const lk  = pi >= 0 && pi !== curPi;
     const hov = State.drag && State.dHov === p.key && pi < 0;
 
-    ctx.fillStyle = pi >= 0 ? PC[pi % PC.length] + (lk ? '55' : '99') : '#9FE1CB';
+    ctx.fillStyle = pi >= 0 ? portColor(pi) + (lk ? '55' : '99') : '#9FE1CB';
     ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
 
-    if (hov) { ctx.fillStyle = PC[curPi % PC.length] + '44'; ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2); }
+    if (hov) { ctx.fillStyle = portColor(curPi) + '44'; ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2); }
 
-    ctx.strokeStyle = pi >= 0 ? PC[pi % PC.length] : '#1D9E75';
+    ctx.strokeStyle = pi >= 0 ? portColor(pi) : '#1D9E75';
     ctx.lineWidth   = pi >= 0 ? 1.5 : 0.5;
     ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
 
@@ -3540,7 +3552,7 @@ function _drawImportedCv(ctx, cv) {
   State.pA.forEach((s, pi) => {
     const h = State.pH2[pi].filter(k => s.has(k));
     if (h.length < 2) { return; }
-    const col = PC[pi % PC.length];
+    const col = portColor(pi);
     const pts = h.map(k => {
       const p = imp.allPanels.find(q => q.key === k);
       return p ? { x: (p.x + p.w / 2) * sc, y: (p.y + p.h / 2) * sc } : null;
@@ -3592,7 +3604,7 @@ function _drawImportedCv(ctx, cv) {
       ctx.fill();
       ctx.font = `700 ${fs}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : PC[pi % PC.length];
+      ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : portColor(pi);
       ctx.fillText(String(step), cx2, cy2);
     }
 
@@ -3666,22 +3678,22 @@ function _drawSingleSection(ctx, secName, passOnly) {
       const last = State.drag && State.dStk.length > 0 && State.dStk[State.dStk.length-1].key === k;
 
       ctx.fillStyle = ow >= 0
-        ? PC[ow] + (lk ? '55' : '99')
+        ? portColor(ow) + (lk ? '55' : '99')
         : row.type === 'half' ? '#C0DD97' : '#9FE1CB';
       ctx.fillRect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2);
 
-      if (hov) { ctx.fillStyle = PC[State.aPort] + '44'; ctx.fillRect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2); }
+      if (hov) { ctx.fillStyle = portColor(State.aPort) + '44'; ctx.fillRect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2); }
 
-      ctx.strokeStyle = ow >= 0 ? PC[ow] : (row.type === 'half' ? '#639922' : '#1D9E75');
+      ctx.strokeStyle = ow >= 0 ? portColor(ow) : (row.type === 'half' ? '#639922' : '#1D9E75');
       ctx.lineWidth = ow >= 0 ? 1.5 : 0.5;
       ctx.strokeRect(c * State.cellW + 1, y + 1, State.cellW - 2, ch - 2);
 
       if (last) {
-        ctx.strokeStyle = 'white';   ctx.lineWidth = 2.5; ctx.strokeRect(c*State.cellW+3, y+3, State.cellW-6, ch-6);
-        ctx.strokeStyle = PC[State.aPort]; ctx.lineWidth = 2;   ctx.strokeRect(c*State.cellW+3, y+3, State.cellW-6, ch-6);
+        ctx.strokeStyle = 'white';        ctx.lineWidth = 2.5; ctx.strokeRect(c*State.cellW+3, y+3, State.cellW-6, ch-6);
+        ctx.strokeStyle = portColor(State.aPort); ctx.lineWidth = 2;   ctx.strokeRect(c*State.cellW+3, y+3, State.cellW-6, ch-6);
       }
       if (hov) {
-        ctx.setLineDash([3, 3]); ctx.strokeStyle = PC[State.aPort]; ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]); ctx.strokeStyle = portColor(State.aPort); ctx.lineWidth = 1.5;
         ctx.strokeRect(c*State.cellW+2, y+2, State.cellW-4, ch-4); ctx.setLineDash([]);
       }
       if (lk) {
@@ -3722,7 +3734,7 @@ function _drawSingleSection(ctx, secName, passOnly) {
         ctx.fill();
         ctx.font = `700 ${fs}px sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : PC[ow];
+        ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : portColor(ow);
         ctx.fillText(String(step), cx2, cy2);
       }
 
@@ -3761,7 +3773,7 @@ function _drawPortPathsMulti(ctx) {
   State.pA.forEach((s, pi) => {
     const h = State.pH2[pi].filter(k => s.has(k));
     if (h.length < 2) { return; }
-    const col = PC[pi];
+    const col = portColor(pi);
     const pts = h.map(k => _absCoords(k)).filter(Boolean);
     if (pts.length < 2) { return; }
     const pL0 = pts[pts.length - 2], pL1 = pts[pts.length - 1];
@@ -3852,7 +3864,7 @@ function renderLeg() {
   let h = `
     <div class="leg-item"><div class="leg-dot" style="background:#C0DD97;border:1px solid #639922"></div>500×500mm</div>
     <div class="leg-item"><div class="leg-dot" style="background:#9FE1CB;border:1px solid #1D9E75"></div>500×1000mm</div>`;
-  used.forEach(pi => { h += `<div class="leg-item"><div class="leg-dot" style="background:${PC[pi]}"></div>포트 ${pi+1}</div>`; });
+  used.forEach(pi => { h += `<div class="leg-item"><div class="leg-dot" style="background:${portColor(pi)}"></div>포트 ${pi+1}</div>`; });
   l.innerHTML = h;
 }
 
@@ -6170,16 +6182,16 @@ function betaDrawLan() {
     const hov = State._betaLanDrag && State._betaLanDHov === p.key && pi < 0;
 
     ctx.fillStyle = pi >= 0
-      ? PC[pi % PC.length] + (lk ? '55' : '99')
+      ? portColor(pi) + (lk ? '55' : '99')
       : '#9FE1CB';
     ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
 
     if (hov) {
-      ctx.fillStyle = PC[curPi % PC.length] + '44';
+      ctx.fillStyle = portColor(curPi) + '44';
       ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
     }
 
-    ctx.strokeStyle = pi >= 0 ? PC[pi % PC.length] : '#1D9E75';
+    ctx.strokeStyle = pi >= 0 ? portColor(pi) : '#1D9E75';
     ctx.lineWidth   = pi >= 0 ? 1.5 : 0.5;
     ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
 
@@ -6205,7 +6217,7 @@ function betaDrawLan() {
   State.betaPorts.forEach((s, pi) => {
     const h = State.betaPH2[pi].filter(k => s.has(k));
     if (h.length < 2) { return; }
-    const col = PC[pi % PC.length];
+    const col = portColor(pi);
     const pts = h.map(k => {
       const p = panels.find(x => x.key === k);
       return p ? { x: _betaPanelCx(p), y: _betaPanelCy(p) } : null;
@@ -6258,7 +6270,7 @@ function betaDrawLan() {
       ctx.fill();
       ctx.font = `700 ${fs}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : PC[pi % PC.length];
+      ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : portColor(pi);
       ctx.fillText(String(step), cx2, cy2);
     }
 
@@ -6432,8 +6444,9 @@ function betaRenderPorts() {
     const sz  = State.betaPorts[i].size;
     const on  = i === pi;
     const has = sz > 0;
+    const _bc = portColor(i);
     html += `<button class="beta-port-btn${on ? ' sel' : ''}${has ? ' has-data' : ''}"
-      style="${on ? `background:${PC[i % PC.length]};border-color:${PC[i % PC.length]};` : has ? `border-color:${PC[i % PC.length]};color:${PC[i % PC.length]};` : ''}"
+      style="${on ? `background:${_bc};border-color:${_bc};` : `border-color:${_bc};color:${_bc};`}"
       onclick="State.betaAPort=${i};betaDrawLan();betaRenderPorts()">P${i + 1}</button>`;
   }
   html += '</div>';
@@ -6441,14 +6454,15 @@ function betaRenderPorts() {
   const px  = _betaPxOf(pi);
   const pct = Math.min(100, Math.round(px / MAX_PX * 100));
   const ov  = px > MAX_PX;
+  const _apc = portColor(pi);
   html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="font-size:13px;font-weight:500;color:${PC[pi % PC.length]}">포트 ${pi + 1}</span>
+    <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
     <span style="font-size:13px;color:#333;">${sz}장 · ${px.toLocaleString()} px</span>
     <span style="font-size:12px;color:${ov ? '#A32D2D' : '#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
-    ${State._betaLanDrag ? `<span class="drag-badge" style="background:${PC[pi % PC.length]}">드래그 중</span>` : ''}
+    ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
   </div>
   <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
-    <div style="height:5px;width:${pct}%;background:${ov ? '#E24B4A' : PC[pi % PC.length]};border-radius:3px;"></div>
+    <div style="height:5px;width:${pct}%;background:${ov ? '#E24B4A' : _apc};border-radius:3px;"></div>
   </div>
   <div style="margin-top:4px;">
     <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">포트 ${pi + 1} 초기화</button>
