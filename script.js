@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.75';
-const APP_SW_VERSION = 'v178';
+const APP_VERSION = '2.0.76';
+const APP_SW_VERSION = 'v179';
 
 const CHANGELOG = [
+  { v: '2.0.76', items: [
+    '혼합 시뮬 최종 해상도: 각 500mm 격자 열·행에서 최고 LED 픽셀 밀도 기준으로 실제 픽셀 수 계산',
+    '혼합 시뮬 구역 편집 탭: 가이드 이미지 저장 기능 추가 (실제 최종 해상도 크기 PNG)',
+  ] },
   { v: '2.0.75', items: [
     'betaImport PWR 시뮬: 500×1000mm 패널을 LAN sim처럼 실물 크기 하나의 직사각형으로 렌더링 (기존 서브셀 분할 방식 제거)',
   ] },
@@ -6132,7 +6136,78 @@ function betaDrawEdit() {
   }
 }
 
-// ─ 구역 목록 ─
+// ─ 구역 목록 & 해상도 ─
+
+function _betaCalcResolution() {
+  if (!State.betaAreaW || !State.betaAreaH || !State.betaZones.length) { return null; }
+  const gW = _betaGW(), gH = _betaGH();
+  let totalW = 0, totalH = 0;
+  for (let c = 0; c < gW; c++) {
+    let maxPx = 0;
+    State.betaZones.forEach(z => {
+      if (c >= z.startCol && c < z.startCol + z.cols) { maxPx = Math.max(maxPx, SPECS[z.led].px500.w); }
+    });
+    totalW += maxPx;
+  }
+  for (let r = 0; r < gH; r++) {
+    let maxPx = 0;
+    State.betaZones.forEach(z => {
+      if (r >= z.startRow && r < z.startRow + z.rows) { maxPx = Math.max(maxPx, SPECS[z.led].px500.h); }
+    });
+    totalH += maxPx;
+  }
+  return (totalW > 0 && totalH > 0) ? { w: totalW, h: totalH } : null;
+}
+
+function betaSaveGuideImage() {
+  const res = _betaCalcResolution();
+  if (!res) { return; }
+  const cv = document.createElement('canvas');
+  cv.width = res.w; cv.height = res.h;
+  const ctx = cv.getContext('2d');
+  const sX = res.w / State.betaAreaW;
+  const sY = res.h / State.betaAreaH;
+  const gW = _betaGW(), gH = _betaGH();
+
+  ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 0.5;
+  for (let c = 0; c <= gW; c++) {
+    ctx.beginPath(); ctx.moveTo(c*500*sX, 0); ctx.lineTo(c*500*sX, cv.height); ctx.stroke();
+  }
+  for (let r = 0; r <= gH; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r*500*sY); ctx.lineTo(cv.width, r*500*sY); ctx.stroke();
+  }
+
+  State.betaZones.forEach((zone, zi) => {
+    const ci  = zi % BETA_ZONE_BG.length;
+    const zx  = zone.startCol * 500 * sX, zy  = zone.startRow * 500 * sY;
+    const zw  = zone.cols * 500 * sX,     zh  = zone.rows * 500 * sY;
+    ctx.fillStyle = BETA_ZONE_BG[ci]; ctx.fillRect(zx, zy, zw, zh);
+    const spanC = zone.panelW / 500, spanR = zone.panelH / 500;
+    const fullC = Math.floor(zone.cols / spanC), fullR = Math.floor(zone.rows / spanR);
+    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 1.2;
+    for (let pr = 0; pr < fullR; pr++) {
+      for (let pc = 0; pc < fullC; pc++) {
+        ctx.strokeRect(
+          (zone.startCol + pc*spanC)*500*sX + 0.6, (zone.startRow + pr*spanR)*500*sY + 0.6,
+          zone.panelW*sX - 1.2, zone.panelH*sY - 1.2
+        );
+      }
+    }
+    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
+    ctx.strokeRect(zx+1, zy+1, zw-2, zh-2);
+    const fs = Math.max(9, Math.min(20, Math.min(zw, zh) * 0.08));
+    ctx.font = `700 ${fs}px sans-serif`;
+    ctx.fillStyle = BETA_ZONE_LINE[ci];
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${zone.led} / ${zone.panelW}×${zone.panelH}mm`, zx + zw/2, zy + zh/2);
+    ctx.textBaseline = 'alphabetic';
+  });
+
+  const url = cv.toDataURL('image/png');
+  const a = document.createElement('a'); a.href = url;
+  a.download = `guide_${res.w}x${res.h}.png`; a.click();
+}
 
 function betaRenderZoneList() {
   const el = document.getElementById('betaZoneList');
@@ -6142,6 +6217,13 @@ function betaRenderZoneList() {
     return;
   }
   const wm = mm => (mm / 1000).toFixed(1).replace(/\.0$/, '') + 'm';
+  const res = _betaCalcResolution();
+  const resHtml = res
+    ? `<div class="beta-res-bar">
+        최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>
+        <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
+       </div>`
+    : '';
   el.innerHTML = State.betaZones.map((z, i) => {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
     return `<div class="beta-zone-card" style="border-left:4px solid ${col}">
@@ -6150,7 +6232,7 @@ function betaRenderZoneList() {
       <button class="beta-zone-edit-btn" onclick="betaEditZone('${z.id}')">편집</button>
       <button class="beta-zone-del-btn" onclick="betaDeleteZone('${z.id}')">삭제</button>
     </div>`;
-  }).join('');
+  }).join('') + resHtml;
 }
 
 function betaDeleteZone(id) {

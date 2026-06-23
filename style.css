@@ -497,6 +497,8 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .beta-zone-edit-btn{padding:3px 10px;border:1px solid #0F6E56;color:#0F6E56;background:none;border-radius:6px;font-size:12px;cursor:pointer;}
 .beta-zone-del-btn{padding:3px 10px;border:1px solid #f44;color:#f44;background:none;border-radius:6px;font-size:12px;cursor:pointer;}
 .beta-empty-hint{text-align:center;color:#bbb;font-size:13px;padding:28px 0;}
+.beta-res-bar{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#f5f9f7;border-radius:8px;border:1px solid #c8e6dc;font-size:12px;color:#444;flex-wrap:wrap;}
+.beta-guide-btn{margin-left:auto;padding:4px 12px;border:1px solid #0F6E56;color:#0F6E56;background:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;}
 #betaLanUI{margin-top:8px;}
 .beta-lan-btns-row{display:flex;gap:8px;margin-bottom:8px;}
 .beta-lan-btn{flex:1;padding:8px 0;border:1px solid #0F6E56;background:#fff;color:#0F6E56;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
