@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.70';
-const APP_SW_VERSION = 'v173';
+const APP_VERSION = '2.0.71';
+const APP_SW_VERSION = 'v174';
 
 const CHANGELOG = [
+  { v: '2.0.71', items: [
+    '혼합 내보내기 LAN 자동할당 수정 — 초기화 후 자동할당 시 원본 배치 복원',
+    '파워콘 포트 동적 추가/제거 — + 포트 / − 포트 버튼',
+  ]},
   { v: '2.0.70', items: [
     '혼합 내보내기 파워콘 자동할당: 구역(zone)별 분리 포트 배선',
   ]},
@@ -2856,7 +2860,7 @@ function _rowSplitHintMulti() {
 
 // 파워콘 기본 배선 적용 (2열당 1개, 스네이크: 짝수열 아래→위, 홀수열 위→아래)
 function _applyDefaultPwrWiring() {
-  for (let i = 0; i < PWR_PORT_COUNT; i++) { State.pA[i].clear(); State.pH2[i] = []; }
+  for (let i = 0; i < State.pA.length; i++) { State.pA[i].clear(); State.pH2[i] = []; }
   State.aPort = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
   let pi = 0;
   if (State.betaImport) {
@@ -2874,7 +2878,7 @@ function _applyDefaultPwrWiring() {
       });
       if (!zCells.size) { return; }
       const colList = [...new Set([...zCells].map(k => +k.split(',')[1]))].sort((a, b) => a - b);
-      for (let i = 0; i < colList.length && pi < PWR_PORT_COUNT; i += 2) {
+      for (let i = 0; i < colList.length && pi < State.pA.length; i += 2) {
         const c0 = colList[i], c1 = i + 1 < colList.length ? colList[i + 1] : null;
         for (let ri = R - 1; ri >= 0; ri--) { if (zCells.has(`${ri},${c0}`)) { assign(pi, `${ri},${c0}`); } }
         if (c1 !== null) { for (let ri = 0; ri < R; ri++) { if (zCells.has(`${ri},${c1}`)) { assign(pi, `${ri},${c1}`); } } }
@@ -2888,7 +2892,7 @@ function _applyDefaultPwrWiring() {
       const sec = State.multiSec[sn];
       if (!sec.cols || !sec.layout.length) { return; }
       const C = sec.cols, R = sec.layout.length;
-      for (let ci = 0; ci < C && pi < PWR_PORT_COUNT; ci += 2) {
+      for (let ci = 0; ci < C && pi < State.pA.length; ci += 2) {
         for (let ri = R - 1; ri >= 0; ri--) { assign(pi, `${sn}:${ri},${ci}`); }
         if (ci + 1 < C) { for (let ri = 0; ri < R; ri++) { assign(pi, `${sn}:${ri},${ci + 1}`); } }
         pi++;
@@ -2896,7 +2900,7 @@ function _applyDefaultPwrWiring() {
     });
   } else {
     const C = State.cols, R = State.layout.length;
-    for (let ci = 0; ci < C && pi < PWR_PORT_COUNT; ci += 2) {
+    for (let ci = 0; ci < C && pi < State.pA.length; ci += 2) {
       for (let ri = R - 1; ri >= 0; ri--) { assign(pi, `${ri},${ci}`); }
       if (ci + 1 < C) { for (let ri = 0; ri < R; ri++) { assign(pi, `${ri},${ci + 1}`); } }
       pi++;
@@ -2950,11 +2954,30 @@ function _execRstAllPwr() {
 function doRstAllPwr() { openConfirm('파워콘 기본값 초기화', '파워콘 배선을 기본값(2열당 1개)으로 초기화할까요?', _execRstAllPwr); }
 
 function _execRstAllPwrClear() {
-  for (let i = 0; i < PWR_PORT_COUNT; i++) { State.pA[i].clear(); State.pH2[i] = []; }
+  for (let i = 0; i < State.pA.length; i++) { State.pA[i].clear(); State.pH2[i] = []; }
   State.aPort = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
   drawCv(); renderPorts(); renderLeg(); renderSum();
 }
 function doRstAllPwrClear() { openConfirm('파워콘 전체 초기화', '파워콘 배선 전체를 초기화할까요?', _execRstAllPwrClear); }
+
+function addPwrPort() {
+  if (State.simTab !== 'pwr') { return; }
+  State.pA.push(new Set()); State.pH2.push([]);
+  renderPorts(); renderSum();
+}
+function _doRemovePwrPort() {
+  if (State.pA.length <= 1) { return; }
+  if (State.aPort >= State.pA.length - 1) { State.aPort = State.pA.length - 2; }
+  State.pA.pop(); State.pH2.pop();
+  renderPorts(); drawCv(); renderSum();
+}
+function removePwrPort() {
+  if (State.simTab !== 'pwr' || State.pA.length <= 1) { return; }
+  const last = State.pA[State.pA.length - 1];
+  if (last.size > 0) {
+    openConfirm(`P${State.pA.length} 포트 제거`, `P${State.pA.length}에 ${last.size}장이 할당되어 있습니다. 제거할까요?`, _doRemovePwrPort);
+  } else { _doRemovePwrPort(); }
+}
 
 // 랜선 ↔ 파워콘 탭 전환
 function setSimTab(tab) {
@@ -3208,6 +3231,12 @@ function renderPorts() {
         _h += `<button class="port-btn expand-port-btn" onclick="expandLanPorts()" title="샌딩카드 확장 — 포트 16개">샌딩카드 확장</button>`;
       }
     });
+    if (State.simTab === 'pwr') {
+      _h += `<button class="port-btn expand-port-btn" onclick="addPwrPort()" title="포트 추가">+ 포트</button>`;
+      if (State.pA.length > 1) {
+        _h += `<button class="port-btn expand-port-btn" onclick="removePwrPort()" title="마지막 포트 제거">− 포트</button>`;
+      }
+    }
     return _h;
   })();
 
@@ -4157,6 +4186,21 @@ function _autoAssignSec(secName, secLayout, secCols, portOff) {
 
 function autoAssign() {
   if (!isReady()) { return; }
+  // betaImport LAN: 혼합시뮬 원본 포트 배치 복원
+  if (State.betaImport && State.simTab === 'lan') {
+    const _n = State.lanExpanded ? 16 : 8;
+    State.pA = Array.from({ length: _n }, () => new Set());
+    State.pH2 = Array.from({ length: _n }, () => []);
+    State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null; State.aPort = 0;
+    for (let pi = 0; pi < Math.min(_n, State.betaPorts.length); pi++) {
+      State.betaPH2[pi].forEach(k => {
+        if (State.betaPorts[pi].has(k)) { State.pA[pi].add(k); State.pH2[pi].push(k); }
+      });
+    }
+    State.aPort = 0;
+    drawCv(); renderPorts(); renderLeg(); renderSum();
+    return;
+  }
   if (State.areaMode === 'multi') {
     const _an = State.lanExpanded ? 16 : 8;
     State.pA = Array.from({ length: _an }, () => new Set());
@@ -6336,7 +6380,7 @@ function betaExportToCalc() {
     });
     if (!zCells.size) { return; }
     const colList = [...new Set([...zCells].map(k => +k.split(',')[1]))].sort((a, b) => a - b);
-    for (let i = 0; i < colList.length && pwrPi < PWR_PORT_COUNT; i += 2) {
+    for (let i = 0; i < colList.length && pwrPi < tmpPwrPA.length; i += 2) {
       const c0 = colList[i], c1 = i + 1 < colList.length ? colList[i + 1] : null;
       for (let ri = calcRows - 1; ri >= 0; ri--) { if (zCells.has(`${ri},${c0}`)) { _pa(pwrPi, `${ri},${c0}`); } }
       if (c1 !== null) { for (let ri = 0; ri < calcRows; ri++) { if (zCells.has(`${ri},${c1}`)) { _pa(pwrPi, `${ri},${c1}`); } } }
