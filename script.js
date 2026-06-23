@@ -20,10 +20,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.61';
-const APP_SW_VERSION = 'v164';
+const APP_VERSION = '2.0.62';
+const APP_SW_VERSION = 'v165';
 
 const CHANGELOG = [
+  { v: '2.0.62', items: [
+    '내보내기 계산결과: LED×패널 크기별 장 수 표 및 해상도 표시',
+    '파워콘 자동배선 데드존 제외 (내보내기·기본값 초기화 모두)',
+    '내보내기 후 저장/불러오기 정상 복원',
+  ]},
   { v: '2.0.61', items: [
     '혼합 시뮬β 계산기로 내보내기: 탭 활성화·PNG저장 버튼·결과 즉시 표시 수정',
   ]},
@@ -1796,6 +1801,7 @@ function getAppState(name) {
     betaAPort:    State.betaAPort,
     betaSpareAdj: { ...State.betaSpareAdj },
     lanExpanded:  State.lanExpanded,
+    betaImport:   State.betaImport || null,
   };
 }
 
@@ -1900,7 +1906,13 @@ function loadAppState(st) {
     State._betaCache   = null;
   }
   State.lanExpanded = !!(st.lanExpanded);
-  State.betaImport  = null;
+  if (st.betaImport) {
+    State.betaImport = st.betaImport;
+    renderRes();
+    buildCv(); drawCv(); renderPorts(); renderLeg(); renderSum();
+  } else {
+    State.betaImport = null;
+  }
 }
 
 function saveState() {
@@ -2476,20 +2488,57 @@ function _buildCoverHtml(tW, tH) {
 
 function _renderResBeta() {
   const imp = State.betaImport;
-  let h = '<div class="metric-grid">';
-  if (imp.isRect) {
-    h += `<div class="metric"><div class="ml">가로 패널 수</div><div class="mv">${imp.cols}<span class="mu"> ea</span></div></div>`;
-    h += `<div class="metric"><div class="ml">세로 패널 수</div><div class="mv">${imp.rows}<span class="mu"> 행</span></div></div>`;
-  } else {
-    h += `<div class="metric"><div class="ml">패널 배치</div><div class="mv" style="font-size:12px;color:#888">불규칙 레이아웃 — 혼합 시뮬 참조</div></div>`;
+
+  if (!imp.allPanels || !imp.allPanels.length) {
+    let h = `<div class="metric-grid"><div class="metric"><div class="ml">LED 패널 수</div><div class="mv">${imp.totalPanels}<span class="mu"> ea</span></div></div></div>`;
+    const resStr = imp.isRect && imp.tW ? `${imp.tW.toLocaleString()} × ${imp.tH.toLocaleString()} px` : '—';
+    h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${resStr}</div></div>`;
+    document.getElementById('resultBody').innerHTML = h;
+    return;
   }
-  h += `<div class="metric"><div class="ml">LED 패널 수</div><div class="mv">${imp.totalPanels}<span class="mu"> ea</span></div></div>`;
-  h += '</div>';
-  const resStr = imp.isRect && imp.tW ? `${imp.tW.toLocaleString()} × ${imp.tH.toLocaleString()} px` : '—';
-  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${resStr} <span style="font-size:11px;color:#aaa">(데드존 포함)</span></div></div>`;
-  if (imp.usedLeds && imp.usedLeds.length > 1) {
-    h += `<div class="panel-spec-note">혼합 LED: ${imp.usedLeds.join(' · ')} (대표: ${State.curLed || imp.usedLeds[0]})</div>`;
-  }
+
+  // LED × 패널 크기 집계
+  const counts = {};
+  const sizeSet = new Set();
+  imp.allPanels.forEach(p => {
+    const sk = `${p.w}×${p.h}`;
+    sizeSet.add(sk);
+    if (!counts[p.led]) { counts[p.led] = {}; }
+    counts[p.led][sk] = (counts[p.led][sk] || 0) + 1;
+  });
+  const leds  = Object.keys(counts).sort();
+  const sizes = [...sizeSet].sort();
+
+  // 패널 단위 해상도 (led + 크기 → px 문자열)
+  const panelPx = (led, sk) => {
+    const sp = SPECS[led]; if (!sp) { return '?'; }
+    const [pw, ph] = sk.split('×').map(Number);
+    if (pw === 1000) { return `${sp.px1000.h}×${sp.px1000.w}`; }
+    if (ph === 1000) { return `${sp.px1000.w}×${sp.px1000.h}`; }
+    return `${sp.px500.w}×${sp.px500.h}`;
+  };
+
+  const th = '<tr><th>LED</th>' + sizes.map(sk => `<th>${sk}mm</th>`).join('') + '<th>합계</th></tr>';
+  const tbody = leds.map(led => {
+    const total = sizes.reduce((s, sk) => s + (counts[led]?.[sk] || 0), 0);
+    const cells = sizes.map(sk => {
+      const n = counts[led]?.[sk] || 0;
+      if (!n) { return '<td>-</td>'; }
+      return `<td>${n}ea<span class="beta-px-sub">${panelPx(led, sk)}px</span></td>`;
+    }).join('');
+    return `<tr><td class="led-cell">${led}</td>${cells}<td class="total-cell">${total}ea</td></tr>`;
+  }).join('');
+  const colTots = sizes.map(sk => leds.reduce((s, led) => s + (counts[led]?.[sk] || 0), 0));
+  const grand = colTots.reduce((a, b) => a + b, 0);
+  const totRow = '<tr class="trow-total"><td>합계</td>' + colTots.map(t => `<td>${t}ea</td>`).join('') + `<td>${grand}ea</td></tr>`;
+
+  let h = `<table class="beta-panel-table">${th}${tbody}${totRow}</table>`;
+
+  const resStr = imp.isRect && imp.tW ? `${imp.tW.toLocaleString()} × ${imp.tH.toLocaleString()} px` : '혼합 레이아웃';
+  const resNote = imp.isRect
+    ? '<span style="font-size:11px;color:#aaa">(데드존 포함)</span>'
+    : '<span style="font-size:11px;color:#888">— 구역별 해상도 상이</span>';
+  h += `<div class="res-banner"><div class="rl">최종 해상도</div><div class="rv">${resStr} ${resNote}</div></div>`;
   document.getElementById('resultBody').innerHTML = h;
 }
 
@@ -2668,6 +2717,21 @@ function _applyDefaultPwrWiring() {
   for (let i = 0; i < PWR_PORT_COUNT; i++) { State.pA[i].clear(); State.pH2[i] = []; }
   State.aPort = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
   let pi = 0;
+  if (State.betaImport) {
+    const imp = State.betaImport;
+    const pW = imp.areaW / imp.cols;
+    const pH = imp.areaH / imp.rows;
+    const hp = (ri, ci) => imp.allPanels.some(p =>
+      p.x < (ci + 1) * pW && p.x + p.w > ci * pW && p.y < (ri + 1) * pH && p.y + p.h > ri * pH
+    );
+    const C = imp.cols, R = imp.rows;
+    for (let ci = 0; ci < C && pi < PWR_PORT_COUNT; ci += 2) {
+      for (let ri = R - 1; ri >= 0; ri--) { if (hp(ri, ci)) { assign(pi, `${ri},${ci}`); } }
+      if (ci + 1 < C) { for (let ri = 0; ri < R; ri++) { if (hp(ri, ci + 1)) { assign(pi, `${ri},${ci + 1}`); } } }
+      pi++;
+    }
+    return;
+  }
   if (State.areaMode === 'multi') {
     ['left','center','right'].forEach(sn => {
       const sec = State.multiSec[sn];
@@ -6063,14 +6127,21 @@ function betaExportToCalc() {
     });
   }
 
-  // PWR 자동 배선 (calc 격자 기반, 2열당 1포트 스네이크)
+  // PWR 자동 배선 (calc 격자 기반, 2열당 1포트 스네이크, 데드존 제외)
   const tmpPwrPA  = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
   const tmpPwrPH2 = Array.from({ length: PWR_PORT_COUNT }, () => []);
+  const _pwrCellW = State.betaAreaW / calcCols;
+  const _pwrCellH = State.betaAreaH / calcRows;
+  const _hasPwrPanel = (ri, ci) => allPanels.some(p =>
+    p.x < (ci + 1) * _pwrCellW && p.x + p.w > ci * _pwrCellW &&
+    p.y < (ri + 1) * _pwrCellH && p.y + p.h > ri * _pwrCellH
+  );
   let pwrPi = 0;
   for (let ci = 0; ci < calcCols && pwrPi < PWR_PORT_COUNT; ci++) {
     const isEven = ci % 2 === 0;
     for (let ri = 0; ri < calcRows; ri++) {
       const r = isEven ? calcRows - 1 - ri : ri;
+      if (!_hasPwrPanel(r, ci)) { continue; }
       const k = `${r},${ci}`;
       tmpPwrPA[pwrPi].add(k); tmpPwrPH2[pwrPi].push(k);
     }
