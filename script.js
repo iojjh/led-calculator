@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.82';
-const APP_SW_VERSION = 'v185';
+const APP_VERSION = '2.0.83';
+const APP_SW_VERSION = 'v186';
 
 const CHANGELOG = [
+  { v: '2.0.83', items: [
+    '혼합 시뮬 가이드 이미지: 로고 제거, 주황 바 텍스트 종속 위치(tx 기준 padding 감쌈), 구역 테두리 BETA_ZONE_LINE 고유 형광색 적용',
+  ] },
   { v: '2.0.82', items: [
     '혼합 시뮬 가이드 이미지: 워터마크 마름모꼴 간격(격행 skip), 주황 바 두께 zone폭 기준, 로고 crossOrigin 제거(PWA 환경 렌더링 수정)',
   ] },
@@ -6179,7 +6182,7 @@ function _betaCalcResolution() {
   return { w: Math.round(State.betaAreaW * s), h: Math.round(State.betaAreaH * s) };
 }
 
-async function betaSaveGuideImage() {
+function betaSaveGuideImage() {
   const res = _betaCalcResolution();
   if (!res) { return; }
   const cv = document.createElement('canvas');
@@ -6211,16 +6214,8 @@ async function betaSaveGuideImage() {
   const stepY = Math.round(fSizeWm * 3.5);
   const halfD = Math.ceil(Math.hypot(res.w, res.h) / 2) + Math.max(stepX, stepY);
 
-  // ── 로고 로드 (crossOrigin 없이 — 동일 오리진이므로 canvas taint 없음) ──
-  let logoImg = null;
-  try {
-    logoImg = await new Promise((ok, ng) => {
-      const img = new Image(); img.onload = () => ok(img); img.onerror = ng; img.src = '3Y_no_bg.png';
-    });
-  } catch { }
-
   // ── 구역별 렌더링 ──
-  State.betaZones.forEach(zone => {
+  State.betaZones.forEach((zone, zi) => {
     const zx = zone.startCol * 500 * sX, zy = zone.startRow * 500 * sY;
     const zw = zone.cols * 500 * sX,     zh = zone.rows * 500 * sY;
     const spanC = zone.panelW / 500, spanR = zone.panelH / 500;
@@ -6261,8 +6256,9 @@ async function betaSaveGuideImage() {
       ctx.beginPath(); ctx.moveTo(zx, y); ctx.lineTo(zx+zw, y); ctx.stroke();
     }
 
-    // 구역 테두리
-    ctx.strokeStyle = 'rgba(255,255,255,0.80)'; ctx.lineWidth = gridLW * 2;
+    // 구역 테두리 (구역별 고유 형광색)
+    const zoneCol = BETA_ZONE_LINE[zi % BETA_ZONE_LINE.length];
+    ctx.strokeStyle = zoneCol; ctx.lineWidth = gridLW * 2;
     ctx.strokeRect(zx+1, zy+1, zw-2, zh-2);
 
     // 해상도 텍스트 (구역 크기 비례, 최소 fSizeWm 이상 보장)
@@ -6281,22 +6277,14 @@ async function betaSaveGuideImage() {
     ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, tx, ty);
     ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, tx + wW, ty);
     ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, tx + wW + sepW, ty);
-    const lineLen = Math.min(totalTW * 1.2, zw * 0.85);
+    // 주황 바 — 텍스트 위치에 종속 (tx 기준 좌우 padding으로 감쌈)
+    const padding = Math.round(fsRes * 0.15);
     const gap = Math.min(fsRes * 0.55, zh * 0.12);
-    const barLW = Math.max(1, Math.round(zw / 600));
+    const barLW = Math.max(1, Math.round(totalTW / 300));
+    const barL = tx - padding, barR = tx + totalTW + padding;
     ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = barLW;
-    ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty-gap); ctx.lineTo(zx+zw/2+lineLen/2, ty-gap); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty+gap); ctx.lineTo(zx+zw/2+lineLen/2, ty+gap); ctx.stroke();
-
-    // 로고 (구역 좌상단 — 구역 폭의 최대 30%, 비율 유지)
-    if (logoImg) {
-      const logoW = Math.min(Math.round(1.84 * zone.panelW * sX), zw * 0.30);
-      const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-      const lm = Math.round(Math.min(zw, zh) * 0.025);
-      ctx.save(); ctx.globalAlpha = 0.90;
-      ctx.drawImage(logoImg, zx + lm, zy + lm, logoW, logoH);
-      ctx.restore();
-    }
+    ctx.beginPath(); ctx.moveTo(barL, ty-gap); ctx.lineTo(barR, ty-gap); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(barL, ty+gap); ctx.lineTo(barR, ty+gap); ctx.stroke();
 
     ctx.restore(); // clip 해제
     ctx.textBaseline = 'alphabetic';
