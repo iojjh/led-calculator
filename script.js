@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.79';
-const APP_SW_VERSION = 'v182';
+const APP_VERSION = '2.0.80';
+const APP_SW_VERSION = 'v183';
 
 const CHANGELOG = [
+  { v: '2.0.80', items: [
+    '혼합 시뮬 가이드 이미지: 계산기 탭 워터마크 서식 적용 — 어두운 배경·비네팅·사명 연속 타일·구역별 해상도 텍스트·로고',
+  ] },
   { v: '2.0.79', items: [
     '혼합 시뮬 가이드 이미지: 물리 비율 보존 — max(sX,sY) 단일 스케일로 가로·세로 통일',
   ] },
@@ -6170,7 +6173,7 @@ function _betaCalcResolution() {
   return { w: Math.round(State.betaAreaW * s), h: Math.round(State.betaAreaH * s) };
 }
 
-function betaSaveGuideImage() {
+async function betaSaveGuideImage() {
   const res = _betaCalcResolution();
   if (!res) { return; }
   const cv = document.createElement('canvas');
@@ -6179,7 +6182,9 @@ function betaSaveGuideImage() {
   const sX = res.w / State.betaAreaW;
   const sY = res.h / State.betaAreaH;
   const gW = _betaGW(), gH = _betaGH();
+  const gridLW = Math.max(1, Math.round(res.w / 700));
 
+  // ── Layer 1: 빈 영역 배경 + 500mm 격자 ──
   ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 0.5;
   for (let c = 0; c <= gW; c++) {
@@ -6189,29 +6194,96 @@ function betaSaveGuideImage() {
     ctx.beginPath(); ctx.moveTo(0, r*500*sY); ctx.lineTo(cv.width, r*500*sY); ctx.stroke();
   }
 
-  State.betaZones.forEach((zone, zi) => {
-    const ci  = zi % BETA_ZONE_BG.length;
-    const zx  = zone.startCol * 500 * sX, zy  = zone.startRow * 500 * sY;
-    const zw  = zone.cols * 500 * sX,     zh  = zone.rows * 500 * sY;
-    ctx.fillStyle = BETA_ZONE_BG[ci]; ctx.fillRect(zx, zy, zw, zh);
+  // ── 전체 캔버스 기준 워터마크 파라미터 (구역 경계에서 연속되도록) ──
+  const wmText = '3Y ENTERTAINMENT';
+  const fSizeWm = Math.round(Math.max(24, res.w * 0.022));
+  ctx.font = `600 ${fSizeWm}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
+  const wmTW = ctx.measureText(wmText).width;
+  const stepX = Math.round(wmTW * 1.6);
+  const stepY = Math.round(fSizeWm * 5.2);
+  const halfD = Math.ceil(Math.hypot(res.w, res.h) / 2) + Math.max(stepX, stepY);
+
+  // ── 로고 로드 ──
+  let logoImg = null;
+  try { logoImg = await _loadImg('3Y_no_bg.png'); } catch { }
+
+  // ── 구역별 렌더링 ──
+  State.betaZones.forEach(zone => {
+    const zx = zone.startCol * 500 * sX, zy = zone.startRow * 500 * sY;
+    const zw = zone.cols * 500 * sX,     zh = zone.rows * 500 * sY;
     const spanC = zone.panelW / 500, spanR = zone.panelH / 500;
     const fullC = Math.floor(zone.cols / spanC), fullR = Math.floor(zone.rows / spanR);
-    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 1.2;
-    for (let pr = 0; pr < fullR; pr++) {
-      for (let pc = 0; pc < fullC; pc++) {
-        ctx.strokeRect(
-          (zone.startCol + pc*spanC)*500*sX + 0.6, (zone.startRow + pr*spanR)*500*sY + 0.6,
-          zone.panelW*sX - 1.2, zone.panelH*sY - 1.2
-        );
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(zx, zy, zw, zh); ctx.clip();
+
+    // 어두운 배경 + 비네팅
+    ctx.fillStyle = '#141414'; ctx.fillRect(zx, zy, zw, zh);
+    const vg = ctx.createRadialGradient(zx+zw/2, zy+zh/2, 0, zx+zw/2, zy+zh/2, Math.hypot(zw,zh)/2);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+    ctx.fillStyle = vg; ctx.fillRect(zx, zy, zw, zh);
+
+    // 사명 워터마크 — 전체 캔버스 중앙 기준으로 타일링 (구역 간 패턴 연속)
+    ctx.save();
+    ctx.font = `600 ${fSizeWm}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.translate(res.w / 2, res.h / 2);
+    ctx.rotate(-Math.PI / 6);
+    for (let r = -Math.ceil(halfD/stepY); r <= Math.ceil(halfD/stepY)+1; r++) {
+      for (let c = -Math.ceil(halfD/stepX); c <= Math.ceil(halfD/stepX)+1; c++) {
+        ctx.fillText(wmText, c*stepX, r*stepY);
       }
     }
-    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
+    ctx.restore();
+
+    // 패널 격자선 (흰색 반투명)
+    ctx.strokeStyle = 'rgba(255,255,255,0.60)'; ctx.lineWidth = gridLW;
+    for (let pc = 1; pc < fullC; pc++) {
+      const x = (zone.startCol + pc*spanC)*500*sX;
+      ctx.beginPath(); ctx.moveTo(x, zy); ctx.lineTo(x, zy+zh); ctx.stroke();
+    }
+    for (let pr = 1; pr < fullR; pr++) {
+      const y = (zone.startRow + pr*spanR)*500*sY;
+      ctx.beginPath(); ctx.moveTo(zx, y); ctx.lineTo(zx+zw, y); ctx.stroke();
+    }
+
+    // 구역 테두리
+    ctx.strokeStyle = 'rgba(255,255,255,0.80)'; ctx.lineWidth = gridLW * 2;
     ctx.strokeRect(zx+1, zy+1, zw-2, zh-2);
-    const fs = Math.max(9, Math.min(20, Math.min(zw, zh) * 0.08));
-    ctx.font = `700 ${fs}px sans-serif`;
-    ctx.fillStyle = BETA_ZONE_LINE[ci];
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`${zone.led} / ${zone.panelW}×${zone.panelH}mm`, zx + zw/2, zy + zh/2);
+
+    // 해상도 텍스트 (구역 중앙, 계산기 탭 워터마크 서식)
+    const zResW = zone.cols * SPECS[zone.led].px500.w;
+    const zResH = zone.rows * SPECS[zone.led].px500.h;
+    const fsRes = Math.round(Math.max(16, Math.min(Math.round(zh * 0.13), 120)) * 0.9);
+    ctx.font = `300 ${fsRes}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    const wStr = `${zResW}`, sepStr = '  ×  ', hStr = `${zResH}`;
+    const wW = ctx.measureText(wStr).width;
+    const sepW = ctx.measureText(sepStr).width;
+    const hW = ctx.measureText(hStr).width;
+    const tx = zx + zw/2 - (wW + sepW + hW) / 2;
+    const ty = zy + zh / 2;
+    ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, tx, ty);
+    ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, tx + wW, ty);
+    ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, tx + wW + sepW, ty);
+    const lineLen = (wW + sepW + hW) * 1.2;
+    const gap = fsRes * 0.72;
+    ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
+    ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty-gap); ctx.lineTo(zx+zw/2+lineLen/2, ty-gap); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty+gap); ctx.lineTo(zx+zw/2+lineLen/2, ty+gap); ctx.stroke();
+
+    // 로고 (구역 좌상단, 계산기 탭과 동일 비율)
+    if (logoImg) {
+      const logoW = Math.round(1.84 * zone.panelW * sX);
+      const logoH = Math.round(logoW * logoImg.height / logoImg.width);
+      const margin = Math.round(res.w * 0.01);
+      ctx.save(); ctx.globalAlpha = 0.90;
+      ctx.drawImage(logoImg, zx + margin, zy, logoW, logoH);
+      ctx.restore();
+    }
+
+    ctx.restore(); // clip 해제
     ctx.textBaseline = 'alphabetic';
   });
 
