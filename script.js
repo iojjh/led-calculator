@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.77';
-const APP_SW_VERSION = 'v180';
+const APP_VERSION = '2.0.78';
+const APP_SW_VERSION = 'v181';
 
 const CHANGELOG = [
+  { v: '2.0.78', items: [
+    '혼합 시뮬 구역 목록: 각 구역 해상도(W×Hpx) 표시 추가 — 구역 크기와 LED 종류 사이',
+  ] },
   { v: '2.0.77', items: [
     '혼합 시뮬 랜선 탭: 포트 레이블(P1·P2…) 표시 임계값 32px→20px 완화, step 배지 fs 최솟값 클램프 추가',
   ] },
@@ -6231,7 +6234,7 @@ function betaRenderZoneList() {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
     return `<div class="beta-zone-card" style="border-left:4px solid ${col}">
       <span class="beta-zone-tag" style="color:${col}">구역 ${i + 1}</span>
-      <span class="beta-zone-info">${wm(z.cols * 500)} × ${wm(z.rows * 500)} | ${z.led} | ${z.panelW}×${z.panelH}mm</span>
+      <span class="beta-zone-info">${wm(z.cols * 500)} × ${wm(z.rows * 500)} | ${z.cols * SPECS[z.led].px500.w} × ${z.rows * SPECS[z.led].px500.h}px | ${z.led} | ${z.panelW}×${z.panelH}mm</span>
       <button class="beta-zone-edit-btn" onclick="betaEditZone('${z.id}')">편집</button>
       <button class="beta-zone-del-btn" onclick="betaDeleteZone('${z.id}')">삭제</button>
     </div>`;
