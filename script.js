@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.83';
-const APP_SW_VERSION = 'v186';
+const APP_VERSION = '2.0.84';
+const APP_SW_VERSION = 'v187';
 
 const CHANGELOG = [
+  { v: '2.0.84', items: [
+    '혼합 시뮬 구역 선택 연동: 캔버스↔구역 정보란 양방향 선택 하이라이트, 구역 텍스트 검정 2줄(좌상단), 우상단 z번호 표시',
+  ] },
   { v: '2.0.83', items: [
     '혼합 시뮬 가이드 이미지: 로고 제거, 주황 바 텍스트 종속 위치(tx 기준 padding 감쌈), 구역 테두리 BETA_ZONE_LINE 고유 형광색 적용',
   ] },
@@ -587,7 +590,8 @@ const State = {
   _betaDragSt:  null,
   _betaDragCur: null,
   _betaSelNew:  null,
-  _betaSelEdit: null,
+  _betaSelEdit:     null,
+  _betaSelectedId:  null,
   _betaLanDrag: false,
   _betaLanDStk: [],
   _betaLanLpT:  null,
@@ -6115,12 +6119,16 @@ function betaDrawEdit() {
     // Zone 외곽선
     ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
     ctx.strokeRect(zx + 1, zy + 1, zw - 2, zh - 2);
-    // Zone 정보 텍스트
+    // Zone 정보 텍스트 (검정, 두 줄, 좌상단) + 번호 (우상단)
     const fs = Math.max(9, Math.min(14, 500 * sc * 0.22));
+    const pad = Math.max(3, Math.round(fs * 0.5));
     ctx.font = `700 ${fs}px sans-serif`;
-    ctx.fillStyle = BETA_ZONE_LINE[ci];
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`${zone.led} / ${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, zy + zh / 2);
+    ctx.fillStyle = '#111';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText(`z${zi + 1}`, zx + zw - pad, zy + pad);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(zone.led, zx + pad, zy + pad);
+    ctx.fillText(`${zone.panelW}×${zone.panelH}mm`, zx + pad, zy + pad + fs * 1.35);
     ctx.textBaseline = 'alphabetic';
   });
 
@@ -6143,6 +6151,22 @@ function betaDrawEdit() {
     ctx.fillStyle = '#1a4fcc'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(`${wm}m × ${hm}m`, sx + sw / 2, sy + sh / 2);
     ctx.textBaseline = 'alphabetic';
+  }
+
+  // pass3.5: 선택된 구역 하이라이트 (흰색 점선 + 밝은 overlay)
+  if (State._betaSelectedId) {
+    const sel = State.betaZones.find(z => z.id === State._betaSelectedId);
+    if (sel) {
+      const si = State.betaZones.indexOf(sel);
+      const sc2 = BETA_ZONE_LINE[si % BETA_ZONE_LINE.length];
+      const sx = sel.startCol * 500 * sc, sy = sel.startRow * 500 * sc;
+      const sw = sel.cols * 500 * sc,    sh = sel.rows * 500 * sc;
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(sx, sy, sw, sh);
+      ctx.strokeStyle = sc2; ctx.lineWidth = 3;
+      ctx.setLineDash([7, 3]);
+      ctx.strokeRect(sx + 1.5, sy + 1.5, sw - 3, sh - 3);
+      ctx.setLineDash([]);
+    }
   }
 
   // pass4: 팝업 대기 구역
@@ -6312,13 +6336,21 @@ function betaRenderZoneList() {
     : '';
   el.innerHTML = State.betaZones.map((z, i) => {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
-    return `<div class="beta-zone-card" style="border-left:4px solid ${col}">
+    const isSel = z.id === State._betaSelectedId;
+    const selStyle = isSel ? `background:${col}18;outline:2px solid ${col};outline-offset:-1px;` : '';
+    return `<div class="beta-zone-card" style="border-left:4px solid ${col};${selStyle}cursor:pointer" onclick="betaSelectZone('${z.id}')">
       <span class="beta-zone-tag" style="color:${col}">구역 ${i + 1}</span>
       <span class="beta-zone-info">${wm(z.cols * 500)} × ${wm(z.rows * 500)} | ${z.cols * SPECS[z.led].px500.w} × ${z.rows * SPECS[z.led].px500.h}px | ${z.led} | ${z.panelW}×${z.panelH}mm</span>
-      <button class="beta-zone-edit-btn" onclick="betaEditZone('${z.id}')">편집</button>
-      <button class="beta-zone-del-btn" onclick="betaDeleteZone('${z.id}')">삭제</button>
+      <button class="beta-zone-edit-btn" onclick="event.stopPropagation();betaEditZone('${z.id}')">편집</button>
+      <button class="beta-zone-del-btn" onclick="event.stopPropagation();betaDeleteZone('${z.id}')">삭제</button>
     </div>`;
   }).join('') + resHtml;
+}
+
+function betaSelectZone(id) {
+  State._betaSelectedId = id;
+  betaRenderZoneList();
+  betaDrawEdit();
 }
 
 function betaDeleteZone(id) {
@@ -6492,8 +6524,10 @@ function betaAttachEditEv() {
     State._betaDragSt = null; State._betaDragCur = null; wasDrag = false;
 
     if (!drag) {
-      // 단순 탭 → 기존 구역 편집
+      // 단순 탭 → 구역 선택 (+ 기존 구역이면 편집 패널 열기)
       const zone = _betaZoneAt(r0, c0);
+      State._betaSelectedId = zone ? zone.id : null;
+      betaRenderZoneList();
       if (zone) { betaEditZone(zone.id); return; }
       betaDrawEdit();
       return;

@@ -491,7 +491,7 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .beta-cfg-ok{flex:1;padding:8px 0;background:#0F6E56;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
 .beta-cfg-cancel{padding:8px 16px;background:none;border:1px solid #ccc;color:#888;border-radius:8px;font-size:13px;cursor:pointer;}
 .beta-zone-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
-.beta-zone-card{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:8px;border:1px solid #e0e0e0;flex-wrap:wrap;}
+.beta-zone-card{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:8px;border:1px solid #e0e0e0;flex-wrap:wrap;transition:background .12s,outline .12s;}
 .beta-zone-tag{font-size:12px;font-weight:700;}
 .beta-zone-info{font-size:12px;color:#555;flex:1;}
 .beta-zone-edit-btn{padding:3px 10px;border:1px solid #0F6E56;color:#0F6E56;background:none;border-radius:6px;font-size:12px;cursor:pointer;}
