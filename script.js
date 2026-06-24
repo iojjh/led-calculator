@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.84';
-const APP_SW_VERSION = 'v187';
+const APP_VERSION = '2.0.85';
+const APP_SW_VERSION = 'v188';
 
 const CHANGELOG = [
+  { v: '2.0.85', items: ['혼합 시뮬 구역 텍스트: LED종류·패널사이즈 정중앙 2줄 중앙정렬'] },
   { v: '2.0.84', items: [
     '혼합 시뮬 구역 선택 연동: 캔버스↔구역 정보란 양방향 선택 하이라이트, 구역 텍스트 검정 2줄(좌상단), 우상단 z번호 표시',
   ] },
@@ -6126,9 +6127,10 @@ function betaDrawEdit() {
     ctx.fillStyle = '#111';
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
     ctx.fillText(`z${zi + 1}`, zx + zw - pad, zy + pad);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText(zone.led, zx + pad, zy + pad);
-    ctx.fillText(`${zone.panelW}×${zone.panelH}mm`, zx + pad, zy + pad + fs * 1.35);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const midY = zy + zh / 2;
+    ctx.fillText(zone.led, zx + zw / 2, midY - fs * 0.7);
+    ctx.fillText(`${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, midY + fs * 0.7);
     ctx.textBaseline = 'alphabetic';
   });
 
