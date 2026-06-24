@@ -73,7 +73,7 @@ input[type=number]:focus{outline:none;border-color:#0F6E56;}
 .beta-panel-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;}
 .beta-panel-table th,.beta-panel-table td{padding:6px 8px;text-align:center;border:1px solid #e0e0e0;}
 .beta-panel-table th{background:#f0f8f5;color:#0F6E56;font-weight:600;font-size:11px;}
-.beta-panel-table td.led-cell{font-weight:600;background:#f8f8f8;text-align:left;}
+.beta-panel-table td.led-cell{font-weight:600;background:#f8f8f8;text-align:center;}
 .beta-panel-table td.total-cell{font-weight:700;background:#e8f5ee;color:#085041;}
 .beta-panel-table tr.trow-total td{background:#e8f5ee;font-weight:700;color:#085041;}
 .beta-panel-table tr.trow-total td:first-child{text-align:left;}

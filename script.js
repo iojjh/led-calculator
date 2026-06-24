@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.86';
-const APP_SW_VERSION = 'v189';
+const APP_VERSION = '2.0.87';
+const APP_SW_VERSION = 'v190';
 
 const CHANGELOG = [
+  { v: '2.0.87', items: ['패널 집계 표 LED 셀 중앙정렬 수정'] },
   { v: '2.0.86', items: ['혼합 시뮬 구역편집 탭: 최종 해상도 아래 패널 집계 표 추가 — LED×패널사이즈 교차표, 단일 행·열이면 합계 생략'] },
   { v: '2.0.85', items: ['혼합 시뮬 구역 텍스트: LED종류·패널사이즈 정중앙 2줄 중앙정렬'] },
   { v: '2.0.84', items: [
