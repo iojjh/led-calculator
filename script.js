@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.80';
-const APP_SW_VERSION = 'v183';
+const APP_VERSION = '2.0.81';
+const APP_SW_VERSION = 'v184';
 
 const CHANGELOG = [
+  { v: '2.0.81', items: [
+    '혼합 시뮬 가이드 이미지 개선: 사명 "3Y Ent." 축약·최소 구역 기준 폰트·촘촘한 간격, 해상도 폰트 구역 높이 비례, 주황 바 길이·갭 제한, 로고 구역 좌상단 비율 고정',
+  ] },
   { v: '2.0.80', items: [
     '혼합 시뮬 가이드 이미지: 계산기 탭 워터마크 서식 적용 — 어두운 배경·비네팅·사명 연속 타일·구역별 해상도 텍스트·로고',
   ] },
@@ -6195,12 +6198,14 @@ async function betaSaveGuideImage() {
   }
 
   // ── 전체 캔버스 기준 워터마크 파라미터 (구역 경계에서 연속되도록) ──
-  const wmText = '3Y ENTERTAINMENT';
-  const fSizeWm = Math.round(Math.max(24, res.w * 0.022));
+  // 폰트 크기는 가장 작은 구역 치수 기준 — 모든 구역에서 균일하게 보임
+  const wmText = '3Y Ent.';
+  const minZoneDim = Math.min(...State.betaZones.map(z => Math.min(z.cols*500*sX, z.rows*500*sY)));
+  const fSizeWm = Math.round(Math.max(12, Math.min(minZoneDim * 0.18, 32)));
   ctx.font = `600 ${fSizeWm}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
   const wmTW = ctx.measureText(wmText).width;
-  const stepX = Math.round(wmTW * 1.6);
-  const stepY = Math.round(fSizeWm * 5.2);
+  const stepX = Math.round(wmTW * 2.0);
+  const stepY = Math.round(fSizeWm * 3.5);
   const halfD = Math.ceil(Math.hypot(res.w, res.h) / 2) + Math.max(stepX, stepY);
 
   // ── 로고 로드 ──
@@ -6252,34 +6257,35 @@ async function betaSaveGuideImage() {
     ctx.strokeStyle = 'rgba(255,255,255,0.80)'; ctx.lineWidth = gridLW * 2;
     ctx.strokeRect(zx+1, zy+1, zw-2, zh-2);
 
-    // 해상도 텍스트 (구역 중앙, 계산기 탭 워터마크 서식)
+    // 해상도 텍스트 (구역 크기 비례, 최소 fSizeWm 이상 보장)
     const zResW = zone.cols * SPECS[zone.led].px500.w;
     const zResH = zone.rows * SPECS[zone.led].px500.h;
-    const fsRes = Math.round(Math.max(16, Math.min(Math.round(zh * 0.13), 120)) * 0.9);
+    const fsRes = Math.round(Math.max(fSizeWm, Math.min(zh * 0.32, zw * 0.08, 120)));
     ctx.font = `300 ${fsRes}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     const wStr = `${zResW}`, sepStr = '  ×  ', hStr = `${zResH}`;
     const wW = ctx.measureText(wStr).width;
     const sepW = ctx.measureText(sepStr).width;
     const hW = ctx.measureText(hStr).width;
-    const tx = zx + zw/2 - (wW + sepW + hW) / 2;
+    const totalTW = wW + sepW + hW;
+    const tx = zx + zw/2 - totalTW/2;
     const ty = zy + zh / 2;
     ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, tx, ty);
     ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, tx + wW, ty);
     ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, tx + wW + sepW, ty);
-    const lineLen = (wW + sepW + hW) * 1.2;
-    const gap = fsRes * 0.72;
+    const lineLen = Math.min(totalTW * 1.2, zw * 0.85);
+    const gap = Math.min(fsRes * 0.55, zh * 0.12);
     ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
     ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty-gap); ctx.lineTo(zx+zw/2+lineLen/2, ty-gap); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty+gap); ctx.lineTo(zx+zw/2+lineLen/2, ty+gap); ctx.stroke();
 
-    // 로고 (구역 좌상단, 계산기 탭과 동일 비율)
+    // 로고 (구역 좌상단 — 구역 폭의 최대 30%, 비율 유지)
     if (logoImg) {
-      const logoW = Math.round(1.84 * zone.panelW * sX);
+      const logoW = Math.min(Math.round(1.84 * zone.panelW * sX), zw * 0.30);
       const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-      const margin = Math.round(res.w * 0.01);
+      const lm = Math.round(Math.min(zw, zh) * 0.025);
       ctx.save(); ctx.globalAlpha = 0.90;
-      ctx.drawImage(logoImg, zx + margin, zy, logoW, logoH);
+      ctx.drawImage(logoImg, zx + lm, zy + lm, logoW, logoH);
       ctx.restore();
     }
 
