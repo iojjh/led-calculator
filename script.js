@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.81';
-const APP_SW_VERSION = 'v184';
+const APP_VERSION = '2.0.82';
+const APP_SW_VERSION = 'v185';
 
 const CHANGELOG = [
+  { v: '2.0.82', items: [
+    '혼합 시뮬 가이드 이미지: 워터마크 마름모꼴 간격(격행 skip), 주황 바 두께 zone폭 기준, 로고 crossOrigin 제거(PWA 환경 렌더링 수정)',
+  ] },
   { v: '2.0.81', items: [
     '혼합 시뮬 가이드 이미지 개선: 사명 "3Y Ent." 축약·최소 구역 기준 폰트·촘촘한 간격, 해상도 폰트 구역 높이 비례, 주황 바 길이·갭 제한, 로고 구역 좌상단 비율 고정',
   ] },
@@ -6208,9 +6211,13 @@ async function betaSaveGuideImage() {
   const stepY = Math.round(fSizeWm * 3.5);
   const halfD = Math.ceil(Math.hypot(res.w, res.h) / 2) + Math.max(stepX, stepY);
 
-  // ── 로고 로드 ──
+  // ── 로고 로드 (crossOrigin 없이 — 동일 오리진이므로 canvas taint 없음) ──
   let logoImg = null;
-  try { logoImg = await _loadImg('3Y_no_bg.png'); } catch { }
+  try {
+    logoImg = await new Promise((ok, ng) => {
+      const img = new Image(); img.onload = () => ok(img); img.onerror = ng; img.src = '3Y_no_bg.png';
+    });
+  } catch { }
 
   // ── 구역별 렌더링 ──
   State.betaZones.forEach(zone => {
@@ -6237,6 +6244,7 @@ async function betaSaveGuideImage() {
     ctx.rotate(-Math.PI / 6);
     for (let r = -Math.ceil(halfD/stepY); r <= Math.ceil(halfD/stepY)+1; r++) {
       for (let c = -Math.ceil(halfD/stepX); c <= Math.ceil(halfD/stepX)+1; c++) {
+        if ((r + c) % 2 !== 0) { continue; } // 마름모꼴 간격
         ctx.fillText(wmText, c*stepX, r*stepY);
       }
     }
@@ -6275,7 +6283,8 @@ async function betaSaveGuideImage() {
     ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, tx + wW + sepW, ty);
     const lineLen = Math.min(totalTW * 1.2, zw * 0.85);
     const gap = Math.min(fsRes * 0.55, zh * 0.12);
-    ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
+    const barLW = Math.max(1, Math.round(zw / 600));
+    ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = barLW;
     ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty-gap); ctx.lineTo(zx+zw/2+lineLen/2, ty-gap); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(zx+zw/2-lineLen/2, ty+gap); ctx.lineTo(zx+zw/2+lineLen/2, ty+gap); ctx.stroke();
 
