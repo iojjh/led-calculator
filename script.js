@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.78';
-const APP_SW_VERSION = 'v181';
+const APP_VERSION = '2.0.79';
+const APP_SW_VERSION = 'v182';
 
 const CHANGELOG = [
+  { v: '2.0.79', items: [
+    '혼합 시뮬 가이드 이미지: 물리 비율 보존 — max(sX,sY) 단일 스케일로 가로·세로 통일',
+  ] },
   { v: '2.0.78', items: [
     '혼합 시뮬 구역 목록: 각 구역 해상도(W×Hpx) 표시 추가 — 구역 크기와 LED 종류 사이',
   ] },
@@ -6162,7 +6165,9 @@ function _betaCalcResolution() {
     });
     totalH += maxPx;
   }
-  return (totalW > 0 && totalH > 0) ? { w: totalW, h: totalH } : null;
+  if (totalW === 0 || totalH === 0) { return null; }
+  const s = Math.max(totalW / State.betaAreaW, totalH / State.betaAreaH);
+  return { w: Math.round(State.betaAreaW * s), h: Math.round(State.betaAreaH * s) };
 }
 
 function betaSaveGuideImage() {
