@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.76';
-const APP_SW_VERSION = 'v179';
+const APP_VERSION = '2.0.77';
+const APP_SW_VERSION = 'v180';
 
 const CHANGELOG = [
+  { v: '2.0.77', items: [
+    '혼합 시뮬 랜선 탭: 포트 레이블(P1·P2…) 표시 임계값 32px→20px 완화, step 배지 fs 최솟값 클램프 추가',
+  ] },
   { v: '2.0.76', items: [
     '혼합 시뮬 최종 해상도: 각 500mm 격자 열·행에서 최고 LED 픽셀 밀도 기준으로 실제 픽셀 수 계산',
     '혼합 시뮬 구역 편집 탭: 가이드 이미지 저장 기능 추가 (실제 최종 해상도 크기 PNG)',
@@ -6546,7 +6549,7 @@ function betaDrawLan() {
     const step = stepOf.get(p.key);
 
     if (step) {
-      const fs = Math.min(12, pw - 8);
+      const fs = Math.max(6, Math.min(12, pw - 8));
       const r  = Math.max(8, fs * 0.72);
       ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
       ctx.fillStyle = lk ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.9)';
@@ -6557,7 +6560,7 @@ function betaDrawLan() {
       ctx.fillText(String(step), cx2, cy2);
     }
 
-    if (pw >= 32) {
+    if (pw >= 20) {
       const label = 'P' + (pi + 1);
       ctx.font = '700 9px sans-serif';
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
