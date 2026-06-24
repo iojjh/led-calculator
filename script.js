@@ -20,10 +20,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.85';
-const APP_SW_VERSION = 'v188';
+const APP_VERSION = '2.0.86';
+const APP_SW_VERSION = 'v189';
 
 const CHANGELOG = [
+  { v: '2.0.86', items: ['혼합 시뮬 구역편집 탭: 최종 해상도 아래 패널 집계 표 추가 — LED×패널사이즈 교차표, 단일 행·열이면 합계 생략'] },
   { v: '2.0.85', items: ['혼합 시뮬 구역 텍스트: LED종류·패널사이즈 정중앙 2줄 중앙정렬'] },
   { v: '2.0.84', items: [
     '혼합 시뮬 구역 선택 연동: 캔버스↔구역 정보란 양방향 선택 하이라이트, 구역 텍스트 검정 2줄(좌상단), 우상단 z번호 표시',
@@ -6321,6 +6322,73 @@ function betaSaveGuideImage() {
   a.download = `guide_${res.w}x${res.h}.png`; a.click();
 }
 
+function _betaBuildPanelTable() {
+  if (!State.betaZones.length) { return ''; }
+  const ledOrder   = ['2mm', '3mm', '4mm'];
+  const panelOrder = ['500x500', '500x1000', '1000x500'];
+  const panelMeta  = {
+    '500x500':  { label: '500×500mm',  rackSize: 24, pxFn: sp => `${sp.px500.w}×${sp.px500.h}` },
+    '500x1000': { label: '500×1000mm', rackSize: 12, pxFn: sp => `${sp.px1000.w}×${sp.px1000.h}` },
+    '1000x500': { label: '1000×500mm', rackSize: 12, pxFn: sp => `${sp.px1000.h}×${sp.px1000.w}` },
+  };
+  const counts = {}; const usedLeds = new Set(); const usedPanels = new Set();
+  State.betaZones.forEach(zone => {
+    const pKey = `${zone.panelW}x${zone.panelH}`;
+    const cnt  = Math.round((zone.cols * 500) / zone.panelW) * Math.round((zone.rows * 500) / zone.panelH);
+    usedLeds.add(zone.led); usedPanels.add(pKey);
+    if (!counts[zone.led]) { counts[zone.led] = {}; }
+    counts[zone.led][pKey] = (counts[zone.led][pKey] || 0) + cnt;
+  });
+  const leds   = ledOrder.filter(l => usedLeds.has(l));
+  const panels = panelOrder.filter(p => usedPanels.has(p));
+  const multiLed = leds.length > 1; const multiPanel = panels.length > 1;
+
+  // 헤더
+  let h = '<table class="beta-panel-table"><thead><tr><th>LED</th>';
+  panels.forEach(pKey => {
+    const pm = panelMeta[pKey];
+    const pxSub = !multiLed ? `<span class="beta-px-sub">(${pm.pxFn(SPECS[leds[0]])}px)</span>` : '';
+    h += `<th>${pm.label}${pxSub}</th>`;
+  });
+  if (multiPanel) { h += '<th>합계</th>'; }
+  h += '</tr></thead><tbody>';
+
+  // 데이터 행
+  leds.forEach(led => {
+    const sp = SPECS[led]; let ledTotal = 0, ledRackTotal = 0;
+    h += `<tr><td class="led-cell">${led}</td>`;
+    panels.forEach(pKey => {
+      const pm = panelMeta[pKey];
+      const cnt = (counts[led] && counts[led][pKey]) || 0;
+      const rack = Math.ceil(cnt / pm.rackSize);
+      ledTotal += cnt; ledRackTotal += rack;
+      if (cnt > 0) {
+        const sub = multiLed
+          ? `<span class="beta-px-sub">랙 ${rack}개 · ${pm.pxFn(sp)}px</span>`
+          : `<span class="beta-px-sub">랙 ${rack}개</span>`;
+        h += `<td>${cnt}ea${sub}</td>`;
+      } else { h += '<td>—</td>'; }
+    });
+    if (multiPanel) { h += `<td class="total-cell">${ledTotal}ea<span class="beta-px-sub">랙 ${ledRackTotal}개</span></td>`; }
+    h += '</tr>';
+  });
+
+  // 합계 행 (LED 종류 2개 이상일 때만)
+  if (multiLed) {
+    let grandTotal = 0, grandRackTotal = 0;
+    h += '<tr class="trow-total"><td>합계</td>';
+    panels.forEach(pKey => {
+      const pm = panelMeta[pKey]; let pTotal = 0, pRack = 0;
+      leds.forEach(led => { const c = (counts[led] && counts[led][pKey]) || 0; pTotal += c; pRack += Math.ceil(c / pm.rackSize); });
+      grandTotal += pTotal; grandRackTotal += pRack;
+      h += `<td class="total-cell">${pTotal}ea<span class="beta-px-sub">랙 ${pRack}개</span></td>`;
+    });
+    if (multiPanel) { h += `<td class="total-cell">${grandTotal}ea<span class="beta-px-sub">랙 ${grandRackTotal}개</span></td>`; }
+    h += '</tr>';
+  }
+  return h + '</tbody></table>';
+}
+
 function betaRenderZoneList() {
   const el = document.getElementById('betaZoneList');
   if (!el) { return; }
@@ -6334,7 +6402,7 @@ function betaRenderZoneList() {
     ? `<div class="beta-res-bar">
         최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>
         <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
-       </div>`
+       </div>${_betaBuildPanelTable()}`
     : '';
   el.innerHTML = State.betaZones.map((z, i) => {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
