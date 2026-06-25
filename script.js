@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.97';
-const APP_SW_VERSION = 'v200';
+const APP_VERSION = '2.0.98';
+const APP_SW_VERSION = 'v201';
 
 const CHANGELOG = [
+  { v: '2.0.98', items: [
+    '랜선 자동할당 _balancedCols 배분 버그 수정 — base < maxEven 시 ceil 올림으로 마지막 포트 누적 방지 (13열÷7포트=1→2열 균등 분배)',
+  ]},
   { v: '2.0.97', items: [
     '파워콘 자동할당 — pxMain 계산 버그 수정: 부동소수점 나눗셈(pitch²) 대신 SPECS 테이블 실제 픽셀 수 사용 (예: 3mm 500×1000mm → 55,556→32,768 보정)',
   ]},
@@ -4431,7 +4434,9 @@ function _balancedCols(total, numPorts, maxRaw, maxEven) {
   const base = Math.floor(total / numPorts);
   let perPort;
   if (base < 2 || base % 2 === 0) {
-    perPort = base;
+    // base < maxEven이면 ceil로 올림 — 마지막 포트에 나머지가 몰리는 버그 방지
+    const ceilBase = Math.ceil(total / numPorts);
+    perPort = (base < 2 && ceilBase <= maxRaw) ? ceilBase : base;
   } else {
     const up = base + 1;
     const lastIfUp = total - up * (numPorts - 1);
