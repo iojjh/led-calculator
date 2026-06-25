@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.100';
-const APP_SW_VERSION = 'v203';
+const APP_VERSION = '2.0.101';
+const APP_SW_VERSION = 'v204';
 
 const CHANGELOG = [
+  { v: '2.0.101', items: [
+    '혼합 시뮬 — 랜선 배선 탭 이름 "랜선 배선"→"배선" 변경, 계산기로 내보내기 버튼 제거',
+  ]},
   { v: '2.0.100', items: [
     '혼합 시뮬 파워콘 자동할당 — 2행(numRows=2) 규칙 세분화: 1포트=오→왼(끝 왼쪽), 2포트=양쪽 끝 중앙 수렴, 3+포트=앞ceil(N/2)그룹 왼→오·나머지 오→왼(끝이 안쪽으로 모임)',
   ]},
@@ -7226,7 +7229,6 @@ function betaRenderLanUI() {
     <div class="beta-lan-btns-row">
       <button class="beta-lan-btn" onclick="${isLan ? 'betaAutoAssign()' : 'betaAutoAssignPwr()'}">자동 할당</button>
       <button class="beta-lan-btn danger" onclick="betaRstAllPorts()">전체 배선 초기화</button>
-      ${isLan ? `<button class="beta-lan-btn export" onclick="betaExportToCalc()">계산기로 내보내기</button>` : ''}
     </div>`;
   }
   if (State.betaSimTab === 'pwr') {
