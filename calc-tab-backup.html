@@ -1,0 +1,130 @@
+<!-- ================================================================
+  계산기 탭 (tab-calc) 백업
+  원본 위치: index.html, 탭 버튼 + tab-page 섹션
+  제거 버전: v2.0.106
+  관련 JS: script.js §5(selConsole/selSending) §10(selLed/selPanel/calc/calcMulti 등)
+           §11(랜선·파워콘 시뮬레이터) §6(PNG 저장·미리보기)
+================================================================ -->
+
+<!-- 탭 버튼 (원래 첫 번째) -->
+<button class="tab-btn on" onclick="swTab('calc',this)">계산기</button>
+
+<!-- 탭 페이지 -->
+<div class="tab-page on" id="tab-calc">
+  <div class="card" id="card-area">
+    <div class="card-header">
+      <div class="stitle mb0">설치 면적</div>
+      <div class="area-mode-toggle">
+        <button class="mode-btn on" id="modeBtn-single" onclick="setAreaMode('single')">단일</button>
+        <button class="mode-btn"    id="modeBtn-multi"  onclick="setAreaMode('multi')">멀티 섹션</button>
+      </div>
+      <button class="sched-btn" onclick="openSchedModal()">일정</button>
+    </div>
+    <!-- 단일 모드 -->
+    <div id="area-single">
+      <div class="row2">
+        <div class="field"><label>가로 (m)</label><input type="number" id="iW" placeholder="예: 4" min="0.5" step="0.5" oninput="calc()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="iH" placeholder="예: 3" min="0.5" step="0.5" oninput="calc()"></div>
+      </div>
+    </div>
+    <!-- 멀티 모드 (좌·중·우) -->
+    <div id="area-multi" style="display:none;">
+      <div class="sec-label-row">좌측</div>
+      <div class="row2 row2--mb">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_L" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="mH_L" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()"></div>
+      </div>
+      <div class="sec-label-row">중앙</div>
+      <div class="row2 row2--mb">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_C" placeholder="예: 4" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field">
+          <label class="label-between">세로 (m)<button class="copy-btn" onclick="syncMultiH()">세로 통일</button></label>
+          <input type="number" id="mH_C" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()">
+        </div>
+      </div>
+      <div class="sec-label-row">우측</div>
+      <div class="row2">
+        <div class="field"><label>가로 (m)</label><input type="number" id="mW_R" placeholder="예: 2" min="0.5" step="0.5" oninput="calcMulti()"></div>
+        <div class="field"><label>세로 (m)</label><input type="number" id="mH_R" placeholder="예: 3" min="0.5" step="0.5" oninput="calcMulti()"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="card-led">
+    <div class="stitle">LED 종류</div>
+    <div class="chip-group" id="ledChips">
+      <button class="chip" data-v="2mm" onclick="selLed(this)">2mm</button>
+      <button class="chip" data-v="3mm" onclick="selLed(this)">3mm</button>
+      <button class="chip" data-v="4mm" onclick="selLed(this)">4mm</button>
+    </div>
+    <div class="stitle mt">기준 패널 사이즈</div>
+    <div class="chip-group" id="panelChips">
+      <button class="chip" data-v="1000" onclick="selPanel(this)">500 × 1000 mm</button>
+      <button class="chip" data-v="500" onclick="selPanel(this)">500 × 500 mm</button>
+    </div>
+    <div id="panelRotateWrap" style="margin-top:6px;">
+      <button class="chip" id="panelRotateBtn" onclick="togglePanelRotate()">↔ 가로 사용 (1000×500)</button>
+    </div>
+  </div>
+  <div class="card" id="card-equip">
+    <div class="stitle">콘솔 &amp; 장비</div>
+    <div class="equip-section">
+      <div class="stitle sm">콘솔 선택</div>
+      <div class="chip-group" id="consoleChips">
+        <button class="chip" data-v="J6" onclick="selConsole(this)">J6</button>
+        <button class="chip" data-v="EC90" onclick="selConsole(this)">EC90</button>
+        <button class="chip" data-v="EC100" onclick="selConsole(this)">EC100</button>
+      </div>
+      <div id="consoleInfo" style="display:none;margin-top:10px;">
+        <div class="info-box">
+          <div class="info-row">
+            <span class="ik">광케이블</span>
+            <div class="iv-note">
+              <span id="cableType" style="font-size:13px;font-weight:500;color:#1a1a1a;min-width:90px;"></span>
+              <input type="number" id="fiberLen" placeholder="길이" min="1">
+              <span class="unit">m</span>
+            </div>
+          </div>
+          <div class="info-row">
+            <span class="ik">리피터</span>
+            <span class="iv" id="repeaterType"></span>
+          </div>
+        </div>
+        <button id="consoleManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
+      </div>
+    </div>
+    <div class="equip-section">
+      <div class="stitle sm">샌딩카드 선택</div>
+      <div class="chip-group" id="sendingChips">
+        <button class="chip" data-v="660pro" onclick="selSending(this)">660 Pro</button>
+        <button class="chip" data-v="4k" onclick="selSending(this)">4K</button>
+      </div>
+      <div id="sendingInfo" style="display:none;margin-top:10px;">
+        <button id="sendingManual" class="manual-link" style="display:none;">사용 메뉴얼 보기 →</button>
+      </div>
+    </div>
+    <div class="equip-section">
+      <div class="stitle sm">분전함 메인선</div>
+      <div class="note-row">
+        <label>길이</label>
+        <input type="number" id="mainLen" placeholder="길이를 입력하세요" min="1">
+        <span class="unit">m</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="card-result">
+    <div class="stitle">계산 결과</div>
+    <div id="resultBody"><div class="hint-text">LED 종류와 패널 사이즈를 선택하세요</div></div>
+  </div>
+  <div class="card" id="card-sim">
+    <div class="stitle">설치 레이아웃 &amp; 배선 시뮬레이터</div>
+    <div id="simArea"><div class="sim-locked">LED 종류와 패널 사이즈를 먼저 선택해주세요</div></div>
+  </div>
+  <div class="card" id="card-memo">
+    <div class="stitle">메모</div>
+    <div id="memoList"></div>
+    <div class="add-row">
+      <input type="text" id="add-memo" placeholder="메모 추가..." onkeydown="if(event.key==='Enter')addMemo()">
+      <button class="add-btn" onclick="addMemo()">추가</button>
+    </div>
+  </div>
+</div>

@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.105';
-const APP_SW_VERSION = 'v208';
+const APP_VERSION = '2.0.106';
+const APP_SW_VERSION = 'v209';
 
 const CHANGELOG = [
+  { v: '2.0.106', items: [
+    '혼합 시뮬β → LED 설계로 탭명 변경, 탭 순서 가장 왼쪽으로 이동, 계산기 탭 제거(calc-tab-backup.html 백업)',
+  ]},
   { v: '2.0.105', items: [
     '업데이트 완료 알람 표시 시간 3.5초→1.75초로 단축, 앱 토스트(_toast)를 전용 appToast 요소로 분리(일정 적용 메시지 오버레이 오동작 수정), 장비 제거 시 확인 팝업 추가',
   ]},
@@ -837,7 +840,9 @@ function attachCLDragEvents() {
     }, { passive: false });
   });
 }
-renderCL(); // 페이지 로드 시 초기 렌더링
+renderCL();
+// beta 탭이 기본 탭이므로 초기 렌더링 및 하단 바 설정
+document.addEventListener('DOMContentLoaded', () => { _updateBarForTab('beta'); betaRender(); });
 
 
 // ── §3  메모 ──────────────────────────────────────────────
@@ -2031,37 +2036,37 @@ function getAppState(name) {
 
 // 저장된 상태 객체를 앱에 복원
 function loadAppState(st) {
-  document.getElementById('iW').value = st.W ?? '';
-  document.getElementById('iH').value = st.H ?? '';
-
-  // 칩 상태 복원
-  document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
-  State.curLed = null; State.basePH = null; State.curSending = null;
-  if (st.curLed) {
-    const el = document.querySelector(`#ledChips .chip[data-v="${st.curLed}"]`);
-    if (el) { el.classList.add('on'); State.curLed = st.curLed; }
+  const _calcEl = id => document.getElementById(id);
+  // 계산기 탭 DOM 복원 (탭이 존재할 때만)
+  if (_calcEl('iW')) {
+    _calcEl('iW').value = st.W ?? '';
+    _calcEl('iH').value = st.H ?? '';
+    document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
+    State.curLed = null; State.basePH = null; State.curSending = null;
+    if (st.curLed) {
+      const el = document.querySelector(`#ledChips .chip[data-v="${st.curLed}"]`);
+      if (el) { el.classList.add('on'); State.curLed = st.curLed; }
+    }
+    if (st.basePH) {
+      const el = document.querySelector(`#panelChips .chip[data-v="${st.basePH}"]`);
+      if (el) { el.classList.add('on'); State.basePH = st.basePH; }
+    }
+    State.panelRotated = !!(st.panelRotated && st.basePH === 1000);
+    const rotBtn = _calcEl('panelRotateBtn');
+    if (rotBtn) { rotBtn.classList.toggle('on', State.panelRotated); }
+    if (_calcEl('consoleInfo')) { _calcEl('consoleInfo').style.display = 'none'; }
+    if (_calcEl('sendingInfo')) { _calcEl('sendingInfo').style.display = 'none'; }
+    if (st.consoleName) {
+      const el = document.querySelector(`#consoleChips .chip[data-v="${st.consoleName}"]`);
+      if (el) { selConsole(el); }
+    }
+    if (_calcEl('fiberLen')) { _calcEl('fiberLen').value = st.fiberLen || ''; }
+    if (st.curSending) {
+      const el = document.querySelector(`#sendingChips .chip[data-v="${st.curSending}"]`);
+      if (el) { selSending(el); }
+    }
+    if (_calcEl('mainLen')) { _calcEl('mainLen').value = st.mainLen || ''; }
   }
-  if (st.basePH) {
-    const el = document.querySelector(`#panelChips .chip[data-v="${st.basePH}"]`);
-    if (el) { el.classList.add('on'); State.basePH = st.basePH; }
-  }
-  State.panelRotated = !!(st.panelRotated && st.basePH === 1000);
-  const rotBtn  = document.getElementById('panelRotateBtn');
-  if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
-
-  // 콘솔·샌딩카드 복원 (selConsole/selSending이 UI도 업데이트)
-  document.getElementById('consoleInfo').style.display = 'none';
-  document.getElementById('sendingInfo').style.display = 'none';
-  if (st.consoleName) {
-    const el = document.querySelector(`#consoleChips .chip[data-v="${st.consoleName}"]`);
-    if (el) { selConsole(el); }
-  }
-  document.getElementById('fiberLen').value = st.fiberLen || '';
-  if (st.curSending) {
-    const el = document.querySelector(`#sendingChips .chip[data-v="${st.curSending}"]`);
-    if (el) { selSending(el); }
-  }
-  document.getElementById('mainLen').value = st.mainLen || '';
 
   // 체크리스트 복원
   if (st.COM) { State.COM = [...st.COM]; }
@@ -2074,48 +2079,47 @@ function loadAppState(st) {
 
   State.memoList = st.memoList || []; renderMemo();
 
-  // 계산 실행 후 포트 할당 복원
-  rst();
-  State.spareAdj = st.spareAdj ? { ...st.spareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
-  if (st.areaMode === 'multi') {
-    // 멀티 모드 복원
-    setAreaMode('multi');
-    ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => {
-      document.getElementById(id).value = st[id] || '';
-    });
-    State.activeSimSec = st.activeSimSec || 'center';
-    if (isReady()) { calcMulti(); }
-    // 구버전 저장(multiPorts)을 새 형식(전역 State.pA 프리픽스 키)으로 마이그레이션
-    if (st.multiPorts && isReady()) {
-      State.pA = Array.from({length:8}, () => new Set());
-      State.pH2 = Array.from({length:8}, () => []);
-      ['left','center','right'].forEach(secName => {
-        const mp = st.multiPorts[secName];
-        if (!mp) { return; }
-        mp.pA.forEach((arr, pi)  => arr.forEach(k => State.pA[pi].add(`${secName}:${k}`)));
-        mp.pH2.forEach((arr, pi) => arr.forEach(k => State.pH2[pi].push(`${secName}:${k}`)));
+  // 계산 실행 후 포트 할당 복원 (계산기 탭이 존재할 때만)
+  if (_calcEl('iW')) {
+    rst();
+    State.spareAdj = st.spareAdj ? { ...st.spareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
+    if (st.areaMode === 'multi') {
+      setAreaMode('multi');
+      ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => {
+        document.getElementById(id).value = st[id] || '';
       });
-      drawCv(); renderPorts(); renderLeg(); renderSum();
-    } else if (st.pA && isReady()) {
-      State.pA = st.pA.map(a => new Set(a));
-      State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
-      drawCv(); renderPorts(); renderLeg(); renderSum();
+      State.activeSimSec = st.activeSimSec || 'center';
+      if (isReady()) { calcMulti(); }
+      if (st.multiPorts && isReady()) {
+        State.pA = Array.from({length:8}, () => new Set());
+        State.pH2 = Array.from({length:8}, () => []);
+        ['left','center','right'].forEach(secName => {
+          const mp = st.multiPorts[secName];
+          if (!mp) { return; }
+          mp.pA.forEach((arr, pi)  => arr.forEach(k => State.pA[pi].add(`${secName}:${k}`)));
+          mp.pH2.forEach((arr, pi) => arr.forEach(k => State.pH2[pi].push(`${secName}:${k}`)));
+        });
+        drawCv(); renderPorts(); renderLeg(); renderSum();
+      } else if (st.pA && isReady()) {
+        State.pA = st.pA.map(a => new Set(a));
+        State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
+        drawCv(); renderPorts(); renderLeg(); renderSum();
+      }
+    } else {
+      if (isReady()) { calc(); }
+      if (st.pA && isReady()) {
+        State.pA = st.pA.map(a => new Set(a));
+        State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
+        drawCv(); renderPorts(); renderLeg(); renderSum();
+      }
     }
-  } else {
-    if (isReady()) { calc(); }
-    if (st.pA && isReady()) {
-      State.pA = st.pA.map(a => new Set(a));
-      State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
-      drawCv(); renderPorts(); renderLeg(); renderSum();
+    if (st.pwrPA && isReady()) {
+      State._savedPwr = {
+        pA: st.pwrPA.map(a => new Set(a)),
+        pH2: (st.pwrPH || st.pwrPA).map(a => [...a]),
+        aPort: 0,
+      };
     }
-  }
-  // 파워콘 배선 복원 (LAN 상태로 복원된 뒤 _savedPwr에 저장)
-  if (st.pwrPA && isReady()) {
-    State._savedPwr = {
-      pA: st.pwrPA.map(a => new Set(a)),
-      pH2: (st.pwrPH || st.pwrPA).map(a => [...a]),
-      aPort: 0,
-    };
   }
   // 혼합 시뮬레이터 β 복원
   if (st.betaZones) {
