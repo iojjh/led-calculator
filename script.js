@@ -20,10 +20,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.88';
-const APP_SW_VERSION = 'v191';
+const APP_VERSION = '2.0.89';
+const APP_SW_VERSION = 'v192';
 
 const CHANGELOG = [
+  { v: '2.0.89', items: [
+    '혼합 시뮬 파워콘 배선 탭 추가 — 18포트, 자동할당(2열씩), 탭 전환(랜선↔파워콘)',
+    '혼합 시뮬 샌딩카드 커버 가능 체크 — 660Pro/4K 1대·2대 Hz별 표시',
+    '혼합 시뮬 랜선/파워콘 케이블 수량 통합 표시 (예비 조정 포함)',
+  ] },
   { v: '2.0.88', items: [
     '혼합 시뮬 가이드 이미지 저장 전 미리보기 팝업 추가',
     '혼합 시뮬 구역 생성 시 500×1000·1000×500 패널 남는 격자 자동 500×500 채움',
@@ -592,10 +597,14 @@ const State = {
   betaAreaH:    0,
   betaZones:    [],
   betaMode:     'edit',
+  betaSimTab:   'lan',
   betaPorts:    Array.from({ length: 16 }, () => new Set()),
   betaPH2:      Array.from({ length: 16 }, () => []),
   betaAPort:    0,
-  betaSpareAdj: { l1: 2, sl: 20 },
+  betaPwrPorts: Array.from({ length: 18 }, () => new Set()),
+  betaPwrPH2:   Array.from({ length: 18 }, () => []),
+  betaPwrAPort: 0,
+  betaSpareAdj: { l1: 2, sl: 20, c1: 2, sp: 20 },
   _betaDragSt:  null,
   _betaDragCur: null,
   _betaSelNew:  null,
@@ -1960,6 +1969,10 @@ function getAppState(name) {
     betaPorts:    State.betaPorts.map(s => [...s]),
     betaPH2:      State.betaPH2.map(a => [...a]),
     betaAPort:    State.betaAPort,
+    betaSimTab:   State.betaSimTab,
+    betaPwrPorts: State.betaPwrPorts.map(s => [...s]),
+    betaPwrPH2:   State.betaPwrPH2.map(a => [...a]),
+    betaPwrAPort: State.betaPwrAPort,
     betaSpareAdj: { ...State.betaSpareAdj },
     lanExpanded:  State.lanExpanded,
     betaImport:   State.betaImport || null,
@@ -2063,7 +2076,11 @@ function loadAppState(st) {
     State.betaPorts    = st.betaPorts ? st.betaPorts.map(a => new Set(a)) : Array.from({ length: 16 }, () => new Set());
     State.betaPH2      = st.betaPH2   ? st.betaPH2.map(a => [...a])       : Array.from({ length: 16 }, () => []);
     State.betaAPort    = st.betaAPort || 0;
-    State.betaSpareAdj = st.betaSpareAdj ? { ...st.betaSpareAdj } : { l1: 2, sl: 20 };
+    State.betaSimTab   = st.betaSimTab || 'lan';
+    State.betaPwrPorts = st.betaPwrPorts ? st.betaPwrPorts.map(a => new Set(a)) : Array.from({ length: 18 }, () => new Set());
+    State.betaPwrPH2   = st.betaPwrPH2   ? st.betaPwrPH2.map(a => [...a])       : Array.from({ length: 18 }, () => []);
+    State.betaPwrAPort = st.betaPwrAPort || 0;
+    State.betaSpareAdj = st.betaSpareAdj ? { l1: 2, sl: 20, c1: 2, sp: 20, ...st.betaSpareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
     State._betaCache   = null;
   }
   State.lanExpanded = !!(st.lanExpanded);
@@ -6018,6 +6035,33 @@ function _betaPxOf(pi) {
 function _betaOwner(key) {
   return State.betaPorts.findIndex(s => s.has(key));
 }
+function _betaPwrOwner(key) {
+  return State.betaPwrPorts.findIndex(s => s.has(key));
+}
+
+// ── 탭 공통 포트 헬퍼 (lan/pwr 분기) ──
+function _betaSimPorts()    { return State.betaSimTab === 'pwr' ? State.betaPwrPorts : State.betaPorts; }
+function _betaSimPH2()      { return State.betaSimTab === 'pwr' ? State.betaPwrPH2   : State.betaPH2; }
+function _betaSimAPort()    { return State.betaSimTab === 'pwr' ? State.betaPwrAPort : State.betaAPort; }
+function _betaSetAPort(i)   { if (State.betaSimTab === 'pwr') { State.betaPwrAPort = i; } else { State.betaAPort = i; } }
+function _betaSimOwner(key) { return State.betaSimTab === 'pwr' ? _betaPwrOwner(key) : _betaOwner(key); }
+function _betaSimAssign(pi, key) {
+  const ports = _betaSimPorts(), ph2 = _betaSimPH2();
+  if (ports[pi].has(key)) { return; }
+  ports[pi].add(key); ph2[pi].push(key);
+}
+function _betaSimDeassign(pi, key) {
+  const ports = _betaSimPorts(), ph2 = _betaSimPH2();
+  ports[pi].delete(key);
+  const idx = ph2[pi].indexOf(key); if (idx >= 0) { ph2[pi].splice(idx, 1); }
+}
+function _betaSimDraw()        { if (State.betaSimTab === 'pwr') { betaDrawPwr(); } else { betaDrawLan(); } }
+function _betaSimRenderPorts() { if (State.betaSimTab === 'pwr') { betaRenderPwrPorts(); } else { betaRenderPorts(); } }
+function _betaNextSimEmpty()   {
+  const ports = _betaSimPorts();
+  for (let i = 0; i < ports.length; i++) { if (ports[i].size === 0) { return i; } }
+  return _betaSimAPort();
+}
 
 function _betaPanelCx(p) { return (p.x + p.w / 2) * _betaSc(); }
 function _betaPanelCy(p) { return (p.y + p.h / 2) * _betaSc(); }
@@ -6083,7 +6127,7 @@ function betaRender() {
     document.getElementById('betaZoneCfg').style.display = 'none';
     document.getElementById('betaLanUI').style.display = '';
     betaAttachLanEv();
-    betaDrawLan();
+    _betaSimDraw();
     betaRenderLanUI();
   }
 }
@@ -6402,6 +6446,38 @@ function _betaBuildPanelTable() {
   return h + '</tbody></table>';
 }
 
+function setBetaSpare(k, v) {
+  State.betaSpareAdj[k] = Math.max(0, parseInt(v) || 0);
+  betaRenderSum();
+  saveState();
+}
+
+function _betaBuildSendingHtml(tW, tH) {
+  const cards = [
+    { label: '660 Pro', count: 2, modes: [
+      { hz: 60, maxW: 1920, maxH: 1200 },
+      { hz: 30, maxW: 2560, maxH: 1600 },
+    ]},
+    { label: '4K', count: 2, modes: [
+      { hz: 60, maxW: 3840, maxH: 2160 },
+    ]},
+  ];
+  let h = '<div class="beta-send-block">';
+  for (const card of cards) {
+    h += `<div class="beta-send-row"><span class="beta-send-name">${card.label}</span>`;
+    for (const m of card.modes) {
+      const single = tW <= m.maxW && tH <= m.maxH;
+      const dual   = !single && ((tW <= m.maxW * 2 && tH <= m.maxH) || (tW <= m.maxW && tH <= m.maxH * 2));
+      const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
+      const txt = single ? `1대 @${m.hz}Hz ✓` : dual ? `2대 @${m.hz}Hz ✓` : `@${m.hz}Hz ✗`;
+      h += `<span class="beta-send-badge ${cls}">${txt}</span>`;
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
 function betaRenderZoneList() {
   const el = document.getElementById('betaZoneList');
   if (!el) { return; }
@@ -6415,7 +6491,7 @@ function betaRenderZoneList() {
     ? `<div class="beta-res-bar">
         최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>
         <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
-       </div>${_betaBuildPanelTable()}`
+       </div>${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}`
     : '';
   el.innerHTML = State.betaZones.map((z, i) => {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
@@ -6784,6 +6860,101 @@ function betaDrawLan() {
   });
 }
 
+// ─ PWR 캔버스 ─
+
+function betaDrawPwr() {
+  const cv = document.getElementById('betaCanvas');
+  if (!cv) { return; }
+  const ctx = cv.getContext('2d');
+  const sc  = _betaSc();
+  const panels = _betaAllPanels();
+  const curPi  = State.betaPwrAPort;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  ctx.fillStyle = '#1e1e2e';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  const gW = _betaGW(), gH = _betaGH();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 0.5;
+  for (let c = 0; c <= gW; c++) {
+    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
+  }
+  for (let r = 0; r <= gH; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
+  }
+
+  panels.forEach(p => {
+    const pi = _betaPwrOwner(p.key);
+    const px = p.x * sc, py = p.y * sc, pw = p.w * sc, ph = p.h * sc;
+    const lk  = pi >= 0 && pi !== curPi;
+    const hov = State._betaLanDrag && State._betaLanDHov === p.key && pi < 0;
+
+    ctx.fillStyle = pi >= 0 ? portColor(pi) + (lk ? '55' : '99') : '#4a6858';
+    ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
+    if (hov) { ctx.fillStyle = portColor(curPi) + '44'; ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2); }
+    ctx.strokeStyle = pi >= 0 ? portColor(pi) : '#3a8c6a';
+    ctx.lineWidth   = pi >= 0 ? 1.5 : 0.5;
+    ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+    if (lk) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(px + 1, py + 1, pw - 2, ph - 2); ctx.clip();
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
+      for (let d = -ph; d < pw + ph; d += 6) {
+        ctx.beginPath(); ctx.moveTo(px + d, py + 1); ctx.lineTo(px + d + ph, py + ph); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if (!State._betaLanDrag && State._betaFCell === p.key) {
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
+      ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
+    }
+  });
+
+  // 포트 레이블
+  panels.forEach(p => {
+    const pi = _betaPwrOwner(p.key);
+    if (pi < 0) { return; }
+    const px = p.x * sc, py = p.y * sc, pw = p.w * sc, ph = p.h * sc;
+    if (pw < 20) { return; }
+    const fs = Math.max(6, Math.min(12, pw - 8));
+    ctx.font = `700 ${fs}px sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeText('P' + (pi + 1), px + 4, py + 4);
+    ctx.fillStyle = (pi !== curPi) ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.97)';
+    ctx.fillText('P' + (pi + 1), px + 4, py + 4);
+    ctx.textBaseline = 'alphabetic';
+  });
+}
+
+function betaRenderPwrPorts() {
+  const el = document.getElementById('betaPortRow');
+  if (!el) { return; }
+  const pi  = State.betaPwrAPort;
+  let html  = '<div class="beta-port-strip">';
+  for (let i = 0; i < 18; i++) {
+    const sz  = State.betaPwrPorts[i].size;
+    const on  = i === pi;
+    const has = sz > 0;
+    const _bc = portColor(i);
+    html += `<button class="beta-port-btn${on ? ' sel' : ''}${has ? ' has-data' : ''}"
+      style="${on ? `background:${_bc};border-color:${_bc};` : `border-color:${_bc};color:${_bc};`}"
+      onclick="State.betaPwrAPort=${i};betaDrawPwr();betaRenderPwrPorts()">P${i + 1}</button>`;
+  }
+  html += '</div>';
+  const sz   = State.betaPwrPorts[pi].size;
+  const _apc = portColor(pi);
+  html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
+    <span style="font-size:13px;color:#333;">${sz}장</span>
+    ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
+  </div>
+  <div style="margin-top:4px;">
+    <button class="beta-rst-port-btn" onclick="betaRstPwrPort(${pi})">포트 ${pi + 1} 초기화</button>
+  </div>`;
+  el.innerHTML = html;
+}
+
 // ─ LAN UI ─
 
 function betaExportToCalc() {
@@ -6921,16 +7092,31 @@ function betaExportToCalc() {
   _toast('혼합 시뮬 데이터를 계산기에 적용했습니다.');
 }
 
+function betaSetSimTab(tab) {
+  State.betaSimTab = tab;
+  _betaSimDraw();
+  betaRenderLanUI();
+}
+
 function betaRenderLanUI() {
   const el = document.getElementById('betaLanBtns');
   if (el) {
-    el.innerHTML = `<div class="beta-lan-btns-row">
-      <button class="beta-lan-btn" onclick="betaAutoAssign()">자동 할당</button>
+    const isLan = State.betaSimTab !== 'pwr';
+    el.innerHTML = `<div class="beta-lan-tabs">
+      <button class="beta-lan-tab${isLan ? ' on' : ''}" onclick="betaSetSimTab('lan')">랜선</button>
+      <button class="beta-lan-tab${!isLan ? ' on' : ''}" onclick="betaSetSimTab('pwr')">파워콘</button>
+    </div>
+    <div class="beta-lan-btns-row">
+      <button class="beta-lan-btn" onclick="${isLan ? 'betaAutoAssign()' : 'betaAutoAssignPwr()'}">자동 할당</button>
       <button class="beta-lan-btn danger" onclick="betaRstAllPorts()">전체 배선 초기화</button>
-      <button class="beta-lan-btn export" onclick="betaExportToCalc()">계산기로 내보내기</button>
+      ${isLan ? `<button class="beta-lan-btn export" onclick="betaExportToCalc()">계산기로 내보내기</button>` : ''}
     </div>`;
   }
-  betaRenderPorts();
+  if (State.betaSimTab === 'pwr') {
+    betaRenderPwrPorts();
+  } else {
+    betaRenderPorts();
+  }
   betaRenderSum();
   betaRenderLeg();
 }
@@ -6976,10 +7162,44 @@ function betaRenderSum() {
   const ports  = State.betaPorts;
   const active = ports.filter(s => s.size > 0).length;
   const l1 = active * 2 + State.betaSpareAdj.l1;
-  const sl = ports.reduce((acc, s) => acc + Math.max(0, s.size - 1), 0) + State.betaSpareAdj.sl;
-  el.innerHTML = `<div class="beta-sum-row">
-    1번 랜: <strong>${l1}개</strong>&nbsp; 숏랜: <strong>${sl}개</strong>
-    <span class="beta-spare-label">(예비 포함)</span>
+  const slNet = ports.reduce((acc, s) => acc + Math.max(0, s.size - 1), 0);
+  const sl = slNet + State.betaSpareAdj.sl;
+  const pwrActive = State.betaPwrPorts.filter(s => s.size > 0).length;
+  const c1 = pwrActive + State.betaSpareAdj.c1;
+  const spNet = State.betaPwrPorts.reduce((acc, s) => acc + Math.max(0, s.size - 1), 0);
+  const sp = spNet + State.betaSpareAdj.sp;
+  const si = (k, v) => `<input class="spare-inp" type="number" min="0" value="${v}" oninput="setBetaSpare('${k}',this.value)">`;
+  el.innerHTML = `<div class="beta-sum-block">
+    <div class="beta-sum-section lan">
+      <div class="beta-sum-title">랜선</div>
+      <div class="beta-sum-cards">
+        <div class="beta-sum-card">
+          <div class="beta-sum-lbl">1번 랜</div>
+          <div class="beta-sum-val">${l1}개</div>
+          <div class="beta-sum-note">메인·백업 ${active * 2} + 여유 ${si('l1', State.betaSpareAdj.l1)}</div>
+        </div>
+        <div class="beta-sum-card">
+          <div class="beta-sum-lbl">숏랜</div>
+          <div class="beta-sum-val">${sl}개</div>
+          <div class="beta-sum-note">필요 ${slNet} + 여유 ${si('sl', State.betaSpareAdj.sl)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="beta-sum-section pwr">
+      <div class="beta-sum-title">파워콘</div>
+      <div class="beta-sum-cards">
+        <div class="beta-sum-card">
+          <div class="beta-sum-lbl">1번 파워</div>
+          <div class="beta-sum-val">${c1}개</div>
+          <div class="beta-sum-note">필요 ${pwrActive} + 여유 ${si('c1', State.betaSpareAdj.c1)}</div>
+        </div>
+        <div class="beta-sum-card">
+          <div class="beta-sum-lbl">숏파워</div>
+          <div class="beta-sum-val">${sp}개</div>
+          <div class="beta-sum-note">필요 ${spNet} + 여유 ${si('sp', State.betaSpareAdj.sp)}</div>
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -7013,13 +7233,28 @@ function betaRstPort(pi) {
   betaDrawLan(); betaRenderPorts(); betaRenderSum(); saveState();
 }
 
+function betaRstPwrPort(pi) {
+  State.betaPwrPorts[pi] = new Set();
+  State.betaPwrPH2[pi]   = [];
+  betaDrawPwr(); betaRenderPwrPorts(); betaRenderSum(); saveState();
+}
+
 function betaRstAllPorts() {
-  openConfirm('배선 초기화', '모든 포트 배선을 초기화할까요?', () => {
-    State.betaPorts = Array.from({ length: 16 }, () => new Set());
-    State.betaPH2   = Array.from({ length: 16 }, () => []);
-    State.betaAPort = 0;
-    betaDrawLan(); betaRenderLanUI(); saveState();
-  });
+  if (State.betaSimTab === 'pwr') {
+    openConfirm('파워콘 배선 초기화', '모든 파워콘 배선을 초기화할까요?', () => {
+      State.betaPwrPorts = Array.from({ length: 18 }, () => new Set());
+      State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
+      State.betaPwrAPort = 0;
+      betaDrawPwr(); betaRenderLanUI(); saveState();
+    });
+  } else {
+    openConfirm('배선 초기화', '모든 포트 배선을 초기화할까요?', () => {
+      State.betaPorts = Array.from({ length: 16 }, () => new Set());
+      State.betaPH2   = Array.from({ length: 16 }, () => []);
+      State.betaAPort = 0;
+      betaDrawLan(); betaRenderLanUI(); saveState();
+    });
+  }
 }
 
 function betaReset() {
@@ -7029,6 +7264,9 @@ function betaReset() {
     State.betaPorts    = Array.from({ length: 16 }, () => new Set());
     State.betaPH2      = Array.from({ length: 16 }, () => []);
     State.betaAPort    = 0;
+    State.betaPwrPorts = Array.from({ length: 18 }, () => new Set());
+    State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
+    State.betaPwrAPort = 0;
     State._betaSelNew  = null; State._betaSelEdit = null;
     betaRender(); saveState();
   });
@@ -7099,7 +7337,29 @@ function betaAutoAssign() {
   betaDrawLan(); betaRenderLanUI(); saveState();
 }
 
-// ─ LAN 모드 이벤트 ─
+function betaAutoAssignPwr() {
+  State.betaPwrPorts = Array.from({ length: 18 }, () => new Set());
+  State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
+  State.betaPwrAPort = 0;
+  const panels = _betaAllPanels();
+  const pairMap = new Map();
+  panels.forEach(p => {
+    const startCol = Math.round(p.x / 500);
+    const pairIdx  = Math.floor(startCol / 2);
+    if (!pairMap.has(pairIdx)) { pairMap.set(pairIdx, []); }
+    pairMap.get(pairIdx).push(p);
+  });
+  [...pairMap.keys()].sort((a, b) => a - b).forEach((pairIdx, i) => {
+    if (i >= 18) { return; }
+    pairMap.get(pairIdx).forEach(p => {
+      State.betaPwrPorts[i].add(p.key);
+      State.betaPwrPH2[i].push(p.key);
+    });
+  });
+  betaDrawPwr(); betaRenderLanUI(); saveState();
+}
+
+// ─ LAN/PWR 모드 이벤트 ─
 
 function betaAttachLanEv() {
   const cv = document.getElementById('betaCanvas');
@@ -7128,7 +7388,7 @@ function betaAttachLanEv() {
   function cl() {
     clearTimeout(lpT); lpT = null;
     State._betaLanDrag = false; State._betaLanDStk = []; State._betaLanDHov = null;
-    betaDrawLan();
+    _betaSimDraw();
   }
 
   function onDown(e) {
@@ -7140,17 +7400,16 @@ function betaAttachLanEv() {
     State._betaFCell   = panel.key;
     State._betaLanDrag = false;
     lpT = setTimeout(() => {
-      const own = _betaOwner(panel.key);
-      // 이미 할당된 셀이면 해당 포트로 전환, 비어있으면 다음 빈 포트 자동 선택
-      State.betaAPort = own >= 0 ? own : _betaNextEmpty();
+      const own = _betaSimOwner(panel.key);
+      _betaSetAPort(own >= 0 ? own : _betaNextSimEmpty());
       State._betaLanDrag = true;
       State._betaLanDStk = [panel.key];
       State._betaLanDHov = panel.key;
       if (own < 0) {
-        betaAssign(State.betaAPort, panel.key);
+        _betaSimAssign(_betaSimAPort(), panel.key);
         if (navigator.vibrate) { navigator.vibrate(15); }
       }
-      betaDrawLan(); betaRenderPorts();
+      _betaSimDraw(); _betaSimRenderPorts();
     }, e.touches ? LP_TOUCH : LP_MS);
   }
 
@@ -7160,28 +7419,27 @@ function betaAttachLanEv() {
     const { x, y } = getXY(e);
     const panel = _betaPanelAt(x, y);
     State._betaLanDHov = panel ? panel.key : null;
-    if (!panel) { betaDrawLan(); return; }
+    if (!panel) { _betaSimDraw(); return; }
     const stk = State._betaLanDStk;
-    // 역방향 → 마지막 해제
     if (stk.length >= 2 && stk[stk.length - 2] === panel.key) {
       const last = stk[stk.length - 1];
-      if (State.betaPorts[State.betaAPort].has(last)) {
-        betaDeassign(State.betaAPort, last);
+      if (_betaSimPorts()[_betaSimAPort()].has(last)) {
+        _betaSimDeassign(_betaSimAPort(), last);
         if (navigator.vibrate) { navigator.vibrate(25); }
       }
       stk.pop();
-      betaDrawLan(); betaRenderPorts();
+      _betaSimDraw(); _betaSimRenderPorts();
       return;
     }
     if (stk[stk.length - 1] !== panel.key) {
-      const own = _betaOwner(panel.key);
-      if (own >= 0 && own !== State.betaAPort) { betaDrawLan(); return; }
-      if (!State.betaPorts[State.betaAPort].has(panel.key)) {
-        betaAssign(State.betaAPort, panel.key);
+      const own = _betaSimOwner(panel.key);
+      if (own >= 0 && own !== _betaSimAPort()) { _betaSimDraw(); return; }
+      if (!_betaSimPorts()[_betaSimAPort()].has(panel.key)) {
+        _betaSimAssign(_betaSimAPort(), panel.key);
         if (navigator.vibrate) { navigator.vibrate(15); }
       }
       stk.push(panel.key);
-      betaDrawLan(); betaRenderPorts();
+      _betaSimDraw(); _betaSimRenderPorts();
     }
   }
 
@@ -7190,10 +7448,9 @@ function betaAttachLanEv() {
     clearTimeout(lpT); lpT = null;
     if (State._betaLanDrag) {
       State._betaLanDrag = false; State._betaLanDStk = []; State._betaLanDHov = null;
-      betaDrawLan(); betaRenderPorts(); betaRenderSum(); saveState();
+      _betaSimDraw(); _betaSimRenderPorts(); betaRenderSum(); saveState();
       return;
     }
-    // 단순 탭 (changedTouches도 mm 변환)
     const bcr2 = ncv.getBoundingClientRect();
     const scX2 = State.betaAreaW / (bcr2.width  || State.betaAreaW);
     const scY2 = State.betaAreaH / (bcr2.height || State.betaAreaH);
@@ -7202,17 +7459,17 @@ function betaAttachLanEv() {
       : getXY(e);
     const panel = _betaPanelAt(pt.x, pt.y);
     if (panel) {
-      const pi  = State.betaAPort;
-      const own = _betaOwner(panel.key);
+      const pi  = _betaSimAPort();
+      const own = _betaSimOwner(panel.key);
       if (own === pi) {
-        betaDeassign(pi, panel.key);
+        _betaSimDeassign(pi, panel.key);
         if (navigator.vibrate) { navigator.vibrate(25); }
       } else if (own < 0) {
-        betaAssign(pi, panel.key);
+        _betaSimAssign(pi, panel.key);
         if (navigator.vibrate) { navigator.vibrate(15); }
       }
       State._betaFCell = panel.key;
-      betaDrawLan(); betaRenderPorts();
+      _betaSimDraw(); _betaSimRenderPorts();
     }
     State._betaLanDrag = false; State._betaLanDStk = []; State._betaLanDHov = null;
     betaRenderSum(); saveState();
