@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.106';
-const APP_SW_VERSION = 'v209';
+const APP_VERSION = '2.1.0';
+const APP_SW_VERSION = 'v210';
 
 const CHANGELOG = [
+  { v: '2.1.0', items: [
+    '버전 2.1.0 — LED 설계 탭 중심 UI로 전환 완료',
+  ]},
   { v: '2.0.106', items: [
     '혼합 시뮬β → LED 설계로 탭명 변경, 탭 순서 가장 왼쪽으로 이동, 계산기 탭 제거(calc-tab-backup.html 백업)',
   ]},
