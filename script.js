@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.101';
-const APP_SW_VERSION = 'v204';
+const APP_VERSION = '2.0.102';
+const APP_SW_VERSION = 'v205';
 
 const CHANGELOG = [
+  { v: '2.0.102', items: [
+    '혼합 시뮬 일정 기능 이식 — 하단 바 "일정" 버튼 추가, 일정 불러오면 설치면적+단일 구역 자동 생성(기본 500×1000mm), 배선 탭 전환 시 랜선·파워콘 자동할당',
+  ]},
   { v: '2.0.101', items: [
     '혼합 시뮬 — 랜선 배선 탭 이름 "랜선 배선"→"배선" 변경, 계산기로 내보내기 버튼 제거',
   ]},
@@ -876,9 +879,9 @@ function _updateBarForTab(id) {
   } else if (id === 'beta') {
     btnReset.onclick = betaReset;
     btnReset.title = '혼합 시뮬 초기화';
-    btnMain.textContent = '혼합 시뮬β';
-    btnMain.onclick = null;
-    btnMain.disabled = true;
+    btnMain.textContent = '일정';
+    btnMain.onclick = () => openSchedModal('beta');
+    btnMain.disabled = false;
   } else {
     btnReset.onclick = tryResetAll;
     btnReset.title = '전체 초기화';
@@ -5623,9 +5626,11 @@ function vmixFullReset() {
 const _SCHED_ICS_URL = 'https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/cfc7d81d-4e85-4980-8652-3a1ecc64867d/cid-610EC8FF2A0B2E95/calendar.ics';
 
 let _schedEvents = [];
-let _schedTab = 'upcoming';
+let _schedTab    = 'upcoming';
+let _schedTarget = 'calc'; // 'calc' | 'beta'
 
-function openSchedModal() {
+function openSchedModal(target) {
+  _schedTarget = target || 'calc';
   document.getElementById('schedBg').style.display = 'flex';
   history.pushState({ overlay: 'sched' }, '');
   _schedRender();
@@ -5747,21 +5752,31 @@ function _schedSelectEvent(idx) {
   const text = (ev.subject || '') + '\n' + (ev.bodyPreview || '').trim();
   try {
     const parsed = _schedParseText(text);
-    _schedApplyParsed(parsed);
-    closeSchedModal();
-    const pitchStr = parsed.pitch ? parsed.pitch + 'mm' : null;
-    let areaStr;
-    if (parsed.mode === 'multi') {
-      const ap = [];
-      if (parsed.center) { ap.push('중앙 ' + parsed.center.w + '×' + parsed.center.h + 'm'); }
-      if (parsed.left)   { ap.push('좌우 ' + parsed.left.w   + '×' + parsed.left.h   + 'm'); }
-      areaStr = ap.join(' ');
-    } else {
-      areaStr = (parsed.width != null && parsed.height != null)
+    if (_schedTarget === 'beta') {
+      _schedApplyParsedBeta(parsed);
+      closeSchedModal();
+      const pitchStr = parsed.pitch ? parsed.pitch + 'mm' : null;
+      const areaStr  = (parsed.width != null && parsed.height != null)
         ? parsed.width + '×' + parsed.height + 'm' : null;
+      const parts = [pitchStr, areaStr].filter(Boolean);
+      _toast(parts.length ? '혼합 시뮬 적용됨: ' + parts.join(' · ') : '혼합 시뮬 적용됨 (면적 정보 없음)');
+    } else {
+      _schedApplyParsed(parsed);
+      closeSchedModal();
+      const pitchStr = parsed.pitch ? parsed.pitch + 'mm' : null;
+      let areaStr;
+      if (parsed.mode === 'multi') {
+        const ap = [];
+        if (parsed.center) { ap.push('중앙 ' + parsed.center.w + '×' + parsed.center.h + 'm'); }
+        if (parsed.left)   { ap.push('좌우 ' + parsed.left.w   + '×' + parsed.left.h   + 'm'); }
+        areaStr = ap.join(' ');
+      } else {
+        areaStr = (parsed.width != null && parsed.height != null)
+          ? parsed.width + '×' + parsed.height + 'm' : null;
+      }
+      const parts = [pitchStr, areaStr].filter(Boolean);
+      _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (면적 정보 없음)');
     }
-    const parts = [pitchStr, areaStr].filter(Boolean);
-    _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (면적 정보 없음)');
   } catch (e) {
     const body = document.getElementById('sched-body');
     body.innerHTML = `<div class="sched-hint">${_se(e.message)}</div>
@@ -5877,6 +5892,29 @@ function _schedApplyParsed(parsed) {
     rst();
     calc();
   }
+  saveState();
+}
+
+function _schedApplyParsedBeta(parsed) {
+  if (parsed.width == null || parsed.height == null) {
+    throw new Error('면적 정보가 없습니다. (예: 3mm 6×2.5)');
+  }
+  const gridCols = Math.round(parsed.width  * 1000 / 500);
+  const gridRows = Math.round(parsed.height * 1000 / 500);
+  const led      = parsed.pitch ? parsed.pitch + 'mm' : '3mm';
+  const panelH   = parsed.pitch === 2 ? 500 : 1000;
+  State.betaAreaW    = gridCols * 500;
+  State.betaAreaH    = gridRows * 500;
+  State.betaZones    = [{ id: Date.now(), startRow: 0, startCol: 0, rows: gridRows, cols: gridCols, led, panelW: 500, panelH }];
+  State._betaCache   = null;
+  State.betaMode     = 'edit';
+  State.betaPorts    = Array.from({ length: 16 }, () => new Set());
+  State.betaPH2      = Array.from({ length: 16 }, () => []);
+  State.betaAPort    = 0;
+  State.betaPwrPorts = Array.from({ length: 18 }, () => new Set());
+  State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
+  State.betaPwrAPort = 0;
+  betaRender();
   saveState();
 }
 
@@ -6127,9 +6165,15 @@ function betaApplyArea() {
 
 function betaSetMode(m) {
   if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
+  const wasEdit = State.betaMode === 'edit';
   if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
   State.betaMode = m;
   betaRender();
+  if (m === 'lan' && wasEdit) {
+    betaAutoAssign();
+    betaAutoAssignPwr();
+    _betaSimDraw();
+  }
 }
 
 function betaRender() {
