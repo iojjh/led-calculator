@@ -20,10 +20,16 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.87';
-const APP_SW_VERSION = 'v190';
+const APP_VERSION = '2.0.88';
+const APP_SW_VERSION = 'v191';
 
 const CHANGELOG = [
+  { v: '2.0.88', items: [
+    '혼합 시뮬 가이드 이미지 저장 전 미리보기 팝업 추가',
+    '혼합 시뮬 구역 생성 시 500×1000·1000×500 패널 남는 격자 자동 500×500 채움',
+    '혼합 시뮬 탭 저장 불러오기 후 즉시 화면 반영',
+    '혼합 시뮬 구역 텍스트(z번호·LED·패널사이즈) 흰 글씨 + 검정 아웃라인',
+  ] },
   { v: '2.0.87', items: ['패널 집계 표 LED 셀 중앙정렬 수정'] },
   { v: '2.0.86', items: ['혼합 시뮬 구역편집 탭: 최종 해상도 아래 패널 집계 표 추가 — LED×패널사이즈 교차표, 단일 행·열이면 합계 생략'] },
   { v: '2.0.85', items: ['혼합 시뮬 구역 텍스트: LED종류·패널사이즈 정중앙 2줄 중앙정렬'] },
@@ -2093,7 +2099,11 @@ function saveState() {
 }
 function loadState(idx) {
   const saves = JSON.parse(localStorage.getItem('ledCalcSaves') || '[]');
-  if (saves[idx]) { loadAppState(saves[idx]); closeSaveModal(); }
+  if (saves[idx]) {
+    loadAppState(saves[idx]);
+    closeSaveModal();
+    if (document.getElementById('tab-beta')?.classList.contains('on')) { betaRender(); }
+  }
 }
 function deleteState(idx) {
   const saves = JSON.parse(localStorage.getItem('ledCalcSaves') || '[]');
@@ -6122,16 +6132,19 @@ function betaDrawEdit() {
     // Zone 외곽선
     ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
     ctx.strokeRect(zx + 1, zy + 1, zw - 2, zh - 2);
-    // Zone 정보 텍스트 (검정, 두 줄, 좌상단) + 번호 (우상단)
+    // Zone 정보 텍스트 (흰 글씨 + 검정 아웃라인) + 번호
     const fs = Math.max(9, Math.min(14, 500 * sc * 0.22));
     const pad = Math.max(3, Math.round(fs * 0.5));
     ctx.font = `700 ${fs}px sans-serif`;
-    ctx.fillStyle = '#111';
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, fs * 0.3); ctx.strokeStyle = 'rgba(0,0,0,0.85)';
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    ctx.fillText(`z${zi + 1}`, zx + zw - pad, zy + pad);
+    ctx.strokeText(`z${zi + 1}`, zx + zw - pad, zy + pad);
+    ctx.fillStyle = '#fff'; ctx.fillText(`z${zi + 1}`, zx + zw - pad, zy + pad);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const midY = zy + zh / 2;
+    ctx.strokeText(zone.led, zx + zw / 2, midY - fs * 0.7);
     ctx.fillText(zone.led, zx + zw / 2, midY - fs * 0.7);
+    ctx.strokeText(`${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, midY + fs * 0.7);
     ctx.fillText(`${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, midY + fs * 0.7);
     ctx.textBaseline = 'alphabetic';
   });
@@ -6319,8 +6332,7 @@ function betaSaveGuideImage() {
   });
 
   const url = cv.toDataURL('image/png');
-  const a = document.createElement('a'); a.href = url;
-  a.download = `guide_${res.w}x${res.h}.png`; a.click();
+  showResPreview(url, null, `guide_${res.w}x${res.h}.png`);
 }
 
 function _betaBuildPanelTable() {
@@ -6516,6 +6528,16 @@ function betaCfgApply() {
   } else {
     if (_betaOverlaps(startR, startC, rows, cols, null)) { _toast('다른 구역과 겹칩니다.'); return; }
     State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC, rows, cols, led, panelW: pw, panelH: ph });
+    // 남는 500×500 격자 자동 채움 (500×1000 또는 1000×500 패널)
+    const spanC = pw / 500, spanR = ph / 500;
+    const leftR = rows % spanR;
+    const leftC = cols % spanC;
+    if (leftR > 0) {
+      State.betaZones.push({ id: _betaZid(), startRow: startR + rows - leftR, startCol: startC, rows: leftR, cols, led, panelW: 500, panelH: 500 });
+    }
+    if (leftC > 0) {
+      State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC + cols - leftC, rows, cols: leftC, led, panelW: 500, panelH: 500 });
+    }
   }
 
   State._betaSelNew  = null;
