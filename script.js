@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.95';
-const APP_SW_VERSION = 'v198';
+const APP_VERSION = '2.0.96';
+const APP_SW_VERSION = 'v199';
 
 const CHANGELOG = [
+  { v: '2.0.96', items: [
+    '파워콘 자동할당 — 3행 이상 구역 colsPerPort 계산 Math.floor→Math.round: 6행 구역도 2열 묶음 가능',
+  ]},
   { v: '2.0.95', items: [
     '파워콘 자동할당 — 2행 이하 구역 다중포트: 시작·끝이 모두 가운데 열에서 이루어지도록 뱀형 방향 수정',
     '파워콘 자동할당 — 3행 이상 구역: 전체 패널이 300k 이내이면 포트 수에 무관하게 단일 포트로 처리',
@@ -7531,7 +7534,7 @@ function betaAutoAssignPwr() {
         snake.forEach(p => { State.betaPwrPorts[portIdx].add(p.key); State.betaPwrPH2[portIdx].push(p.key); });
         portIdx++;
       } else {
-        const maxColsPerPort = Math.min(3, Math.max(1, Math.floor(maxPanels / numRows)));
+        const maxColsPerPort = Math.min(3, Math.max(1, Math.round(maxPanels / numRows)));
         const colsPerPort   = maxColsPerPort >= 2 ? 2 : 1; // 2열 고정 (시작·끝 바닥행 유지)
 
         let ci = 0;
