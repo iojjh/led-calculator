@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.94';
-const APP_SW_VERSION = 'v197';
+const APP_VERSION = '2.0.95';
+const APP_SW_VERSION = 'v198';
 
 const CHANGELOG = [
+  { v: '2.0.95', items: [
+    '파워콘 자동할당 — 2행 이하 구역 다중포트: 시작·끝이 모두 가운데 열에서 이루어지도록 뱀형 방향 수정',
+    '파워콘 자동할당 — 3행 이상 구역: 전체 패널이 300k 이내이면 포트 수에 무관하게 단일 포트로 처리',
+  ]},
   { v: '2.0.94', items: [
     '파워콘 자동할당 — 포트 수 최소화: 2행 이하 구역에서 300k 이내이면 단일 포트 처리',
     '파워콘 자동할당 — 3행 이상 구역: colsPerPort 2열 고정 복구',
@@ -7498,9 +7502,10 @@ function betaAutoAssignPwr() {
         const leftXs     = colXs.slice(0, midColIdx);
         const rightXs    = colXs.slice(midColIdx);
 
-        const leftSnake  = buildSnake([...rowYs].reverse(), leftXs);
+        // 시작·끝 모두 가운데: 왼쪽은 중앙→끝→중앙, 오른쪽은 중앙→끝→중앙
+        const leftSnake  = buildSnake([...rowYs].reverse(), [...leftXs].reverse());
         const rightSnake = rightXs.length > 0
-          ? buildSnake([...rowYs].reverse(), [...rightXs].reverse())
+          ? buildSnake([...rowYs].reverse(), rightXs)
           : null;
 
         const lCnt = Math.ceil(leftSnake.length / maxPanels);
@@ -7515,26 +7520,36 @@ function betaAutoAssignPwr() {
       }
     } else {
       // ── 열 기준 뱀형 (행 수 > 2), 2열 고정, 시작·끝 모두 바닥 ─
-      const maxColsPerPort = Math.min(3, Math.max(1, Math.floor(maxPanels / numRows)));
-      const colsPerPort   = maxColsPerPort >= 2 ? 2 : 1; // 2열 고정 (시작·끝 바닥행 유지)
-
-      let ci = 0;
-      while (ci < numCols && portIdx < cnt) {
-        const colCount = Math.min(colsPerPort, numCols - ci);
+      if (zonePanels.length <= maxPanels && portIdx < cnt) {
+        // 전체 패널이 1포트 한도 이내: 단일 포트로 처리
         const snake = [];
-        for (let dc = 0; dc < colCount; dc++) {
-          const x   = colXs[ci + dc];
+        for (let dc = 0; dc < numCols; dc++) {
+          const x   = colXs[dc];
           const col = rowYs.map(y => byXY.get(`${x},${y}`)).filter(Boolean);
-          // 짝수 dc(0,2): 아래→위, 홀수 dc(1,3): 위→아래 → 뱀형
-          // 2열 묶음: col0 아래→위, col1 위→아래 → 시작·끝 모두 바닥
           snake.push(...(dc % 2 === 0 ? [...col].reverse() : col));
         }
-        snake.forEach(p => {
-          State.betaPwrPorts[portIdx].add(p.key);
-          State.betaPwrPH2[portIdx].push(p.key);
-        });
+        snake.forEach(p => { State.betaPwrPorts[portIdx].add(p.key); State.betaPwrPH2[portIdx].push(p.key); });
         portIdx++;
-        ci += colCount;
+      } else {
+        const maxColsPerPort = Math.min(3, Math.max(1, Math.floor(maxPanels / numRows)));
+        const colsPerPort   = maxColsPerPort >= 2 ? 2 : 1; // 2열 고정 (시작·끝 바닥행 유지)
+
+        let ci = 0;
+        while (ci < numCols && portIdx < cnt) {
+          const colCount = Math.min(colsPerPort, numCols - ci);
+          const snake = [];
+          for (let dc = 0; dc < colCount; dc++) {
+            const x   = colXs[ci + dc];
+            const col = rowYs.map(y => byXY.get(`${x},${y}`)).filter(Boolean);
+            snake.push(...(dc % 2 === 0 ? [...col].reverse() : col));
+          }
+          snake.forEach(p => {
+            State.betaPwrPorts[portIdx].add(p.key);
+            State.betaPwrPH2[portIdx].push(p.key);
+          });
+          portIdx++;
+          ci += colCount;
+        }
       }
     }
   }
