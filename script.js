@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.92';
-const APP_SW_VERSION = 'v195';
+const APP_VERSION = '2.0.93';
+const APP_SW_VERSION = 'v196';
 
 const CHANGELOG = [
+  { v: '2.0.93', items: [
+    '파워콘 자동할당 — 포트 수 최소화: 허용 최대 열 수(최대3) 우선 사용',
+  ]},
   { v: '2.0.92', items: [
     '파워콘 자동할당 — 2행 이하 구역: 행 기준 뱀형, 열 기준 좌우 가운데 수렴',
     '파워콘 자동할당 — 3행 이상 구역: 2열씩 묶어 뱀형, 시작·끝 모두 바닥행',
@@ -7509,7 +7512,7 @@ function betaAutoAssignPwr() {
     } else {
       // ── 열 기준 뱀형 (행 수 > 2), 2열씩 묶어 시작·끝 모두 바닥 ─
       const maxColsPerPort = Math.min(3, Math.max(1, Math.floor(maxPanels / numRows)));
-      const colsPerPort   = maxColsPerPort >= 2 ? 2 : 1; // 2열 선호
+      const colsPerPort   = maxColsPerPort; // 포트 수 최소화: 허용 최대 열 수 사용
 
       let ci = 0;
       while (ci < numCols && portIdx < cnt) {
