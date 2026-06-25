@@ -1,21 +1,19 @@
-// ════════════════════════════════════════════════════════════
-//  LED 설치 계산기 — Service Worker
-//  전략: 모든 에셋(PDF 포함)을 설치 시 즉시 캐시
-//  버전 업데이트 시 CACHE_VERSION 숫자를 올리면 구 캐시가 자동 삭제됨
-// ════════════════════════════════════════════════════════════
+﻿// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+//  LED ?ㅼ튂 怨꾩궛湲???Service Worker
+//  ?꾨왂: 紐⑤뱺 ?먯뀑(PDF ?ы븿)???ㅼ튂 ??利됱떆 罹먯떆
+//  踰꾩쟾 ?낅뜲?댄듃 ??CACHE_VERSION ?レ옄瑜??щ━硫?援?罹먯떆媛 ?먮룞 ??젣??// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
 
-const CACHE_VERSION = 'v192';
+const CACHE_VERSION = 'v193';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
-// 앱 구동에 필수인 에셋 — 캐시 실패 시 SW 설치가 중단됨
-const CORE_ASSETS = [
+// ??援щ룞???꾩닔???먯뀑 ??罹먯떆 ?ㅽ뙣 ??SW ?ㅼ튂媛 以묐떒??const CORE_ASSETS = [
   './index.html',
   './style.css',
   './script.js',
   './manifest.json',
 ];
 
-// 선택적 에셋 — 캐시 실패해도 설치는 계속됨 (PDF는 용량이 커 실패 허용)
+// ?좏깮???먯뀑 ??罹먯떆 ?ㅽ뙣?대룄 ?ㅼ튂??怨꾩냽??(PDF???⑸웾??而??ㅽ뙣 ?덉슜)
 const EXTRA_ASSETS = [
   './',
   './icons/icon-192.png',
@@ -25,13 +23,13 @@ const EXTRA_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-  './온보딩 이미지/2.png',
-  './온보딩 이미지/3.png',
-  './온보딩 이미지/4.png',
-  './온보딩 이미지/6.png',
-  './온보딩 이미지/7.png',
-  './온보딩 이미지/8.png',
-  './온보딩 이미지/9.png',
+  './?⑤낫???대?吏/2.png',
+  './?⑤낫???대?吏/3.png',
+  './?⑤낫???대?吏/4.png',
+  './?⑤낫???대?吏/6.png',
+  './?⑤낫???대?吏/7.png',
+  './?⑤낫???대?吏/8.png',
+  './?⑤낫???대?吏/9.png',
   './MIG-EC90_User_Manual_1.0.pdf',
   './J6-Seamless-Switcher-Specifications-V2.2.0.pdf',
   './MCTRL660PRO.pdf',
@@ -39,21 +37,20 @@ const EXTRA_ASSETS = [
 ];
 
 
-// ── 설치 ─────────────────────────────────────────────────
+// ?? ?ㅼ튂 ?????????????????????????????????????????????????
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const cache = await caches.open(CORE_CACHE);
-    await cache.addAll(CORE_ASSETS);                              // 필수 에셋
-    await Promise.allSettled(                                     // 선택 에셋 (실패 무시)
+    await cache.addAll(CORE_ASSETS);                              // ?꾩닔 ?먯뀑
+    await Promise.allSettled(                                     // ?좏깮 ?먯뀑 (?ㅽ뙣 臾댁떆)
       EXTRA_ASSETS.map(url => cache.add(url).catch(() => {}))
     );
-    await self.skipWaiting(); // 새 SW를 즉시 활성화
-  })());
+    await self.skipWaiting(); // ??SW瑜?利됱떆 ?쒖꽦??  })());
 });
 
 
-// ── 활성화 ────────────────────────────────────────────────
-// 이전 버전 캐시 삭제
+// ?? ?쒖꽦??????????????????????????????????????????????????
+// ?댁쟾 踰꾩쟾 罹먯떆 ??젣
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
@@ -62,15 +59,15 @@ self.addEventListener('activate', e => {
         .filter(k => k !== CORE_CACHE)
         .map(k => caches.delete(k))
     );
-    await self.clients.claim(); // 열려 있는 탭에 즉시 적용
+    await self.clients.claim(); // ?대젮 ?덈뒗 ??뿉 利됱떆 ?곸슜
   })());
 });
 
 
-// ── 요청 가로채기 ─────────────────────────────────────────
-// 캐시 우선, 없으면 네트워크
+// ?? ?붿껌 媛濡쒖콈湲??????????????????????????????????????????
+// 罹먯떆 ?곗꽑, ?놁쑝硫??ㅽ듃?뚰겕
 self.addEventListener('fetch', e => {
-  // 크로스오리진 요청(외부 CDN 등)은 SW가 개입하지 않고 브라우저에 위임
+  // ?щ줈?ㅼ삤由ъ쭊 ?붿껌(?몃? CDN ??? SW媛 媛쒖엯?섏? ?딄퀬 釉뚮씪?곗????꾩엫
   if (!e.request.url.startsWith(self.location.origin)) { return; }
   e.respondWith(
     caches.match(e.request)
@@ -80,8 +77,8 @@ self.addEventListener('fetch', e => {
 });
 
 
-// ── 페이지 → SW 메시지 ────────────────────────────────────
-// RECACHE_CORE: 핵심 에셋을 네트워크에서 강제 재캐시 (배포 완료 후 호출)
+// ?? ?섏씠吏 ??SW 硫붿떆吏 ????????????????????????????????????
+// RECACHE_CORE: ?듭떖 ?먯뀑???ㅽ듃?뚰겕?먯꽌 媛뺤젣 ?ъ틦??(諛고룷 ?꾨즺 ???몄텧)
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') { self.skipWaiting(); return; }
   if (e.data !== 'RECACHE_CORE') { return; }
@@ -95,3 +92,4 @@ self.addEventListener('message', e => {
     )
   );
 });
+

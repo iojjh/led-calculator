@@ -20,10 +20,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.89';
-const APP_SW_VERSION = 'v192';
+const APP_VERSION = '2.0.90';
+const APP_SW_VERSION = 'v193';
 
 const CHANGELOG = [
+  { v: '2.0.90', items: [
+    '혼합 시뮬 파워콘 배선 그래픽 — 경로선+화살촉+순서번호(LAN과 동일)',
+    '혼합 시뮬 파워콘 포트 동적 추가/제거 — + 포트 / − 포트 버튼',
+  ]},
   { v: '2.0.89', items: [
     '혼합 시뮬 파워콘 배선 탭 추가 — 18포트, 자동할당(2열씩), 탭 전환(랜선↔파워콘)',
     '혼합 시뮬 샌딩카드 커버 가능 체크 — 660Pro/4K 1대·2대 Hz별 표시',
@@ -6871,10 +6875,11 @@ function betaDrawPwr() {
   const curPi  = State.betaPwrAPort;
   ctx.clearRect(0, 0, cv.width, cv.height);
 
-  ctx.fillStyle = '#1e1e2e';
+  // 격자 배경 (LAN과 동일)
+  ctx.fillStyle = '#d8d8d8';
   ctx.fillRect(0, 0, cv.width, cv.height);
   const gW = _betaGW(), gH = _betaGH();
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 0.5;
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.5;
   for (let c = 0; c <= gW; c++) {
     ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
   }
@@ -6882,16 +6887,23 @@ function betaDrawPwr() {
     ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
   }
 
+  // 배선 순서 번호 맵
+  const stepOf = new Map();
+  State.betaPwrPorts.forEach((s, pi) => {
+    State.betaPwrPH2[pi].filter(k => s.has(k)).forEach((k, idx) => stepOf.set(k, idx + 1));
+  });
+
+  // ── pass 1: 셀 배경·테두리·패턴 ────────────────────────────
   panels.forEach(p => {
     const pi = _betaPwrOwner(p.key);
     const px = p.x * sc, py = p.y * sc, pw = p.w * sc, ph = p.h * sc;
     const lk  = pi >= 0 && pi !== curPi;
     const hov = State._betaLanDrag && State._betaLanDHov === p.key && pi < 0;
 
-    ctx.fillStyle = pi >= 0 ? portColor(pi) + (lk ? '55' : '99') : '#4a6858';
+    ctx.fillStyle = pi >= 0 ? portColor(pi) + (lk ? '55' : '99') : '#9FE1CB';
     ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2);
     if (hov) { ctx.fillStyle = portColor(curPi) + '44'; ctx.fillRect(px + 1, py + 1, pw - 2, ph - 2); }
-    ctx.strokeStyle = pi >= 0 ? portColor(pi) : '#3a8c6a';
+    ctx.strokeStyle = pi >= 0 ? portColor(pi) : '#1D9E75';
     ctx.lineWidth   = pi >= 0 ? 1.5 : 0.5;
     ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
     if (lk) {
@@ -6904,35 +6916,108 @@ function betaDrawPwr() {
       ctx.restore();
     }
     if (!State._betaLanDrag && State._betaFCell === p.key) {
-      ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
+      ctx.strokeStyle = 'white';   ctx.lineWidth = 3; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
       ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 4, pw - 8, ph - 8);
     }
   });
 
-  // 포트 레이블
+  // ── pass 2: 포트 배선 경로 — 다각선 + 끝 화살촉 ───────────
+  State.betaPwrPorts.forEach((s, pi) => {
+    const h = State.betaPwrPH2[pi].filter(k => s.has(k));
+    if (h.length < 2) { return; }
+    const col = portColor(pi);
+    const pts = h.map(k => {
+      const p = panels.find(x => x.key === k);
+      return p ? { x: _betaPanelCx(p), y: _betaPanelCy(p) } : null;
+    }).filter(Boolean);
+    if (pts.length < 2) { return; }
+
+    const pL0 = pts[pts.length - 2], pL1 = pts[pts.length - 1];
+    const ldx = pL1.x - pL0.x, ldy = pL1.y - pL0.y;
+
+    const strokePath = (style, lw) => {
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) { ctx.lineTo(pts[i].x, pts[i].y); }
+      ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.stroke();
+    };
+    const fillArrow = (style) => {
+      const len = Math.sqrt(ldx * ldx + ldy * ldy); if (len < 1) { return; }
+      const ux = ldx / len, uy = ldy / len;
+      const hw = 6, hl = 12, nx = -uy, ny = ux;
+      const bx = pL1.x - ux * 5, by = pL1.y - uy * 5;
+      ctx.beginPath(); ctx.moveTo(bx, by);
+      ctx.lineTo(bx - ux * hl + nx * hw, by - uy * hl + ny * hw);
+      ctx.lineTo(bx - ux * hl - nx * hw, by - uy * hl - ny * hw);
+      ctx.closePath(); ctx.fillStyle = style; ctx.fill();
+    };
+
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    strokePath('rgba(255,255,255,0.85)', 6);
+    strokePath(col, 3.5);
+    fillArrow('rgba(255,255,255,0.85)');
+    fillArrow(col);
+    ctx.restore();
+  });
+
+  // ── pass 3: 순서 번호 & 포트 레이블 ────────────────────────
   panels.forEach(p => {
     const pi = _betaPwrOwner(p.key);
     if (pi < 0) { return; }
-    const px = p.x * sc, py = p.y * sc, pw = p.w * sc, ph = p.h * sc;
-    if (pw < 20) { return; }
-    const fs = Math.max(6, Math.min(12, pw - 8));
-    ctx.font = `700 ${fs}px sans-serif`;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    ctx.strokeText('P' + (pi + 1), px + 4, py + 4);
-    ctx.fillStyle = (pi !== curPi) ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.97)';
-    ctx.fillText('P' + (pi + 1), px + 4, py + 4);
+    const lk  = pi !== curPi;
+    const cx2 = p.x * sc + p.w * sc / 2, cy2 = p.y * sc + p.h * sc / 2;
+    const step = stepOf.get(p.key);
+
+    if (step) {
+      const fs = Math.max(6, Math.min(12, p.w * sc - 8));
+      const r  = Math.max(8, fs * 0.72);
+      ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
+      ctx.fillStyle = lk ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.9)';
+      ctx.fill();
+      ctx.font = `700 ${fs}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = lk ? 'rgba(80,80,80,0.6)' : portColor(pi);
+      ctx.fillText(String(step), cx2, cy2);
+    }
+
+    if (p.w * sc >= 20) {
+      const label = 'P' + (pi + 1);
+      ctx.font = '700 9px sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.strokeText(label, p.x * sc + 4, p.y * sc + 4);
+      ctx.fillStyle = lk ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.97)';
+      ctx.fillText(label, p.x * sc + 4, p.y * sc + 4);
+    }
     ctx.textBaseline = 'alphabetic';
   });
+}
+
+function betaAddPwrPort() {
+  State.betaPwrPorts.push(new Set()); State.betaPwrPH2.push([]);
+  betaRenderPwrPorts(); betaDrawPwr(); saveState();
+}
+function _doBetaRemovePwrPort() {
+  if (State.betaPwrPorts.length <= 1) { return; }
+  if (State.betaPwrAPort >= State.betaPwrPorts.length - 1) { State.betaPwrAPort = State.betaPwrPorts.length - 2; }
+  State.betaPwrPorts.pop(); State.betaPwrPH2.pop();
+  betaRenderPwrPorts(); betaDrawPwr(); saveState();
+}
+function betaRemovePwrPort() {
+  if (State.betaPwrPorts.length <= 1) { return; }
+  const last = State.betaPwrPorts[State.betaPwrPorts.length - 1];
+  if (last.size > 0) {
+    openConfirm(`P${State.betaPwrPorts.length} 포트 제거`, `P${State.betaPwrPorts.length}에 ${last.size}장이 할당되어 있습니다. 제거할까요?`, _doBetaRemovePwrPort);
+  } else { _doBetaRemovePwrPort(); }
 }
 
 function betaRenderPwrPorts() {
   const el = document.getElementById('betaPortRow');
   if (!el) { return; }
-  const pi  = State.betaPwrAPort;
-  let html  = '<div class="beta-port-strip">';
-  for (let i = 0; i < 18; i++) {
+  const pi    = State.betaPwrAPort;
+  const count = State.betaPwrPorts.length;
+  let html    = '<div class="beta-port-strip">';
+  for (let i = 0; i < count; i++) {
     const sz  = State.betaPwrPorts[i].size;
     const on  = i === pi;
     const has = sz > 0;
@@ -6948,6 +7033,8 @@ function betaRenderPwrPorts() {
     <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
     <span style="font-size:13px;color:#333;">${sz}장</span>
     ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
+    <button class="port-btn expand-port-btn" onclick="betaAddPwrPort()" style="margin-left:auto">+ 포트</button>
+    <button class="port-btn expand-port-btn" onclick="betaRemovePwrPort()">− 포트</button>
   </div>
   <div style="margin-top:4px;">
     <button class="beta-rst-port-btn" onclick="betaRstPwrPort(${pi})">포트 ${pi + 1} 초기화</button>
@@ -7242,8 +7329,9 @@ function betaRstPwrPort(pi) {
 function betaRstAllPorts() {
   if (State.betaSimTab === 'pwr') {
     openConfirm('파워콘 배선 초기화', '모든 파워콘 배선을 초기화할까요?', () => {
-      State.betaPwrPorts = Array.from({ length: 18 }, () => new Set());
-      State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
+      const cnt = State.betaPwrPorts.length;
+      State.betaPwrPorts = Array.from({ length: cnt }, () => new Set());
+      State.betaPwrPH2   = Array.from({ length: cnt }, () => []);
       State.betaPwrAPort = 0;
       betaDrawPwr(); betaRenderLanUI(); saveState();
     });
@@ -7338,8 +7426,9 @@ function betaAutoAssign() {
 }
 
 function betaAutoAssignPwr() {
-  State.betaPwrPorts = Array.from({ length: 18 }, () => new Set());
-  State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
+  const cnt = State.betaPwrPorts.length;
+  State.betaPwrPorts = Array.from({ length: cnt }, () => new Set());
+  State.betaPwrPH2   = Array.from({ length: cnt }, () => []);
   State.betaPwrAPort = 0;
   const panels = _betaAllPanels();
   const pairMap = new Map();
@@ -7350,7 +7439,7 @@ function betaAutoAssignPwr() {
     pairMap.get(pairIdx).push(p);
   });
   [...pairMap.keys()].sort((a, b) => a - b).forEach((pairIdx, i) => {
-    if (i >= 18) { return; }
+    if (i >= cnt) { return; }
     pairMap.get(pairIdx).forEach(p => {
       State.betaPwrPorts[i].add(p.key);
       State.betaPwrPH2[i].push(p.key);
