@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.104';
-const APP_SW_VERSION = 'v207';
+const APP_VERSION = '2.0.105';
+const APP_SW_VERSION = 'v208';
 
 const CHANGELOG = [
+  { v: '2.0.105', items: [
+    '업데이트 완료 알람 표시 시간 3.5초→1.75초로 단축, 앱 토스트(_toast)를 전용 appToast 요소로 분리(일정 적용 메시지 오버레이 오동작 수정), 장비 제거 시 확인 팝업 추가',
+  ]},
   { v: '2.0.104', items: [
     '혼합 시뮬 배선 UI — 포트 초기화 버튼을 픽셀제한 퍼센트 오른쪽 인라인으로 이동, LED/패널 범례 제거',
   ]},
@@ -727,10 +730,12 @@ function _doChkResetFull() {
   renderCL(); _saveChkLayout(); closeChkResetChoice();
 }
 function delItem(n) {
-  const ci = State.COM.indexOf(n), di = State.COND.indexOf(n);
-  if (ci >= 0) { State.COM.splice(ci, 1); } else { if (di >= 0) State.COND.splice(di, 1); }
-  delete State.chkState[n];
-  renderCL(); _saveChkLayout();
+  openConfirm('장비 제거', '장비 목록에서 제거하시겠습니까?', () => {
+    const ci = State.COM.indexOf(n), di = State.COND.indexOf(n);
+    if (ci >= 0) { State.COM.splice(ci, 1); } else { if (di >= 0) State.COND.splice(di, 1); }
+    delete State.chkState[n];
+    renderCL(); _saveChkLayout();
+  });
 }
 function addItem(section) {
   const inp = document.getElementById('add-' + section);
@@ -978,7 +983,7 @@ document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
       if (!t || !tc) { return; }
       tc.textContent = 'v' + APP_VERSION + '으로 업데이트되었습니다';
       t.classList.add('show');
-      setTimeout(() => { t.classList.remove('show'); }, 3500);
+      setTimeout(() => { t.classList.remove('show'); }, 1750);
     });
   }
 })();
@@ -5959,7 +5964,7 @@ function _icsDate(val) {
 
 let _toastTimer = null;
 function _toast(msg) {
-  const t = document.getElementById('updateToast');
+  const t = document.getElementById('appToast');
   if (!t) { return; }
   t.textContent = msg;
   t.classList.add('show');
