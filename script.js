@@ -20,12 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.93';
-const APP_SW_VERSION = 'v196';
+const APP_VERSION = '2.0.94';
+const APP_SW_VERSION = 'v197';
 
 const CHANGELOG = [
-  { v: '2.0.93', items: [
-    '파워콘 자동할당 — 포트 수 최소화: 허용 최대 열 수(최대3) 우선 사용',
+  { v: '2.0.94', items: [
+    '파워콘 자동할당 — 포트 수 최소화: 2행 이하 구역에서 300k 이내이면 단일 포트 처리',
+    '파워콘 자동할당 — 3행 이상 구역: colsPerPort 2열 고정 복구',
   ]},
   { v: '2.0.92', items: [
     '파워콘 자동할당 — 2행 이하 구역: 행 기준 뱀형, 열 기준 좌우 가운데 수렴',
@@ -7488,31 +7489,34 @@ function betaAutoAssignPwr() {
 
     if (numRows <= 2) {
       // ── 행 기준 뱀형, 열 기준 가운데 수렴 ──────────────────────
-      // 왼쪽 절반(좌→가운데)과 오른쪽 절반(우→가운데)으로 분리
-      const midColIdx  = Math.ceil(numCols / 2);
-      const leftXs     = colXs.slice(0, midColIdx);
-      const rightXs    = colXs.slice(midColIdx);
-
-      // 바닥 행부터: 왼쪽은 좌→우, 오른쪽은 우→좌(역순 xList)로 → 양쪽 끝이 가운데 열에서 수렴
-      const leftSnake  = buildSnake([...rowYs].reverse(), leftXs);
-      const rightSnake = rightXs.length > 0
-        ? buildSnake([...rowYs].reverse(), [...rightXs].reverse())
-        : null;
-
-      const lCnt = Math.ceil(leftSnake.length / maxPanels);
-      const rCnt = rightSnake ? Math.ceil(rightSnake.length / maxPanels) : 0;
-
-      if (lCnt + rCnt <= cnt - portIdx) {
-        assignSlice(leftSnake, lCnt);
-        if (rightSnake) { assignSlice(rightSnake, rCnt); }
+      if (zonePanels.length <= maxPanels) {
+        // 전체가 1포트 이내: 바닥 행부터 가로 뱀형으로 단일 포트 처리
+        assignSlice(buildSnake([...rowYs].reverse(), colXs), 1);
       } else {
-        // 포트 부족 시 전체 단순 균등 분배
-        assignSlice(buildSnake([...rowYs].reverse(), colXs), cnt - portIdx);
+        // 다중 포트: 왼쪽 절반(좌→가운데)과 오른쪽 절반(우→가운데)으로 분리
+        const midColIdx  = Math.ceil(numCols / 2);
+        const leftXs     = colXs.slice(0, midColIdx);
+        const rightXs    = colXs.slice(midColIdx);
+
+        const leftSnake  = buildSnake([...rowYs].reverse(), leftXs);
+        const rightSnake = rightXs.length > 0
+          ? buildSnake([...rowYs].reverse(), [...rightXs].reverse())
+          : null;
+
+        const lCnt = Math.ceil(leftSnake.length / maxPanels);
+        const rCnt = rightSnake ? Math.ceil(rightSnake.length / maxPanels) : 0;
+
+        if (lCnt + rCnt <= cnt - portIdx) {
+          assignSlice(leftSnake, lCnt);
+          if (rightSnake) { assignSlice(rightSnake, rCnt); }
+        } else {
+          assignSlice(buildSnake([...rowYs].reverse(), colXs), cnt - portIdx);
+        }
       }
     } else {
-      // ── 열 기준 뱀형 (행 수 > 2), 2열씩 묶어 시작·끝 모두 바닥 ─
+      // ── 열 기준 뱀형 (행 수 > 2), 2열 고정, 시작·끝 모두 바닥 ─
       const maxColsPerPort = Math.min(3, Math.max(1, Math.floor(maxPanels / numRows)));
-      const colsPerPort   = maxColsPerPort; // 포트 수 최소화: 허용 최대 열 수 사용
+      const colsPerPort   = maxColsPerPort >= 2 ? 2 : 1; // 2열 고정 (시작·끝 바닥행 유지)
 
       let ci = 0;
       while (ci < numCols && portIdx < cnt) {
