@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.102';
-const APP_SW_VERSION = 'v205';
+const APP_VERSION = '2.0.103';
+const APP_SW_VERSION = 'v206';
 
 const CHANGELOG = [
+  { v: '2.0.103', items: [
+    '업데이트 알림 디자인 개선 — 하단 배너·토스트 → 앱 중앙 팝업 + 어두운 오버레이',
+  ]},
   { v: '2.0.102', items: [
     '혼합 시뮬 일정 기능 이식 — 하단 바 "일정" 버튼 추가, 일정 불러오면 설치면적+단일 구역 자동 생성(기본 500×1000mm), 배선 탭 전환 시 랜선·파워콘 자동할당',
   ]},
@@ -967,9 +970,10 @@ document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
     sessionStorage.removeItem('sw-just-updated');
     // script.js는 updateToast div보다 먼저 로드되므로 DOMContentLoaded 후 DOM 접근
     document.addEventListener('DOMContentLoaded', function() {
-      const t = document.getElementById('updateToast');
-      if (!t) { return; }
-      t.textContent = 'v' + APP_VERSION + '으로 업데이트되었습니다';
+      const t  = document.getElementById('updateToast');
+      const tc = document.getElementById('updateToastCard');
+      if (!t || !tc) { return; }
+      tc.textContent = 'v' + APP_VERSION + '으로 업데이트되었습니다';
       t.classList.add('show');
       setTimeout(() => { t.classList.remove('show'); }, 3500);
     });

@@ -435,11 +435,16 @@
 
 <!-- 업데이트 배너 (포그라운드 중 새 버전 준비 시 표시) -->
 <div id="updateBanner" class="update-banner" style="display:none;">
-  <span>새 버전이 준비됐습니다</span>
-  <button onclick="_swReload()">새로고침</button>
+  <div class="update-banner-card">
+    <div class="upd-title">업데이트 준비 완료</div>
+    <div class="upd-body">새 버전이 준비됐습니다.<br>지금 업데이트하시겠습니까?</div>
+    <button onclick="_swReload()">지금 업데이트</button>
+  </div>
 </div>
 <!-- 업데이트 완료 토스트 (자동 업데이트 후 표시) -->
-<div id="updateToast" class="update-toast"></div>
+<div id="updateToast" class="update-toast">
+  <div id="updateToastCard" class="update-toast-card"></div>
+</div>
 
 <!-- 일정 불러오기 모달 -->
 <div id="schedBg" class="sched-bg" style="display:none" onclick="_schedBgClick(event)">
