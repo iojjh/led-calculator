@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.103';
-const APP_SW_VERSION = 'v206';
+const APP_VERSION = '2.0.104';
+const APP_SW_VERSION = 'v207';
 
 const CHANGELOG = [
+  { v: '2.0.104', items: [
+    '혼합 시뮬 배선 UI — 포트 초기화 버튼을 픽셀제한 퍼센트 오른쪽 인라인으로 이동, LED/패널 범례 제거',
+  ]},
   { v: '2.0.103', items: [
     '업데이트 알림 디자인 개선 — 하단 배너·토스트 → 앱 중앙 팝업 + 어두운 오버레이',
   ]},
@@ -7113,12 +7116,10 @@ function betaRenderPwrPorts() {
   html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
     <span style="font-size:13px;color:#333;">${sz}장</span>
+    <button class="beta-rst-port-btn" onclick="betaRstPwrPort(${pi})">포트 ${pi + 1} 초기화</button>
     ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
     <button class="port-btn expand-port-btn" onclick="betaAddPwrPort()" style="margin-left:auto">+ 포트</button>
     <button class="port-btn expand-port-btn" onclick="betaRemovePwrPort()">− 포트</button>
-  </div>
-  <div style="margin-top:4px;">
-    <button class="beta-rst-port-btn" onclick="betaRstPwrPort(${pi})">포트 ${pi + 1} 초기화</button>
   </div>`;
   el.innerHTML = html;
 }
@@ -7312,13 +7313,11 @@ function betaRenderPorts() {
     <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
     <span style="font-size:13px;color:#333;">${sz}장 · ${px.toLocaleString()} px</span>
     <span style="font-size:12px;color:${ov ? '#A32D2D' : '#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
+    <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">포트 ${pi + 1} 초기화</button>
     ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
   </div>
   <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
     <div style="height:5px;width:${pct}%;background:${ov ? '#E24B4A' : _apc};border-radius:3px;"></div>
-  </div>
-  <div style="margin-top:4px;">
-    <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">포트 ${pi + 1} 초기화</button>
   </div>`;
   el.innerHTML = html;
 }
@@ -7373,11 +7372,7 @@ function betaRenderSum() {
 function betaRenderLeg() {
   const el = document.getElementById('betaLeg');
   if (!el) { return; }
-  const leds = [...new Set(State.betaZones.map(z => z.led))];
-  el.innerHTML = leds.map(led => {
-    const sp = SPECS[led];
-    return `<span class="beta-leg-item">${led}: ${sp.px500.w}×${sp.px500.h}px/패널</span>`;
-  }).join(' ');
+  el.innerHTML = '';
 }
 
 // ─ 포트 할당 ─
