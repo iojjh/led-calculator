@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.0.98';
-const APP_SW_VERSION = 'v201';
+const APP_VERSION = '2.0.99';
+const APP_SW_VERSION = 'v202';
 
 const CHANGELOG = [
+  { v: '2.0.99', items: [
+    '혼합 시뮬 파워콘 자동할당 — 단일 행(numRows=1) 규칙 세분화: 1포트=오→왼(끝 왼쪽), 2포트=양쪽 끝 중앙 수렴, 3+포트=앞ceil(N/2)그룹 왼→오·나머지 오→왼(끝이 안쪽으로 모임)',
+  ]},
   { v: '2.0.98', items: [
     '랜선 자동할당 _balancedCols 배분 버그 수정 — base < maxEven 시 ceil 올림으로 마지막 포트 누적 방지 (13열÷7포트=1→2열 균등 분배)',
   ]},
@@ -7505,26 +7508,48 @@ function betaAutoAssignPwr() {
       }
     };
 
-    if (numRows <= 2) {
-      // ── 행 기준 뱀형, 열 기준 가운데 수렴 ──────────────────────
+    if (numRows === 1) {
+      // ── 단일 행 ────────────────────────────────────────────────
+      const rowY = rowYs[0];
       if (zonePanels.length <= maxPanels) {
-        // 전체가 1포트 이내: 바닥 행부터 가로 뱀형으로 단일 포트 처리
+        // 1포트: 오른→왼 (끝이 왼쪽)
+        if (portIdx < cnt) {
+          [...colXs].reverse()
+            .map(x => byXY.get(`${x},${rowY}`)).filter(Boolean)
+            .forEach(p => { State.betaPwrPorts[portIdx].add(p.key); State.betaPwrPH2[portIdx].push(p.key); });
+          portIdx++;
+        }
+      } else {
+        // 다중 포트: 앞 ceil(N/2) 그룹 왼→오(끝이 안쪽), 나머지 오→왼(끝이 안쪽)
+        const nPorts = Math.min(cnt - portIdx, Math.ceil(numCols / maxPanels));
+        const base1  = Math.floor(numCols / nPorts);
+        const extra1 = numCols % nPorts;
+        const nLeft  = Math.ceil(nPorts / 2);
+        let ci = 0;
+        for (let i = 0; i < nPorts && portIdx < cnt; i++) {
+          const size  = base1 + (i < extra1 ? 1 : 0);
+          const grpXs = colXs.slice(ci, ci + size);
+          ci += size;
+          const xs = (i >= nLeft) ? [...grpXs].reverse() : grpXs;
+          xs.map(x => byXY.get(`${x},${rowY}`)).filter(Boolean)
+            .forEach(p => { State.betaPwrPorts[portIdx].add(p.key); State.betaPwrPH2[portIdx].push(p.key); });
+          portIdx++;
+        }
+      }
+    } else if (numRows === 2) {
+      // ── 2행, 행 기준 뱀형, 열 기준 가운데 수렴 ──────────────────
+      if (zonePanels.length <= maxPanels) {
         assignSlice(buildSnake([...rowYs].reverse(), colXs), 1);
       } else {
-        // 다중 포트: 왼쪽 절반(좌→가운데)과 오른쪽 절반(우→가운데)으로 분리
         const midColIdx  = Math.ceil(numCols / 2);
         const leftXs     = colXs.slice(0, midColIdx);
         const rightXs    = colXs.slice(midColIdx);
-
-        // 시작·끝 모두 가운데: 왼쪽은 중앙→끝→중앙, 오른쪽은 중앙→끝→중앙
         const leftSnake  = buildSnake([...rowYs].reverse(), [...leftXs].reverse());
         const rightSnake = rightXs.length > 0
           ? buildSnake([...rowYs].reverse(), rightXs)
           : null;
-
         const lCnt = Math.ceil(leftSnake.length / maxPanels);
         const rCnt = rightSnake ? Math.ceil(rightSnake.length / maxPanels) : 0;
-
         if (lCnt + rCnt <= cnt - portIdx) {
           assignSlice(leftSnake, lCnt);
           if (rightSnake) { assignSlice(rightSnake, rCnt); }
