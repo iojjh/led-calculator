@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.2';
-const APP_SW_VERSION = 'v212';
+const APP_VERSION = '2.1.3';
+const APP_SW_VERSION = 'v213';
 
 const CHANGELOG = [
+  { v: '2.1.3', items: [
+    'PNG 저장 모달에서 계산기 탭 제거로 동작 불가한 "계산 결과" 저장 버튼 제거',
+  ]},
   { v: '2.1.2', items: [
     '불러오기 수정 — renderMemo가 삭제된 #memoList 요소에 접근해 crash 발생하던 문제 해결 (null 가드 추가)',
   ]},
