@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.6';
-const APP_SW_VERSION = 'v216';
+const APP_VERSION = '2.1.7';
+const APP_SW_VERSION = 'v217';
 
 const CHANGELOG = [
+  { v: '2.1.7', items: [
+    '버그 수정 — 제거된 calc() 초기 실행 호출 삭제, _schedTarget fallback을 beta로 수정',
+  ]},
   { v: '2.1.6', items: [
     '전역 최적화 — doFullReset 제거·tryResetAll을 betaReset으로 교체, _schedTarget 기본값 수정, _schedApplyParsed 제거, §9.5 PDF 뷰어 제거, CSPEC/SSPEC 제거, style.css 고아 선택자 제거',
   ]},
@@ -2271,7 +2274,7 @@ let _schedTab    = 'upcoming';
 let _schedTarget = 'beta';
 
 function openSchedModal(target) {
-  _schedTarget = target || 'calc';
+  _schedTarget = target || 'beta';
   document.getElementById('schedBg').style.display = 'flex';
   history.pushState({ overlay: 'sched' }, '');
   _schedRender();
@@ -4240,7 +4243,3 @@ function betaAttachLanEv() {
   ncv.addEventListener('touchend',    onUp,   sig);
   ncv.addEventListener('touchcancel', cl,     { signal: ctrl.signal, passive: true });
 }
-
-
-// ── 초기 실행 ────────────────────────────────────────────
-calc();
