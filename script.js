@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.1';
-const APP_SW_VERSION = 'v211';
+const APP_VERSION = '2.1.2';
+const APP_SW_VERSION = 'v212';
 
 const CHANGELOG = [
+  { v: '2.1.2', items: [
+    '불러오기 수정 — renderMemo가 삭제된 #memoList 요소에 접근해 crash 발생하던 문제 해결 (null 가드 추가)',
+  ]},
   { v: '2.1.1', items: [
     '저장/불러오기 수정 — getAppState/loadAppState에서 삭제된 계산기 탭 DOM 참조 제거, 현재 앱 구조(LED 설계 탭)에 맞게 최적화',
   ]},
@@ -855,7 +858,9 @@ document.addEventListener('DOMContentLoaded', () => { _updateBarForTab('beta'); 
 
 
 function renderMemo() {
-  document.getElementById('memoList').innerHTML = State.memoList.map((t, i) =>
+  const el = document.getElementById('memoList');
+  if (!el) { return; }
+  el.innerHTML = State.memoList.map((t, i) =>
     `<div class="memo-item">
       <span class="memo-txt">${t}</span>
       <button class="del-btn" onclick="delMemo(${i})">×</button>
