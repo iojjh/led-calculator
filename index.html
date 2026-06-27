@@ -113,9 +113,10 @@
     </div>
   </div>
   <div id="betaZoneCfg" class="beta-zone-cfg" style="display:none"></div>
-  <div class="beta-canvas-wrap">
+  <div class="beta-canvas-wrap" id="betaCanvasWrap">
     <canvas id="betaCanvas" style="display:none"></canvas>
   </div>
+  <button class="beta-full-btn" id="betaFullBtn" onclick="betaEnterFull()" style="display:none">↔ 전체모드</button>
   <div id="betaZoneList" class="beta-zone-list"></div>
   <div id="betaLanUI" style="display:none">
     <div id="betaLanBtns"></div>
@@ -286,6 +287,20 @@
   </div>
 </div>
 
+
+<!-- 구역 편집 전체모드 오버레이 -->
+<div id="betaFullOverlay" style="display:none">
+  <div class="beta-full-hdr">
+    <span class="beta-full-hdr-title">구역 편집</span>
+    <button class="beta-full-reset-btn" onclick="betaReset()">↺ 초기화</button>
+    <button class="beta-full-close-btn" onclick="betaExitFull()">✕ 닫기</button>
+  </div>
+  <div class="beta-full-body" id="betaFullBody">
+    <div class="beta-full-canvas-wrap" id="betaFullCanvasWrap"></div>
+    <div id="betaFullCfgSlot"></div>
+    <div id="betaFullZoneSlot"></div>
+  </div>
+</div>
 
 <script src="script.js"></script>
 

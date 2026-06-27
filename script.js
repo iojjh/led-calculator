@@ -26,10 +26,16 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.10';
-const APP_SW_VERSION = 'v2110';
+const APP_VERSION = '2.1.12';
+const APP_SW_VERSION = 'v2112';
 
 const CHANGELOG = [
+  { v: '2.1.12', items: [
+    '신규 기능 — LED 설계 탭 구역 편집 전체모드 추가 (가로로 긴 설치면적 모바일 대응, 격자 드래그 + 초기화 지원)',
+  ]},
+  { v: '2.1.11', items: [
+    'UI 수정 — 랜선·파워콘 포트 버튼 크기 통일 (두 자릿수 포트 번호일 때 버튼이 커지던 문제 수정)',
+  ]},
   { v: '2.1.10', items: [
     '버그 수정 — §11 제거 시 누락된 _balancedCols 함수 §14로 복원, 랜선 자동할당 오류 수정',
   ]},
@@ -1146,9 +1152,9 @@ function openConfirm(title, msg, onOk) {
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMsg').textContent = msg;
   document.getElementById('confirmOk').onclick = () => { closeConfirm(); onOk(); };
-  // fullscreen 모드일 때 confirmBg를 fullscreen 컨테이너 안으로 이동해야 보임
-  const fsEl = document.getElementById('simFsBg');
-  if (fsEl) { fsEl.appendChild(bg); }
+  // 전체모드 오버레이 활성 시 confirmBg를 그 안으로 이동해야 보임
+  const fsEl = document.getElementById('betaFullOverlay');
+  if (fsEl && fsEl.style.display !== 'none') { fsEl.appendChild(bg); }
   history.pushState({ overlay: 'confirm' }, '');
   bg.style.display = 'flex';
 }
@@ -1172,6 +1178,7 @@ window.addEventListener('popstate', () => {
   const _ov = [
     { id: 'chkResetChoiceBg', fn: closeChkResetChoice },
     { id: 'confirmBg',         fn: closeConfirm },
+    { id: 'betaFullOverlay',   fn: betaExitFull },
     { id: 'modalBg',           fn: closeModal },
     { id: 'previewBg',         fn: closePreviewModal },
     { id: 'tutorialBg',        fn: closeTutorial },
@@ -2800,11 +2807,13 @@ function betaRender() {
   document.getElementById('betaModeEdit').classList.toggle('on', State.betaMode === 'edit');
   document.getElementById('betaModeLan').classList.toggle('on',  State.betaMode === 'lan');
 
+  const fb = document.getElementById('betaFullBtn');
   if (!State.betaAreaW || !State.betaAreaH) {
     cv.style.display = 'none';
     document.getElementById('betaZoneList').innerHTML = '<div class="beta-empty-hint">설치 면적을 입력 후 [적용]을 누르세요.</div>';
     document.getElementById('betaLanUI').style.display = 'none';
     document.getElementById('betaZoneCfg').style.display = 'none';
+    if (fb) { fb.style.display = 'none'; }
     return;
   }
 
@@ -2816,6 +2825,7 @@ function betaRender() {
   if (State.betaMode === 'edit') {
     document.getElementById('betaLanUI').style.display = 'none';
     document.getElementById('betaZoneList').style.display = '';
+    if (fb && !State._betaFullSaved) { fb.style.display = ''; }
     betaAttachEditEv();
     betaDrawEdit();
     betaRenderZoneList();
@@ -2823,6 +2833,7 @@ function betaRender() {
     document.getElementById('betaZoneList').style.display = 'none';
     document.getElementById('betaZoneCfg').style.display = 'none';
     document.getElementById('betaLanUI').style.display = '';
+    if (fb) { fb.style.display = 'none'; }
     betaAttachLanEv();
     _betaSimDraw();
     betaRenderLanUI();
@@ -3917,6 +3928,47 @@ function betaRstAllPorts() {
       betaDrawLan(); betaRenderLanUI(); saveState();
     });
   }
+}
+
+// ─ 전체모드 ─
+
+function betaEnterFull() {
+  const overlay = document.getElementById('betaFullOverlay');
+  const cv  = document.getElementById('betaCanvas');
+  const cfg = document.getElementById('betaZoneCfg');
+  const zl  = document.getElementById('betaZoneList');
+  if (!overlay || !cv) { return; }
+  State._betaFullSaved = {
+    cvParent:  cv.parentNode,  cvNext:  cv.nextSibling,
+    cfgParent: cfg.parentNode, cfgNext: cfg.nextSibling,
+    zlParent:  zl.parentNode,  zlNext:  zl.nextSibling,
+  };
+  document.getElementById('betaFullCanvasWrap').appendChild(cv);
+  document.getElementById('betaFullCfgSlot').appendChild(cfg);
+  document.getElementById('betaFullZoneSlot').appendChild(zl);
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  history.pushState({ overlay: 'betaFull' }, '');
+  requestAnimationFrame(() => betaRender());
+}
+
+function betaExitFull() {
+  const s = State._betaFullSaved;
+  const overlay = document.getElementById('betaFullOverlay');
+  if (!s || !overlay) { return; }
+  const cv  = document.getElementById('betaCanvas');
+  const cfg = document.getElementById('betaZoneCfg');
+  const zl  = document.getElementById('betaZoneList');
+  const bg  = document.getElementById('confirmBg');
+  if (bg && bg.parentElement === overlay) { document.body.appendChild(bg); }
+  s.cvParent.insertBefore(cv,   s.cvNext);
+  s.cfgParent.insertBefore(cfg, s.cfgNext);
+  s.zlParent.insertBefore(zl,   s.zlNext);
+  overlay.style.display = 'none';
+  document.body.style.overflow = '';
+  State._betaFullSaved = null;
+  if (history.state && history.state.overlay === 'betaFull') { _histBack(); }
+  betaRender();
 }
 
 function betaReset() {
