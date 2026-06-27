@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.0';
-const APP_SW_VERSION = 'v210';
+const APP_VERSION = '2.1.1';
+const APP_SW_VERSION = 'v211';
 
 const CHANGELOG = [
+  { v: '2.1.1', items: [
+    '저장/불러오기 수정 — getAppState/loadAppState에서 삭제된 계산기 탭 DOM 참조 제거, 현재 앱 구조(LED 설계 탭)에 맞게 최적화',
+  ]},
   { v: '2.1.0', items: [
     '버전 2.1.0 — LED 설계 탭 중심 UI로 전환 완료',
   ]},
@@ -1997,29 +2000,11 @@ function getAppState(name) {
   return {
     name,
     date: new Date().toLocaleDateString('ko-KR'),
-    W: document.getElementById('iW').value,
-    H: document.getElementById('iH').value,
-    areaMode: State.areaMode, activeSimSec: State.activeSimSec,
-    mW_L: document.getElementById('mW_L').value,
-    mH_L: document.getElementById('mH_L').value,
-    mW_C: document.getElementById('mW_C').value,
-    mH_C: document.getElementById('mH_C').value,
-    mW_R: document.getElementById('mW_R').value,
-    mH_R: document.getElementById('mH_R').value,
-    curLed: State.curLed, basePH: State.basePH, panelRotated: State.panelRotated, curSending: State.curSending,
-    consoleName: document.querySelector('#consoleChips .chip.on')?.dataset.v || null,
-    fiberLen: document.getElementById('fiberLen').value,
-    mainLen:  document.getElementById('mainLen').value,
-    pA:  State.pA.map(s => [...s]),          // Set → Array (JSON 직렬화)
-    pH2: State.pH2.map(a => [...a]),
-    spareAdj: { ...State.spareAdj },
     memoList: [...State.memoList],
     chkState: { ...State.chkState },
     chkNotes: { ...State.chkNotes },
     COM:  [...State.COM],
     COND: [...State.COND],
-    pwrPA: (State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA)?.map(s => [...s]) || null,
-    pwrPH: (State.simTab === 'pwr' ? State.pH2 : State._savedPwr?.pH2)?.map(a => [...a]) || null,
     betaAreaW:    State.betaAreaW,
     betaAreaH:    State.betaAreaH,
     betaZones:    State.betaZones,
@@ -2039,38 +2024,6 @@ function getAppState(name) {
 
 // 저장된 상태 객체를 앱에 복원
 function loadAppState(st) {
-  const _calcEl = id => document.getElementById(id);
-  // 계산기 탭 DOM 복원 (탭이 존재할 때만)
-  if (_calcEl('iW')) {
-    _calcEl('iW').value = st.W ?? '';
-    _calcEl('iH').value = st.H ?? '';
-    document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
-    State.curLed = null; State.basePH = null; State.curSending = null;
-    if (st.curLed) {
-      const el = document.querySelector(`#ledChips .chip[data-v="${st.curLed}"]`);
-      if (el) { el.classList.add('on'); State.curLed = st.curLed; }
-    }
-    if (st.basePH) {
-      const el = document.querySelector(`#panelChips .chip[data-v="${st.basePH}"]`);
-      if (el) { el.classList.add('on'); State.basePH = st.basePH; }
-    }
-    State.panelRotated = !!(st.panelRotated && st.basePH === 1000);
-    const rotBtn = _calcEl('panelRotateBtn');
-    if (rotBtn) { rotBtn.classList.toggle('on', State.panelRotated); }
-    if (_calcEl('consoleInfo')) { _calcEl('consoleInfo').style.display = 'none'; }
-    if (_calcEl('sendingInfo')) { _calcEl('sendingInfo').style.display = 'none'; }
-    if (st.consoleName) {
-      const el = document.querySelector(`#consoleChips .chip[data-v="${st.consoleName}"]`);
-      if (el) { selConsole(el); }
-    }
-    if (_calcEl('fiberLen')) { _calcEl('fiberLen').value = st.fiberLen || ''; }
-    if (st.curSending) {
-      const el = document.querySelector(`#sendingChips .chip[data-v="${st.curSending}"]`);
-      if (el) { selSending(el); }
-    }
-    if (_calcEl('mainLen')) { _calcEl('mainLen').value = st.mainLen || ''; }
-  }
-
   // 체크리스트 복원
   if (st.COM) { State.COM = [...st.COM]; }
   if (st.COND) { State.COND = [...st.COND]; }
@@ -2082,49 +2035,8 @@ function loadAppState(st) {
 
   State.memoList = st.memoList || []; renderMemo();
 
-  // 계산 실행 후 포트 할당 복원 (계산기 탭이 존재할 때만)
-  if (_calcEl('iW')) {
-    rst();
-    State.spareAdj = st.spareAdj ? { ...st.spareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
-    if (st.areaMode === 'multi') {
-      setAreaMode('multi');
-      ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => {
-        document.getElementById(id).value = st[id] || '';
-      });
-      State.activeSimSec = st.activeSimSec || 'center';
-      if (isReady()) { calcMulti(); }
-      if (st.multiPorts && isReady()) {
-        State.pA = Array.from({length:8}, () => new Set());
-        State.pH2 = Array.from({length:8}, () => []);
-        ['left','center','right'].forEach(secName => {
-          const mp = st.multiPorts[secName];
-          if (!mp) { return; }
-          mp.pA.forEach((arr, pi)  => arr.forEach(k => State.pA[pi].add(`${secName}:${k}`)));
-          mp.pH2.forEach((arr, pi) => arr.forEach(k => State.pH2[pi].push(`${secName}:${k}`)));
-        });
-        drawCv(); renderPorts(); renderLeg(); renderSum();
-      } else if (st.pA && isReady()) {
-        State.pA = st.pA.map(a => new Set(a));
-        State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
-        drawCv(); renderPorts(); renderLeg(); renderSum();
-      }
-    } else {
-      if (isReady()) { calc(); }
-      if (st.pA && isReady()) {
-        State.pA = st.pA.map(a => new Set(a));
-        State.pH2 = (st.pH2 || st.pA).map(a => [...a]);
-        drawCv(); renderPorts(); renderLeg(); renderSum();
-      }
-    }
-    if (st.pwrPA && isReady()) {
-      State._savedPwr = {
-        pA: st.pwrPA.map(a => new Set(a)),
-        pH2: (st.pwrPH || st.pwrPA).map(a => [...a]),
-        aPort: 0,
-      };
-    }
-  }
   // 혼합 시뮬레이터 β 복원
+  State.lanExpanded = !!(st.lanExpanded);
   if (st.betaZones) {
     State.betaAreaW    = st.betaAreaW || 0;
     State.betaAreaH    = st.betaAreaH || 0;
@@ -2140,23 +2052,7 @@ function loadAppState(st) {
     State.betaSpareAdj = st.betaSpareAdj ? { l1: 2, sl: 20, c1: 2, sp: 20, ...st.betaSpareAdj } : { l1: 2, sl: 20, c1: 2, sp: 20 };
     State._betaCache   = null;
   }
-  State.lanExpanded = !!(st.lanExpanded);
-  if (st.betaImport) {
-    State.betaImport = st.betaImport;
-    // 혼합 LED 칩 다중선택 복원 (betaImport.usedLeds 기준)
-    const usedLeds = st.betaImport.usedLeds;
-    if (usedLeds && usedLeds.length > 1) {
-      document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
-      usedLeds.forEach(led => {
-        const el = document.querySelector(`#ledChips .chip[data-v="${led}"]`);
-        if (el) { el.classList.add('on'); }
-      });
-    }
-    renderRes();
-    buildCv(); drawCv(); renderPorts(); renderLeg(); renderSum();
-  } else {
-    State.betaImport = null;
-  }
+  State.betaImport = st.betaImport || null;
 }
 
 function saveState() {
