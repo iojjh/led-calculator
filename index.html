@@ -288,7 +288,7 @@
 </div>
 
 
-<!-- 구역 편집 전체모드 오버레이 -->
+<!-- 구역 편집 전체모드 팝업 (독립 캔버스) -->
 <div id="betaFullOverlay" style="display:none">
   <div class="beta-full-hdr">
     <span class="beta-full-hdr-title">구역 편집</span>
@@ -296,9 +296,10 @@
     <button class="beta-full-close-btn" onclick="betaExitFull()">✕ 닫기</button>
   </div>
   <div class="beta-full-body" id="betaFullBody">
-    <div class="beta-full-canvas-wrap" id="betaFullCanvasWrap"></div>
-    <div id="betaFullCfgSlot"></div>
-    <div id="betaFullZoneSlot"></div>
+    <div class="beta-full-canvas-wrap" id="betaFullCanvasWrap">
+      <canvas id="betaFullCanvas" style="display:block;cursor:crosshair;touch-action:none;"></canvas>
+    </div>
+    <div id="betaFullZoneCfg" class="beta-zone-cfg" style="display:none"></div>
   </div>
 </div>
 

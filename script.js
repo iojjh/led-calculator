@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.15';
-const APP_SW_VERSION = 'v2115';
+const APP_VERSION = '2.1.16';
+const APP_SW_VERSION = 'v2116';
 
 const CHANGELOG = [
+  { v: '2.1.16', items: [
+    '전체모드 재구현 — DOM 이동 방식 제거, betaFullCanvas 독립 캔버스 팝업 방식으로 변경. 구역 목록·해상도 정보 등 불필요한 정보 미표시, 구역 생성 패널만 표시',
+  ]},
   { v: '2.1.15', items: [
     '버그 수정 — 전체모드 복귀 후 구역 드래그 시 캔버스 스케일 불일치로 화면이 흔들리던 문제 수정 (betaDrawEdit를 캔버스 픽셀 폭 기준 sc로 변경)',
   ]},
@@ -2637,8 +2640,13 @@ const BETA_ZONE_LINE = [
 function _betaGW() { return Math.max(1, Math.round(State.betaAreaW / 500)); }
 function _betaGH() { return Math.max(1, Math.round(State.betaAreaH / 500)); }
 
+// 편집 캔버스 요소: 전체모드는 betaFullCanvas, 일반은 betaCanvas
+function _betaEditCv() {
+  return document.getElementById(State._betaFull ? 'betaFullCanvas' : 'betaCanvas');
+}
+
 function _betaSc() {
-  const cv = document.getElementById('betaCanvas');
+  const cv = _betaEditCv();
   if (!cv) { return 1; }
   const W = (cv.parentElement.clientWidth || 320) - 2;
   return W / (State.betaAreaW || 1);
@@ -2839,7 +2847,7 @@ function betaRender() {
   if (State.betaMode === 'edit') {
     document.getElementById('betaLanUI').style.display = 'none';
     document.getElementById('betaZoneList').style.display = '';
-    if (fb && !State._betaFullSaved) { fb.style.display = ''; }
+    if (fb && !State._betaFull) { fb.style.display = ''; }
     betaAttachEditEv();
     betaDrawEdit();
     betaRenderZoneList();
@@ -2857,7 +2865,7 @@ function betaRender() {
 // ─ 편집 캔버스 ─
 
 function betaDrawEdit() {
-  const cv = document.getElementById('betaCanvas');
+  const cv = _betaEditCv();
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
   const sc  = cv.width / (State.betaAreaW || 1); // betaRender()가 설정한 캔버스 픽셀 폭 기준 — 동적 재계산 금지
@@ -3286,7 +3294,7 @@ function betaEditZone(id) {
 // ─ 구역 설정 팝업 ─
 
 function betaShowCfgPanel() {
-  const el = document.getElementById('betaZoneCfg');
+  const el = document.getElementById(State._betaFull ? 'betaFullZoneCfg' : 'betaZoneCfg');
   if (!el || !State._betaSelNew) { return; }
   const ev = State._betaSelEdit ? State.betaZones.find(z => z.id === State._betaSelEdit) : null;
   const curLed = ev ? ev.led : '3mm';
@@ -3366,22 +3374,22 @@ function betaCfgApply() {
   State._betaSelNew  = null;
   State._betaSelEdit = null;
   State._betaCache   = null;
-  document.getElementById('betaZoneCfg').style.display = 'none';
-  betaRender();
+  document.getElementById(State._betaFull ? 'betaFullZoneCfg' : 'betaZoneCfg').style.display = 'none';
+  if (State._betaFull) { _betaRenderFull(); } else { betaRender(); }
   saveState();
 }
 
 function betaCfgCancel() {
   State._betaSelNew  = null;
   State._betaSelEdit = null;
-  document.getElementById('betaZoneCfg').style.display = 'none';
+  document.getElementById(State._betaFull ? 'betaFullZoneCfg' : 'betaZoneCfg').style.display = 'none';
   betaDrawEdit();
 }
 
 // ─ 편집 모드 이벤트 ─
 
 function betaAttachEditEv() {
-  const cv = document.getElementById('betaCanvas');
+  const cv = _betaEditCv();
   if (!cv) { return; }
   if (cv._betaEvMode === 'edit') { return; }
   if (cv._betaAbort) { cv._betaAbort.abort(); }
@@ -3443,7 +3451,7 @@ function betaAttachEditEv() {
       // 단순 탭 → 구역 선택 (+ 기존 구역이면 편집 패널 열기)
       const zone = _betaZoneAt(r0, c0);
       State._betaSelectedId = zone ? zone.id : null;
-      betaRenderZoneList();
+      if (!State._betaFull) { betaRenderZoneList(); }
       if (zone) { betaEditZone(zone.id); return; }
       betaDrawEdit();
       return;
@@ -3946,20 +3954,20 @@ function betaRstAllPorts() {
 
 // ─ 전체모드 ─
 
+function _betaRenderFull() {
+  const cv = document.getElementById('betaFullCanvas');
+  if (!cv || !State.betaAreaW || !State.betaAreaH) { return; }
+  const sc = _betaScEdit();
+  cv.width  = Math.round(State.betaAreaW * sc);
+  cv.height = Math.round(State.betaAreaH * sc);
+  betaAttachEditEv();
+  betaDrawEdit();
+}
+
 function betaEnterFull() {
   const overlay = document.getElementById('betaFullOverlay');
-  const cv  = document.getElementById('betaCanvas');
-  const cfg = document.getElementById('betaZoneCfg');
-  const zl  = document.getElementById('betaZoneList');
-  if (!overlay || !cv) { return; }
-  State._betaFullSaved = {
-    cvParent:  cv.parentNode,  cvNext:  cv.nextSibling,
-    cfgParent: cfg.parentNode, cfgNext: cfg.nextSibling,
-    zlParent:  zl.parentNode,  zlNext:  zl.nextSibling,
-  };
-  document.getElementById('betaFullCanvasWrap').appendChild(cv);
-  document.getElementById('betaFullCfgSlot').appendChild(cfg);
-  document.getElementById('betaFullZoneSlot').appendChild(zl);
+  if (!overlay || !State.betaAreaW || !State.betaAreaH) { return; }
+  State._betaFull = true;
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   history.pushState({ overlay: 'betaFull' }, '');
@@ -3976,30 +3984,29 @@ function betaEnterFull() {
     _lockLandscape();
   }
 
-  // 회전 완료 후 캔버스 재렌더 (resize 이벤트로 감지)
-  State._betaFullResizeHandler = () => betaRender();
+  State._betaFullResizeHandler = () => _betaRenderFull();
   window.addEventListener('resize', State._betaFullResizeHandler);
-
-  requestAnimationFrame(() => betaRender());
+  requestAnimationFrame(() => _betaRenderFull());
 }
 
 function betaExitFull() {
-  const s = State._betaFullSaved;
   const overlay = document.getElementById('betaFullOverlay');
-  if (!s || !overlay) { return; }
-  const cv  = document.getElementById('betaCanvas');
-  const cfg = document.getElementById('betaZoneCfg');
-  const zl  = document.getElementById('betaZoneList');
-  const bg  = document.getElementById('confirmBg');
-  if (bg && bg.parentElement === overlay) { document.body.appendChild(bg); }
-  s.cvParent.insertBefore(cv,   s.cvNext);
-  s.cfgParent.insertBefore(cfg, s.cfgNext);
-  s.zlParent.insertBefore(zl,   s.zlNext);
+  if (!overlay || !State._betaFull) { return; }
+
+  // 전체모드 캔버스 이벤트 해제
+  const fcv = document.getElementById('betaFullCanvas');
+  if (fcv && fcv._betaAbort) { fcv._betaAbort.abort(); fcv._betaEvMode = null; }
+
+  // 구역 설정 패널 닫기
+  const fcfg = document.getElementById('betaFullZoneCfg');
+  if (fcfg) { fcfg.style.display = 'none'; fcfg.innerHTML = ''; }
+
+  State._betaFull = false;
+  State._betaSelNew = null;
+  State._betaSelEdit = null;
   overlay.style.display = 'none';
   document.body.style.overflow = '';
-  State._betaFullSaved = null;
 
-  // 방향 잠금 해제 및 전체화면 해제
   if (screen.orientation && screen.orientation.unlock) {
     try { screen.orientation.unlock(); } catch (e) {}
   }
@@ -4015,10 +4022,10 @@ function betaExitFull() {
   if (history.state && history.state.overlay === 'betaFull') { _histBack(); }
   betaRender();
 
-  // 방향 전환 / 전체화면 해제 완료 후 캔버스 재렌더 (비동기 전환 대응)
-  const _betaExitRender = () => betaRender();
-  window.addEventListener('resize', _betaExitRender, { once: true, passive: true });
-  setTimeout(() => window.removeEventListener('resize', _betaExitRender), 1500);
+  // 방향 전환 완료 후 메인 캔버스 재렌더 (비동기 전환 대응)
+  const _onExitResize = () => betaRender();
+  window.addEventListener('resize', _onExitResize, { once: true, passive: true });
+  setTimeout(() => window.removeEventListener('resize', _onExitResize), 1500);
 }
 
 function betaReset() {
@@ -4032,7 +4039,8 @@ function betaReset() {
     State.betaPwrPH2   = Array.from({ length: 18 }, () => []);
     State.betaPwrAPort = 0;
     State._betaSelNew  = null; State._betaSelEdit = null;
-    betaRender(); saveState();
+    if (State._betaFull) { _betaRenderFull(); } else { betaRender(); }
+    saveState();
   });
 }
 
