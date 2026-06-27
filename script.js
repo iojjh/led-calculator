@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.13';
-const APP_SW_VERSION = 'v2113';
+const APP_VERSION = '2.1.14';
+const APP_SW_VERSION = 'v2114';
 
 const CHANGELOG = [
+  { v: '2.1.14', items: [
+    'UI 개선 — 편집 모드 격자 셀 최소 55px 보장(_betaScEdit)으로 구역 텍스트 가독성 향상, 폰트 최솟값 9→11px',
+  ]},
   { v: '2.1.13', items: [
     '전체모드 개선 — 진입 시 가로 방향 잠금(landscape lock) + 전체화면 전환, 닫을 때 잠금 해제. 회전 완료 후 캔버스 자동 재렌더',
   ]},
@@ -2638,6 +2641,11 @@ function _betaSc() {
   return W / (State.betaAreaW || 1);
 }
 
+// 편집 모드 전용: 격자 셀 최소 55px 보장 → 텍스트 가독성 확보 (부모 너비 초과 시 가로 스크롤)
+function _betaScEdit() {
+  return Math.max(_betaSc(), 55 / 500);
+}
+
 // mx, my는 mm 단위 (이벤트 핸들러에서 BCR 기반으로 변환해서 전달)
 function _betaCellAt(mmX, mmY) {
   const col = Math.floor(mmX / 500);
@@ -2821,7 +2829,7 @@ function betaRender() {
   }
 
   cv.style.display = 'block';
-  const sc = _betaSc();
+  const sc = State.betaMode === 'edit' ? _betaScEdit() : _betaSc();
   cv.width  = Math.round(State.betaAreaW * sc);
   cv.height = Math.round(State.betaAreaH * sc);
 
@@ -2849,7 +2857,7 @@ function betaDrawEdit() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
-  const sc  = _betaSc();
+  const sc  = _betaScEdit();
   const gW  = _betaGW(); const gH = _betaGH();
   ctx.clearRect(0, 0, cv.width, cv.height);
 
@@ -2888,7 +2896,7 @@ function betaDrawEdit() {
     ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
     ctx.strokeRect(zx + 1, zy + 1, zw - 2, zh - 2);
     // Zone 정보 텍스트 (흰 글씨 + 검정 아웃라인) + 번호
-    const fs = Math.max(9, Math.min(14, 500 * sc * 0.22));
+    const fs = Math.max(11, Math.min(16, 500 * sc * 0.22));
     const pad = Math.max(3, Math.round(fs * 0.5));
     ctx.font = `700 ${fs}px sans-serif`;
     ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, fs * 0.3); ctx.strokeStyle = 'rgba(0,0,0,0.85)';
