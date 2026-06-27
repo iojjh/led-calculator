@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.7';
-const APP_SW_VERSION = 'v217';
+const APP_VERSION = '2.1.8';
+const APP_SW_VERSION = 'v218';
 
 const CHANGELOG = [
+  { v: '2.1.8', items: [
+    '버그 수정 — v2.1.6 §9.5 제거 시 같이 삭제된 _histBack·_programmaticBack·popstate 핸들러 복원',
+  ]},
   { v: '2.1.7', items: [
     '버그 수정 — 제거된 calc() 초기 실행 호출 삭제, _schedTarget fallback을 beta로 수정',
   ]},
@@ -1155,6 +1158,30 @@ function closeConfirmBg(e) { if (e.target === document.getElementById('confirmBg
 function tryResetAll() {
   openConfirm('전체 초기화', 'LED 설계 탭의 모든 설정을 초기화할까요?', betaReset);
 }
+
+let _programmaticBack = false;
+function _histBack() { _programmaticBack = true; history.back(); }
+
+window.addEventListener('popstate', () => {
+  if (_programmaticBack) { _programmaticBack = false; return; }
+  const _ov = [
+    { id: 'chkResetChoiceBg', fn: closeChkResetChoice },
+    { id: 'confirmBg',         fn: closeConfirm },
+    { id: 'modalBg',           fn: closeModal },
+    { id: 'previewBg',         fn: closePreviewModal },
+    { id: 'tutorialBg',        fn: closeTutorial },
+    { id: 'easterBg',          fn: closeEaster },
+    { id: 'saveBg',            fn: closeSaveModal },
+    { id: 'vmixSaveBg',        fn: closeVmixSaveModal },
+    { id: 'schedBg',           fn: closeSchedModal },
+  ];
+  for (const { id, fn } of _ov) {
+    const el = document.getElementById(id);
+    if (el && el.style.display !== 'none') { fn(); return; }
+  }
+  const calc = document.getElementById('calcPanel');
+  if (calc && calc.style.display !== 'none') { calc.style.display = 'none'; }
+});
 
 
 // ── §8  저장 / 불러오기 (localStorage) ───────────────────
