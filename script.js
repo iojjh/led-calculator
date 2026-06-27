@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.12';
-const APP_SW_VERSION = 'v2112';
+const APP_VERSION = '2.1.13';
+const APP_SW_VERSION = 'v2113';
 
 const CHANGELOG = [
+  { v: '2.1.13', items: [
+    '전체모드 개선 — 진입 시 가로 방향 잠금(landscape lock) + 전체화면 전환, 닫을 때 잠금 해제. 회전 완료 후 캔버스 자동 재렌더',
+  ]},
   { v: '2.1.12', items: [
     '신규 기능 — LED 설계 탭 구역 편집 전체모드 추가 (가로로 긴 설치면적 모바일 대응, 격자 드래그 + 초기화 지원)',
   ]},
@@ -3949,6 +3952,23 @@ function betaEnterFull() {
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   history.pushState({ overlay: 'betaFull' }, '');
+
+  // 가로 방향 잠금 — PWA 설치 시 직접 동작, 브라우저는 fullscreen 경유 fallback
+  const _lockLandscape = () => {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  };
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().then(_lockLandscape).catch(_lockLandscape);
+  } else {
+    _lockLandscape();
+  }
+
+  // 회전 완료 후 캔버스 재렌더 (resize 이벤트로 감지)
+  State._betaFullResizeHandler = () => betaRender();
+  window.addEventListener('resize', State._betaFullResizeHandler);
+
   requestAnimationFrame(() => betaRender());
 }
 
@@ -3967,6 +3987,20 @@ function betaExitFull() {
   overlay.style.display = 'none';
   document.body.style.overflow = '';
   State._betaFullSaved = null;
+
+  // 방향 잠금 해제 및 전체화면 해제
+  if (screen.orientation && screen.orientation.unlock) {
+    try { screen.orientation.unlock(); } catch (e) {}
+  }
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+
+  if (State._betaFullResizeHandler) {
+    window.removeEventListener('resize', State._betaFullResizeHandler);
+    State._betaFullResizeHandler = null;
+  }
+
   if (history.state && history.state.overlay === 'betaFull') { _histBack(); }
   betaRender();
 }
