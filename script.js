@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.14';
-const APP_SW_VERSION = 'v2114';
+const APP_VERSION = '2.1.15';
+const APP_SW_VERSION = 'v2115';
 
 const CHANGELOG = [
+  { v: '2.1.15', items: [
+    '버그 수정 — 전체모드 복귀 후 구역 드래그 시 캔버스 스케일 불일치로 화면이 흔들리던 문제 수정 (betaDrawEdit를 캔버스 픽셀 폭 기준 sc로 변경)',
+  ]},
   { v: '2.1.14', items: [
     'UI 개선 — 편집 모드 격자 셀 최소 55px 보장(_betaScEdit)으로 구역 텍스트 가독성 향상, 폰트 최솟값 9→11px',
   ]},
@@ -2857,7 +2860,7 @@ function betaDrawEdit() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
-  const sc  = _betaScEdit();
+  const sc  = cv.width / (State.betaAreaW || 1); // betaRender()가 설정한 캔버스 픽셀 폭 기준 — 동적 재계산 금지
   const gW  = _betaGW(); const gH = _betaGH();
   ctx.clearRect(0, 0, cv.width, cv.height);
 
@@ -4011,6 +4014,11 @@ function betaExitFull() {
 
   if (history.state && history.state.overlay === 'betaFull') { _histBack(); }
   betaRender();
+
+  // 방향 전환 / 전체화면 해제 완료 후 캔버스 재렌더 (비동기 전환 대응)
+  const _betaExitRender = () => betaRender();
+  window.addEventListener('resize', _betaExitRender, { once: true, passive: true });
+  setTimeout(() => window.removeEventListener('resize', _betaExitRender), 1500);
 }
 
 function betaReset() {
