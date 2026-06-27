@@ -105,20 +105,20 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | 섹션 | 시작 줄 | 내용 |
 |------|---------|------|
 | §1 | 21 | 상수·스펙 데이터 (`APP_VERSION`, `APP_SW_VERSION`, `CHANGELOG`, `DEFAULT_COM`, `DEFAULT_COND`, `PWR_PORT_COUNT`, `PC`, `SPECS`, `MAX_PX`, `State`) |
-| §2 | 695 | 장비 체크리스트 (`renderCL`, `tog`, `clearAllChecks`, `openChkResetChoice`, `closeChkResetChoice`, `_doChkResetSoft`, `_doChkResetFull`, `addItem`, `delItem`) |
-| §3 | 854 | 메모 (`renderMemo`, `addMemo`, `delMemo`) |
-| §4 | 874 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`, `_updateBarForTab`) — 탭별 하단 바 버튼 동작 분기(vmix·chk·기타), 업데이트 완료 토스트 감지 IIFE 포함 |
-| §5 | 1024 | 콘솔 & 샌딩카드 (`selConsole`, `selSending`) |
-| §6 | 1050 | PNG 저장·미리보기·공유 (`saveCalcPng`, `saveChkPng`, `_buildResCanvas`, `_buildWmCanvas`, `_buildPwrCanvas`, `_stitchV`, `_getPwrPA`, `genResImage`, `showResPreview`, `selectResVersion`, `_drawBgVignette`, `_drawWmTiles`, `_drawMultiGrid`, `_drawMultiResText`, `_buildMultiResCanvas`, `_buildMultiWmCanvas`, `genResImageMulti`, `_cvToUrl`) |
-| §7 | 1939 | 확인 다이얼로그 & 전체 초기화 (`openConfirm`, `closeConfirm`, `doFullReset`) — openConfirm은 fullscreen 시 confirmBg를 simFsBg 안으로 이동 |
-| §8 | 1996 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) — 계산기 탭 제거 후 beta/체크리스트/메모 상태만 저장 |
-| §9 | 2108 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
-| §9.5 | 2214 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 2410 | **[비워짐 — 헤더만 존재]** 계산기 핵심 함수 2241줄 제거(v2.1.4). git 히스토리 또는 script.backup.js로 복원 가능 |
-| §11 | 2412 | **[비워짐 — 헤더만 존재]** 랜선·파워콘 시뮬레이터 함수 제거(v2.1.4). git 히스토리 또는 script.backup.js로 복원 가능 |
-| §12 | 2417 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
-| §13 | 3309 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_setSchedTab`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents`, `_schedTab` |
-| §14 | 3677 | LED 설계 탭 (구 혼합 시뮬레이터 β) (`_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaRenderPwrPorts`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN/PWR 모드 전환, 뱀형 자동할당. `betaExportToCalc`는 내보내기 버튼 제거(v2.0.101)로 데드코드 |
+| §2 | 704 | 장비 체크리스트 (`renderCL`, `tog`, `clearAllChecks`, `openChkResetChoice`, `closeChkResetChoice`, `_doChkResetSoft`, `_doChkResetFull`, `addItem`, `delItem`, `saveChkPng`) |
+| §3 | 906 | **[비워짐 — 헤더만 존재]** 메모 함수 제거(v2.1.5). UI 없음. |
+| §4 | 909 | 탭 전환 & 버전 팝업 (`swTab`, `_onVersionTap`, `_updateBarForTab`) — 탭별 하단 바 버튼 동작 분기(vmix·chk·기타), 업데이트 완료 토스트 감지 IIFE 포함 |
+| §5 | 1059 | **[비워짐 — 헤더만 존재]** 콘솔·샌딩카드 선택 함수 제거(v2.1.5). UI 없음. |
+| §6 | 1062 | **[비워짐 — 헤더만 존재]** PNG 저장 관련 함수 제거(v2.1.5). 살아있는 함수는 §2·§7·§14로 이동. |
+| §7 | 1064 | 모달·다이얼로그·다운로드 (`openModal`, `closeModal`, `dl`, `dateStr`, `_cvToUrl`, `showPreview`, `closePreviewModal`, `confirmDownload`, `shareImage`, `openConfirm`, `closeConfirm`, `doFullReset`) |
+| §8 | 1203 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) — 계산기 탭 제거 후 beta/체크리스트/메모 상태만 저장 |
+| §9 | 1315 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
+| §9.5 | 1421 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
+| §10 | — | **[비워짐 — 헤더만 존재]** 계산기 핵심 함수 제거(v2.1.4). git 히스토리 또는 script.backup.js로 복원 가능 |
+| §11 | — | **[비워짐 — 헤더만 존재]** 랜선·파워콘 시뮬레이터 함수 제거(v2.1.4). git 히스토리 또는 script.backup.js로 복원 가능 |
+| §12 | 1613 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
+| §13 | 2505 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_setSchedTab`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents`, `_schedTab` |
+| §14 | 2873 | LED 설계 탭 (구 혼합 시뮬레이터 β) (`showResPreview`, `selectResVersion`, `betaSaveGuideImage`, `_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaRenderPwrPorts`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN/PWR 모드 전환, 뱀형 자동할당 |
 
 **핵심 전역 상태 — `const State` (§1, line 242)**
 

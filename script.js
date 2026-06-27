@@ -20,10 +20,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.4';
-const APP_SW_VERSION = 'v214';
+const APP_VERSION = '2.1.5';
+const APP_SW_VERSION = 'v215';
 
 const CHANGELOG = [
+  { v: '2.1.5', items: [
+    '§3·§5·§6·§14 데드코드 정리 — 살아있는 함수는 §2·§7·§14로 이동, 빈 섹션은 헤더만 유지 (총 2978줄 제거)',
+  ]},
   { v: '2.1.4', items: [
     '§10(계산기 핵심)·§11(랜선 시뮬레이터) 데드코드 2241줄 제거 — 섹션 헤더만 유지, git 히스토리·backup 파일로 복원 가능',
   ]},
@@ -860,26 +863,50 @@ renderCL();
 document.addEventListener('DOMContentLoaded', () => { _updateBarForTab('beta'); betaRender(); });
 
 
+
+async function saveChkPng() {
+  const filter = arr => arr.filter(n => State.chkState[n] || State.chkNotes[n]);
+  const comItems = filter(State.COM);
+  const condItems = filter(State.COND);
+  if (!comItems.length && !condItems.length) { return; }
+
+  const row = n => {
+    const checked = State.chkState[n];
+    const note = State.chkNotes[n] || '';
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;">
+      <span style="font-size:15px;color:${checked ? '#0F6E56' : '#bbb'};flex-shrink:0;margin-top:1px;">${checked ? '✓' : '○'}</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:${checked ? '#1a1a1a' : '#666'};">${n}</div>
+        ${note ? `<div style="font-size:11px;color:#888;margin-top:2px;">${note}</div>` : ''}
+      </div>
+    </div>`;
+  };
+  const sec = (label, items) => items.length === 0 ? '' :
+    `<div style="font-size:10px;font-weight:600;color:#999;letter-spacing:.05em;text-transform:uppercase;margin:12px 0 4px;">${label}</div>${items.map(row).join('')}`;
+
+  const all = State.COM.length + State.COND.length;
+  const done = Object.values(State.chkState).filter(Boolean).length;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;background:#fff;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-sizing:border-box;';
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">장비 체크리스트</div>
+      <div style="font-size:11px;color:#999;">${new Date().toLocaleDateString('ko-KR')}</div>
+    </div>
+    <div style="height:2px;background:#0F6E56;border-radius:1px;margin-bottom:6px;"></div>
+    <div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">${done} / ${all} 완료</div>
+    ${sec('공통 장비', comItems)}${sec('현장 상황별 장비', condItems)}
+    <div style="height:1px;background:#eee;margin-top:12px;"></div>`;
+  document.body.appendChild(wrap);
+  try {
+    const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    showPreview(await _cvToUrl(canvas), 'LED_체크리스트_' + dateStr() + '.png');
+  } finally {
+    document.body.removeChild(wrap);
+  }
+}
+
 // ── §3  메모 ──────────────────────────────────────────────
-
-
-function renderMemo() {
-  const el = document.getElementById('memoList');
-  if (!el) { return; }
-  el.innerHTML = State.memoList.map((t, i) =>
-    `<div class="memo-item">
-      <span class="memo-txt">${t}</span>
-      <button class="del-btn" onclick="delMemo(${i})">×</button>
-    </div>`
-  ).join('');
-}
-function addMemo() {
-  const inp = document.getElementById('add-memo');
-  const t = inp.value.trim();
-  if (!t) { return; }
-  State.memoList.push(t); inp.value = ''; renderMemo();
-}
-function delMemo(i) { State.memoList.splice(i, 1); renderMemo(); }
 
 
 // ── §4  탭 전환 & 버전 표시 ──────────────────────────────
@@ -1034,31 +1061,10 @@ function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')
 
 // ── §5  콘솔 & 샌딩카드 ──────────────────────────────────
 
-function selConsole(el) {
-  document.querySelectorAll('#consoleChips .chip').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  const s = CSPEC[el.dataset.v];
-  document.getElementById('cableType').textContent = s.cable;
-  document.getElementById('repeaterType').textContent = s.rep;
-  const lnk = document.getElementById('consoleManual');
-  lnk.onclick = s.manual ? () => openManual(s.manual, el.dataset.v + ' 메뉴얼') : null;
-  lnk.style.display = s.manual ? 'inline-flex' : 'none';
-  document.getElementById('consoleInfo').style.display = 'block';
-}
-function selSending(el) {
-  document.querySelectorAll('#sendingChips .chip').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  State.curSending = el.dataset.v;
-  const s = SSPEC[State.curSending];
-  const lnk = document.getElementById('sendingManual');
-  lnk.onclick = () => openManual(s.manual, s.label + ' 메뉴얼');
-  lnk.style.display = 'inline-flex';
-  document.getElementById('sendingInfo').style.display = 'block';
-  if (isReady()) { renderRes(); }
-}
-
 
 // ── §6  PNG 저장 · 미리보기 · 공유 ───────────────────────
+
+// ── §7  확인 다이얼로그 & 전체 초기화 ────────────────────
 
 function openModal() {
   const opt = document.getElementById('pngPwrOpt');
@@ -1141,813 +1147,6 @@ async function shareImage() {
 
 // ── 해상도 이미지 생성 ────────────────────────────────────
 
-function _loadImg(src) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = src;
-  });
-}
-
-function _buildResCanvas(sp, tW, tH) {
-  const cv = document.createElement('canvas');
-  cv.width = tW;
-  cv.height = tH;
-  const ctx = cv.getContext('2d');
-
-  // 배경
-  ctx.fillStyle = '#141414';
-  ctx.fillRect(0, 0, tW, tH);
-
-  // 중앙 비네팅 — 텍스트 대비 강조
-  const vg = ctx.createRadialGradient(tW/2, tH/2, 0, tW/2, tH/2, Math.hypot(tW, tH) / 2);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
-  ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
-
-  // 실선 격자 — 패널 경계선
-  const gridLW = Math.max(2, Math.round(tW / 700));
-  ctx.strokeStyle = 'rgba(255,255,255,0.60)';
-  ctx.lineWidth = gridLW;
-  ctx.setLineDash([]);
-
-  const pw = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
-  for (let x = pw; x < tW; x += pw) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
-  }
-
-  let y = 0;
-  State.layout.forEach(r => {
-    y += ppx(r.type).h;
-    if (y < tH) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tW, y); ctx.stroke();
-    }
-  });
-
-  // 중앙 해상도 텍스트 (기존 60% 대비 1.5배 = 원본 90%)
-  const fs = Math.round(Math.max(28, Math.min(Math.round(tH * 0.13), 120)) * 0.9);
-  const font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.font = font;
-
-  // W × H — × 만 주황색
-  const wStr = `${tW}`, sepStr = '  ×  ', hStr = `${tH}`;
-  const wW = ctx.measureText(wStr).width;
-  const sepW = ctx.measureText(sepStr).width;
-  const hW = ctx.measureText(hStr).width;
-  const sx = tW / 2 - (wW + sepW + hW) / 2;
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(wStr, sx, tH / 2);
-  ctx.fillStyle = '#FF7A2A';
-  ctx.fillText(sepStr, sx + wW, tH / 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(hStr, sx + wW + sepW, tH / 2);
-
-  // 주황 장식선 — 격자선 두께의 2배, 완전 불투명
-  const lineLen = (wW + sepW + hW) * 1.2;
-  const gap = fs * 0.72;
-  ctx.strokeStyle = '#FF7A2A';
-  ctx.lineWidth = gridLW * 2;
-  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
-
-  return cv;
-}
-
-async function _buildWmCanvas(sp, tW, tH) {
-  const cv = document.createElement('canvas');
-  cv.width = tW;
-  cv.height = tH;
-  const ctx = cv.getContext('2d');
-
-  // ── Layer 1: 배경 + 비네팅 ──
-  ctx.fillStyle = '#141414';
-  ctx.fillRect(0, 0, tW, tH);
-  const vg = ctx.createRadialGradient(tW/2, tH/2, 0, tW/2, tH/2, Math.hypot(tW, tH) / 2);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.42)');
-  ctx.fillStyle = vg; ctx.fillRect(0, 0, tW, tH);
-
-  // ── Layer 2: 사명 타일 (최하단 — 격자·텍스트 아래) ──
-  const wmText = '3Y ENTERTAINMENT';
-  const fSize = Math.round(Math.max(24, tW * 0.022));
-  ctx.save();
-  ctx.font = `600 ${fSize}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.28)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const textW = ctx.measureText(wmText).width;
-  const stepX = Math.round(textW  * 1.6);
-  const stepY = Math.round(fSize  * 5.2);
-  const halfD = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
-  ctx.translate(tW / 2, tH / 2);
-  ctx.rotate(-Math.PI / 6);
-  for (let r = -Math.ceil(halfD / stepY); r <= Math.ceil(halfD / stepY) + 1; r++) {
-    for (let c = -Math.ceil(halfD / stepX); c <= Math.ceil(halfD / stepX) + 1; c++) {
-      ctx.fillText(wmText, c * stepX, r * stepY);
-    }
-  }
-  ctx.restore();
-
-  // ── Layer 3: 격자선 ──
-  const gridLW = Math.max(2, Math.round(tW / 700));
-  ctx.strokeStyle = 'rgba(255,255,255,0.60)';
-  ctx.lineWidth = gridLW;
-  ctx.setLineDash([]);
-  const pw = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
-  for (let x = pw; x < tW; x += pw) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tH); ctx.stroke();
-  }
-  let y = 0;
-  State.layout.forEach(r => {
-    y += ppx(r.type).h;
-    if (y < tH) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tW, y); ctx.stroke(); }
-  });
-
-  // ── Layer 4: 해상도 텍스트 + 주황 바 ──
-  const fs = Math.round(Math.max(28, Math.min(Math.round(tH * 0.13), 120)) * 0.9);
-  ctx.font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  const wStr = `${tW}`, sepStr = '  ×  ', hStr = `${tH}`;
-  const wW = ctx.measureText(wStr).width;
-  const sepW = ctx.measureText(sepStr).width;
-  const hW = ctx.measureText(hStr).width;
-  const sx = tW / 2 - (wW + sepW + hW) / 2;
-  ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, sx, tH / 2);
-  ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, sx + wW, tH / 2);
-  ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, sx + wW + sepW, tH / 2);
-  const lineLen = (wW + sepW + hW) * 1.2;
-  const gap = fs * 0.72;
-  ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
-  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 - gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 - gap); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(tW/2 - lineLen/2, tH/2 + gap); ctx.lineTo(tW/2 + lineLen/2, tH/2 + gap); ctx.stroke();
-
-  // ── Layer 5: 회사 로고 (좌상단, 충분히 크게) ──
-  // 3Y_no_bg.png는 이미 투명 PNG이므로 getImageData 픽셀 처리 불필요
-  try {
-    const logoImg = await _loadImg('3Y_no_bg.png');
-    const logoW = Math.round(sp.px500.w * 1.84);
-    const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin = Math.round(tW * 0.01);
-    ctx.save();
-    ctx.globalAlpha = 0.90;
-    ctx.drawImage(logoImg, margin, 0, logoW, logoH);
-    ctx.restore();
-  } catch { /* 로고 없이 계속 */ }
-
-  return cv;
-}
-
-// 파워콘 배선 캔버스 (단일 모드) — 메인 이미지 아래에 이어 붙이기용
-function _buildPwrCanvas(sp, tW, tH, pwrPA) {
-  const hdr = Math.max(48, Math.round(tH * 0.09));
-  const cv = document.createElement('canvas');
-  cv.width = tW; cv.height = hdr + tH;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(0, 0, tW, hdr + tH);
-  // 구분선
-  ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = Math.max(2, Math.round(tH / 400));
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tW, 0); ctx.stroke();
-  // 헤더
-  const fs = Math.round(hdr * 0.38);
-  ctx.textBaseline = 'middle';
-  ctx.font = `600 ${fs}px 'Inter','Helvetica Neue',sans-serif`;
-  ctx.fillStyle = '#FF7A2A';
-  ctx.textAlign = 'left';
-  ctx.fillText('파워콘 배선', Math.round(tW * 0.025), hdr / 2);
-  const usedPorts = pwrPA.filter(s => s.size > 0).length;
-  ctx.fillStyle = '#ccc';
-  ctx.textAlign = 'right';
-  ctx.fillText(`1번 파워콘 ${usedPorts}개`, Math.round(tW * 0.975), hdr / 2);
-  // 셀 그리기
-  const C = State.cols, layout = State.layout;
-  const cellW = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
-  let y = hdr;
-  layout.forEach((row, ri) => {
-    const cellH = ppx(row.type).h;
-    for (let ci = 0; ci < C; ci++) {
-      const key = `${ri},${ci}`;
-      const pi = pwrPA.findIndex(s => s.has(key));
-      ctx.fillStyle = pi >= 0 ? portColor(pi) : '#2e2e2e';
-      ctx.fillRect(ci * cellW + 1, y + 1, cellW - 2, cellH - 2);
-    }
-    y += cellH;
-  });
-  // 격자선
-  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.setLineDash([]);
-  for (let ci = 1; ci < C; ci++) {
-    ctx.beginPath(); ctx.moveTo(ci * cellW, hdr); ctx.lineTo(ci * cellW, hdr + tH); ctx.stroke();
-  }
-  y = hdr;
-  layout.forEach(row => {
-    y += ppx(row.type).h;
-    if (y < hdr + tH) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tW, y); ctx.stroke(); }
-  });
-  return cv;
-}
-
-// 파워콘 배선 캔버스 (멀티 모드) — 메인 이미지 아래에 이어 붙이기용
-function _buildPwrCanvasMulti(sp, secInfo, totalTW, maxTH, pwrPA) {
-  const hdr = Math.max(48, Math.round(maxTH * 0.09));
-  const cv = document.createElement('canvas');
-  cv.width = totalTW; cv.height = hdr + maxTH;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(0, 0, totalTW, hdr + maxTH);
-  ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = Math.max(2, Math.round(maxTH / 400));
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(totalTW, 0); ctx.stroke();
-  const fs = Math.round(hdr * 0.38);
-  ctx.textBaseline = 'middle';
-  ctx.font = `600 ${fs}px 'Inter','Helvetica Neue',sans-serif`;
-  ctx.fillStyle = '#FF7A2A'; ctx.textAlign = 'left';
-  ctx.fillText('파워콘 배선', Math.round(totalTW * 0.025), hdr / 2);
-  const usedPorts = pwrPA.filter(s => s.size > 0).length;
-  ctx.fillStyle = '#ccc'; ctx.textAlign = 'right';
-  ctx.fillText(`1번 파워콘 ${usedPorts}개`, Math.round(totalTW * 0.975), hdr / 2);
-  const cellW = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
-  let xOff = 0;
-  ['left','center','right'].forEach(sn => {
-    const sec = secInfo[sn]; if (!sec) { return; }
-    const { cols, layout } = sec;
-    let y = hdr;
-    layout.forEach((row, ri) => {
-      const cellH = ppx(row.type).h;
-      for (let ci = 0; ci < cols; ci++) {
-        const pi = pwrPA.findIndex(s => s.has(`${sn}:${ri},${ci}`));
-        ctx.fillStyle = pi >= 0 ? portColor(pi) : '#2e2e2e';
-        ctx.fillRect(xOff + ci * cellW + 1, y + 1, cellW - 2, cellH - 2);
-      }
-      y += cellH;
-    });
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
-    for (let ci = 1; ci < cols; ci++) {
-      ctx.beginPath(); ctx.moveTo(xOff + ci * cellW, hdr); ctx.lineTo(xOff + ci * cellW, hdr + sec.tH); ctx.stroke();
-    }
-    let yr = hdr;
-    layout.forEach(row => {
-      yr += ppx(row.type).h;
-      if (yr < hdr + sec.tH) { ctx.beginPath(); ctx.moveTo(xOff, yr); ctx.lineTo(xOff + cols * cellW, yr); ctx.stroke(); }
-    });
-    xOff += cols * cellW;
-  });
-  return cv;
-}
-
-// 두 캔버스를 수직으로 이어 붙이기
-function _stitchV(cvTop, cvBot) {
-  const cv = document.createElement('canvas');
-  cv.width = cvTop.width; cv.height = cvTop.height + cvBot.height;
-  const ctx = cv.getContext('2d');
-  ctx.drawImage(cvTop, 0, 0);
-  ctx.drawImage(cvBot, 0, cvTop.height);
-  return cv;
-}
-
-// 현재 파워콘 상태(저장된 값 포함) 반환
-function _getPwrPA() {
-  if (State.simTab === 'pwr') { return State.pA.map(s => new Set(s)); }
-  return State._savedPwr ? State._savedPwr.pA.map(s => new Set(s)) : null;
-}
-
-async function genResImage() {
-  if (!isReady()) { return; }
-  const sp = SPECS[State.curLed];
-  const isLand = State.panelRotated && State.basePH === 1000;
-  const tW = isLand ? State.cols * sp.px1000.h : State.cols * sp.px500.w;
-  let tH = 0;
-  State.layout.forEach(r => { tH += ppx(r.type).h; });
-
-  let baseCv = _buildResCanvas(sp, tW, tH);
-  // 파워콘 커스텀 배선이면 아래에 이어 붙이기
-  const pwrPA = _getPwrPA();
-  if (pwrPA && !_isDefaultPwrWiring(pwrPA)) {
-    baseCv = _stitchV(baseCv, _buildPwrCanvas(sp, tW, tH, pwrPA));
-  }
-  const filename = `LED_${tW}x${tH}_${dateStr()}.png`;
-
-  // _buildWmCanvas는 throw하지 않으므로 탭이 항상 표시됨
-  let wmUrl = null;
-  try {
-    let wmCv = await _buildWmCanvas(sp, tW, tH);
-    if (pwrPA && !_isDefaultPwrWiring(pwrPA)) {
-      wmCv = _stitchV(wmCv, _buildPwrCanvas(sp, tW, tH, pwrPA));
-    }
-    wmUrl = await _cvToUrl(wmCv);
-  } catch { /* 치명적 실패 시 탭 없이 기본 버전만 */ }
-
-  const baseUrl = await _cvToUrl(baseCv);
-  showResPreview(baseUrl, wmUrl, filename);
-}
-
-// ── 멀티 섹션 이미지 생성 ─────────────────────────────────
-
-function _drawBgVignette(ctx, tW, tH) {
-  ctx.fillStyle = '#141414';
-  ctx.fillRect(0, 0, tW, tH);
-  const vg = ctx.createRadialGradient(tW/2, tH/2, 0, tW/2, tH/2, Math.hypot(tW, tH)/2);
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, 'rgba(0,0,0,0.42)');
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, tW, tH);
-}
-
-function _drawWmTiles(ctx, tW, tH) {
-  const wmText = '3Y ENTERTAINMENT';
-  const fSize = Math.round(Math.max(24, tW * 0.022));
-  ctx.save();
-  ctx.font = `600 ${fSize}px 'Helvetica Neue',Helvetica,Arial,sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.28)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const textW = ctx.measureText(wmText).width;
-  const stepX = Math.round(textW * 1.6);
-  const stepY = Math.round(fSize * 5.2);
-  const halfD = Math.ceil(Math.hypot(tW, tH) / 2) + Math.max(stepX, stepY);
-  ctx.translate(tW / 2, tH / 2);
-  ctx.rotate(-Math.PI / 6);
-  for (let r = -Math.ceil(halfD / stepY); r <= Math.ceil(halfD / stepY) + 1; r++) {
-    for (let c = -Math.ceil(halfD / stepX); c <= Math.ceil(halfD / stepX) + 1; c++) {
-      ctx.fillText(wmText, c * stepX, r * stepY);
-    }
-  }
-  ctx.restore();
-}
-
-function _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH) {
-  const gridLW = Math.max(2, Math.round(totalTW / 700));
-  const pw = State.panelRotated && State.basePH === 1000 ? sp.px1000.h : sp.px500.w;
-  const active = ['left','center','right'].filter(k => secInfo[k]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.60)';
-  ctx.lineWidth = gridLW;
-  let secX = 0;
-  active.forEach(k => {
-    const sec = secInfo[k];
-    for (let x = pw; x < sec.tW; x += pw) {
-      ctx.beginPath(); ctx.moveTo(secX + x, 0); ctx.lineTo(secX + x, maxTH); ctx.stroke();
-    }
-    let y = 0;
-    sec.layout.forEach(r => {
-      y += ppx(r.type).h;
-      if (y < maxTH) { ctx.beginPath(); ctx.moveTo(secX, y); ctx.lineTo(secX + sec.tW, y); ctx.stroke(); }
-    });
-    secX += sec.tW;
-  });
-  if (active.length > 1) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.90)';
-    ctx.lineWidth = gridLW * 2;
-    let dx = 0;
-    active.slice(0, -1).forEach(k => {
-      dx += secInfo[k].tW;
-      ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, maxTH); ctx.stroke();
-    });
-  }
-  return gridLW;
-}
-
-function _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes) {
-  if (showSecRes) {
-    const LABELS = { left: '좌측', center: '중앙', right: '우측' };
-    const active = ['left','center','right'].filter(k => secInfo[k]);
-    let sx = 0;
-    active.forEach(k => {
-      const sec = secInfo[k];
-      const cx = sx + sec.tW / 2;
-      const cy = maxTH / 2;
-      const fs = Math.round(Math.max(18, Math.min(sec.tH * 0.13, sec.tW * 0.12, 100)) * 0.9);
-      const gap = fs * 0.72;
-      const lfs = Math.round(fs * 0.48);
-      ctx.font = `500 ${lfs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
-      ctx.fillStyle = '#FF7A2A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(LABELS[k], cx, cy - gap - lfs);
-      const wStr = `${sec.tW}`, sepStr = '  ×  ', hStr = `${sec.tH}`;
-      ctx.font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      const wW = ctx.measureText(wStr).width;
-      const sepW = ctx.measureText(sepStr).width;
-      const hW = ctx.measureText(hStr).width;
-      const textX = cx - (wW + sepW + hW) / 2;
-      ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, textX, cy);
-      ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, textX + wW, cy);
-      ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, textX + wW + sepW, cy);
-      const lineLen = (wW + sepW + hW) * 1.2;
-      ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
-      ctx.beginPath(); ctx.moveTo(cx - lineLen/2, cy - gap); ctx.lineTo(cx + lineLen/2, cy - gap); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx - lineLen/2, cy + gap); ctx.lineTo(cx + lineLen/2, cy + gap); ctx.stroke();
-      sx += sec.tW;
-    });
-  } else {
-    const fs = Math.round(Math.max(28, Math.min(maxTH * 0.13, 120)) * 0.9);
-    ctx.font = `300 ${fs}px 'Inter','Helvetica Neue',Helvetica,Arial,sans-serif`;
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    const wStr = `${totalTW}`, sepStr = '  ×  ', hStr = `${maxTH}`;
-    const wW = ctx.measureText(wStr).width;
-    const sepW = ctx.measureText(sepStr).width;
-    const hW = ctx.measureText(hStr).width;
-    const sx2 = totalTW / 2 - (wW + sepW + hW) / 2;
-    ctx.fillStyle = '#ffffff'; ctx.fillText(wStr, sx2, maxTH / 2);
-    ctx.fillStyle = '#FF7A2A'; ctx.fillText(sepStr, sx2 + wW, maxTH / 2);
-    ctx.fillStyle = '#ffffff'; ctx.fillText(hStr, sx2 + wW + sepW, maxTH / 2);
-    const lineLen = (wW + sepW + hW) * 1.2;
-    const gap = fs * 0.72;
-    ctx.strokeStyle = '#FF7A2A'; ctx.lineWidth = gridLW * 2;
-    ctx.beginPath(); ctx.moveTo(totalTW/2 - lineLen/2, maxTH/2 - gap); ctx.lineTo(totalTW/2 + lineLen/2, maxTH/2 - gap); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(totalTW/2 - lineLen/2, maxTH/2 + gap); ctx.lineTo(totalTW/2 + lineLen/2, maxTH/2 + gap); ctx.stroke();
-  }
-}
-
-function _buildMultiResCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
-  const cv = document.createElement('canvas');
-  cv.width = totalTW; cv.height = maxTH;
-  const ctx = cv.getContext('2d');
-  _drawBgVignette(ctx, totalTW, maxTH);
-  const gridLW = _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH);
-  _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes);
-  return cv;
-}
-
-async function _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, showSecRes) {
-  const cv = document.createElement('canvas');
-  cv.width = totalTW; cv.height = maxTH;
-  const ctx = cv.getContext('2d');
-  _drawBgVignette(ctx, totalTW, maxTH);
-  _drawWmTiles(ctx, totalTW, maxTH);
-  const gridLW = _drawMultiGrid(ctx, sp, secInfo, totalTW, maxTH);
-  _drawMultiResText(ctx, secInfo, totalTW, maxTH, gridLW, showSecRes);
-  try {
-    const logoImg = await _loadImg('3Y_no_bg.png');
-    const cSec = secInfo.center;
-    const lSec = secInfo.left;
-    const baseTW = cSec ? cSec.tW : (lSec ? lSec.tW : totalTW);
-    const logoXOff = cSec && lSec ? lSec.tW : 0;
-    const logoW = Math.round(sp.px500.w * 1.84);
-    const logoH = Math.round(logoW * logoImg.height / logoImg.width);
-    const margin = Math.round(baseTW * 0.01);
-    ctx.save(); ctx.globalAlpha = 0.90;
-    ctx.drawImage(logoImg, logoXOff + margin, 0, logoW, logoH);
-    ctx.restore();
-  } catch { /* 로고 없이 계속 */ }
-  return cv;
-}
-
-async function genResImageMulti() {
-  if (!isReady()) { return; }
-  const sp = SPECS[State.curLed];
-  const isLand = State.panelRotated && State.basePH === 1000;
-  let totalTW = 0, maxTH = 0;
-  const secInfo = {};
-  ['left','center','right'].forEach(k => {
-    const sec = State.multiSec[k];
-    if (!sec.cols || !sec.layout.length) { secInfo[k] = null; return; }
-    let tH = 0; sec.layout.forEach(r => { tH += ppx(r.type).h; });
-    const tW = isLand ? sec.cols * sp.px1000.h : sec.cols * sp.px500.w;
-    totalTW += tW; maxTH = Math.max(maxTH, tH);
-    secInfo[k] = { tW, tH, cols: sec.cols, layout: [...sec.layout] };
-  });
-  if (!totalTW || !maxTH) { return; }
-  const filename = `LED_${totalTW}x${maxTH}_${dateStr()}.png`;
-  const pwrPA = _getPwrPA();
-  const hasCustPwr = pwrPA && !_isDefaultPwrWiring(pwrPA);
-  const _stitch = cv => hasCustPwr ? _stitchV(cv, _buildPwrCanvasMulti(sp, secInfo, totalTW, maxTH, pwrPA)) : cv;
-  const baseUrl = await _cvToUrl(_stitch(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, false)));
-  const secUrl  = await _cvToUrl(_stitch(_buildMultiResCanvas(sp, secInfo, totalTW, maxTH, true)));
-  let wmUrl = null, wmSecUrl = null;
-  try {
-    wmUrl    = await _cvToUrl(_stitch(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, false)));
-    wmSecUrl = await _cvToUrl(_stitch(await _buildMultiWmCanvas(sp, secInfo, totalTW, maxTH, true)));
-  } catch { /* 치명적 실패 시 기본만 */ }
-  _resVersions = { normal: { url: baseUrl, filename } };
-  if (wmUrl)    { _resVersions.wm      = { url: wmUrl,    filename: filename.replace('.png', '_WM.png') }; }
-  if (secUrl)   { _resVersions.secRes  = { url: secUrl,   filename: filename.replace('.png', '_SEC.png') }; }
-  if (wmSecUrl) { _resVersions.wmSecRes = { url: wmSecUrl, filename: filename.replace('.png', '_WM_SEC.png') }; }
-  document.getElementById('tabWm').style.display       = wmUrl    ? '' : 'none';
-  document.getElementById('tabSecRes').style.display   = secUrl   ? '' : 'none';
-  document.getElementById('tabWmSecRes').style.display = wmSecUrl ? '' : 'none';
-  document.getElementById('resVersionTabs').style.display = 'block';
-  selectResVersion('normal');
-  history.pushState({ overlay: 'preview' }, '');
-  document.getElementById('previewBg').style.display = 'flex';
-  closeModal();
-}
-
-
-function showResPreview(baseUrl, wmUrl, filename) {
-  _resVersions = { normal: { url: baseUrl, filename } };
-  if (wmUrl) { _resVersions.wm = { url: wmUrl, filename: filename.replace('.png', '_WM.png') }; }
-  document.getElementById('tabWm').style.display       = '';
-  document.getElementById('tabSecRes').style.display   = 'none';
-  document.getElementById('tabWmSecRes').style.display = 'none';
-  document.getElementById('resVersionTabs').style.display = wmUrl ? 'block' : 'none';
-  selectResVersion('normal');
-  history.pushState({ overlay: 'preview' }, '');
-  document.getElementById('previewBg').style.display = 'flex';
-  closeModal();
-}
-
-function selectResVersion(v) {
-  if (!_resVersions || !_resVersions[v]) { return; }
-  pendingDownload = _resVersions[v];
-  document.getElementById('previewImg').src = pendingDownload.url;
-  ['normal','wm','secRes','wmSecRes'].forEach(t => {
-    const el = document.getElementById('tab' + t[0].toUpperCase() + t.slice(1));
-    if (el) { el.classList.toggle('active', t === v); }
-  });
-}
-
-// ── PNG 스냅샷 생성 ──────────────────────────────────────
-
-async function saveCalcPng() {
-  if (!isReady()) { alert('LED 종류와 패널 사이즈를 먼저 선택해주세요.'); return; }
-
-  const sp = SPECS[State.curLed];
-  const isLand = State.panelRotated && State.basePH === 1000;
-  const tW = isLand ? State.cols * sp.px1000.h : State.cols * sp.px500.w;
-  let tH = 0; State.layout.forEach(r => { tH += ppx(r.type).h; });
-
-  // 패널 수량
-  let c5 = 0, c10 = 0;
-  State.layout.forEach(r => {
-    if (isLand) { c10 += State.cols; }
-    else if (r.type === 'half') { c5 += State.cols; }
-    else if (State.basePH === 1000) { c10 += State.cols; }
-    else { c5 += State.cols; }
-  });
-
-  // 케이블 수량 — PWR 탭 활성 시에도 LAN pA 기준으로 계산
-  const _lanPA = State.simTab === 'pwr' && State._savedLan ? State._savedLan.pA : State.pA;
-  const asgn = new Set(); _lanPA.forEach(s => s.forEach(k => asgn.add(k)));
-  const tot = State.layout.length * State.cols, una = tot - asgn.size;
-  const _lan = _calcLan(_lanPA), _pw = _calcPwr(State.simTab === 'pwr' ? State.pA : State._savedPwr?.pA);
-
-  // 입력 필드 값 수집
-  const W = document.getElementById('iW').value;
-  const H = document.getElementById('iH').value;
-  const panelEl = document.querySelector('#panelChips .chip.on');
-  const consoleEl = document.querySelector('#consoleChips .chip.on');
-  const mainLen = document.getElementById('mainLen').value;
-  const fiberLen = document.getElementById('fiberLen').value;
-  const consoleName = consoleEl  ? consoleEl.dataset.v : null;
-  const consoleSpec = consoleName ? CSPEC[consoleName] : null;
-  const sendingSpec = State.curSending  ? SSPEC[State.curSending]  : null;
-
-  // 파워콘 포함 여부: 체크박스 선택 여부만 확인
-  const includePwr = document.getElementById('pngIncludePwr')?.checked !== false;
-
-  // 랜선·파워콘 캔버스: simCanvas 직접 캡처 (임시 상태 전환으로 양쪽 모두 확보)
-  const simCv = document.getElementById('simCanvas');
-  let lanDataUrl = null, pwrDataUrl = null;
-  if (simCv && simCv.width > 0) {
-    if (State.simTab === 'lan') {
-      lanDataUrl = simCv.toDataURL('image/png');
-      if (includePwr) {
-        const cur = { pA: State.pA, pH2: State.pH2, aPort: State.aPort, fCell: State.fCell, drag: State.drag, dStk: State.dStk, dHov: State.dHov };
-        if (State._savedPwr) {
-          State.pA = State._savedPwr.pA; State.pH2 = State._savedPwr.pH2; State.aPort = State._savedPwr.aPort;
-        } else {
-          // 파워콘 탭 미방문 — 기본 배선 임시 생성
-          State.pA = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
-          State.pH2 = Array.from({ length: PWR_PORT_COUNT }, () => []);
-          _applyDefaultPwrWiring();
-        }
-        State.simTab = 'pwr'; drawCv();
-        pwrDataUrl = simCv.toDataURL('image/png');
-        State.simTab = 'lan';
-        State.pA = cur.pA; State.pH2 = cur.pH2; State.aPort = cur.aPort;
-        State.fCell = cur.fCell; State.drag = cur.drag; State.dStk = cur.dStk; State.dHov = cur.dHov;
-        drawCv();
-      }
-    } else {
-      if (includePwr) { pwrDataUrl = simCv.toDataURL('image/png'); }
-      if (State._savedLan) {
-        const cur = { pA: State.pA, pH2: State.pH2, aPort: State.aPort };
-        State.pA = State._savedLan.pA; State.pH2 = State._savedLan.pH2; State.aPort = State._savedLan.aPort;
-        State.simTab = 'lan'; drawCv();
-        lanDataUrl = simCv.toDataURL('image/png');
-        State.simTab = 'pwr'; State.pA = cur.pA; State.pH2 = cur.pH2; State.aPort = cur.aPort;
-        drawCv();
-      }
-    }
-  }
-
-  // 스냅샷 HTML 헬퍼
-  const S = (t, v) => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:13px;"><span style="color:#888">${t}</span><span style="color:#1a1a1a;font-weight:500">${v}</span></div>`;
-  const SEC = t      => `<div style="font-size:10px;font-weight:600;color:#999;letter-spacing:.08em;text-transform:uppercase;margin:14px 0 6px;">${t}</div>`;
-
-  // 샌딩카드 커버 여부 표시 블록
-  let coverHtml = '';
-  if (sendingSpec) {
-    const modesStr = sendingSpec.modes.map(m => `${m.maxW}×${m.maxH}@${m.maxHz}Hz`).join(' / ');
-    const sorted = [...sendingSpec.modes].sort((a, b) => b.maxHz - a.maxHz);
-    const coverMode = sorted.find(m => tW <= m.maxW && tH <= m.maxH) || null;
-    const ok = coverMode !== null;
-    coverHtml = `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:6px 10px;border-radius:6px;background:${ok?'#E1F5EE':'#FCEBEB'};font-size:12px;">
-      <span style="color:${ok?'#085041':'#A32D2D'}">${sendingSpec.label}: ${modesStr}</span>
-      <span style="font-weight:600;color:${ok?'#0F6E56':'#E24B4A'}">${ok ? `✓ ${coverMode.maxHz}Hz` : '✗ 초과'}</span>
-    </div>`;
-  }
-
-  const portRows = _lanPA.map((s, i) => s.size > 0 ? `P${i+1}:${s.size}장` : null).filter(Boolean).join(' · ');
-  const memoHtml = State.memoList.length
-    ? SEC('메모') + State.memoList.map(t => `<div style="font-size:13px;color:#444;padding:3px 0;">• ${t}</div>`).join('')
-    : '';
-
-  // 패널 표 인라인 스타일 (html2canvas용)
-  const TS  = 'width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;';
-  const TH  = 'background:#f0f8f5;color:#0F6E56;font-weight:600;font-size:10px;padding:5px 6px;border:1px solid #e0e0e0;text-align:center;';
-  const TD  = 'padding:5px 6px;border:1px solid #e0e0e0;text-align:center;font-size:12px;';
-  const TDL = 'padding:5px 6px;border:1px solid #e0e0e0;font-weight:600;background:#f8f8f8;font-size:12px;';
-  const TDT = 'padding:5px 6px;border:1px solid #e0e0e0;text-align:center;font-weight:700;background:#e8f5ee;color:#085041;font-size:12px;';
-  const pRack = (sk, n) => Math.ceil(n / (sk === '500×500' ? 24 : 12));
-
-  // 계산결과 섹션 HTML — 일반/betaImport 분기
-  let calcResHtml, ledInfoVal;
-  const imp = State.betaImport;
-  if (imp && imp.allPanels && imp.allPanels.length) {
-    // betaImport 모드: LED × 패널 크기 표
-    const bCounts = {}, bSzSet = new Set();
-    imp.allPanels.forEach(p => {
-      const sk = (p.w === 1000 && p.h === 500) ? '500×1000' : `${p.w}×${p.h}`;
-      bSzSet.add(sk); if (!bCounts[p.led]) { bCounts[p.led] = {}; }
-      bCounts[p.led][sk] = (bCounts[p.led][sk] || 0) + 1;
-    });
-    const bLeds = Object.keys(bCounts).sort(), bSizes = [...bSzSet].sort();
-    const highL = bLeds.reduce((b, l) => { const s = SPECS[l], bs = SPECS[b]; return (s && bs && s.px500.w * s.px500.h > bs.px500.w * bs.px500.h) ? l : b; }, bLeds[0]);
-    const hs = SPECS[highL];
-    const hTW = hs ? Math.round(imp.areaW / 500) * hs.px500.w : 0;
-    const hTH = hs ? Math.round(imp.areaH / 500) * hs.px500.h : 0;
-    const grand = imp.allPanels.length;
-    const bColTots = bSizes.map(sk => bLeds.reduce((s, l) => s + (bCounts[l]?.[sk] || 0), 0));
-    const bColRacks = bSizes.map((sk, i) => bColTots[i] > 0 ? pRack(sk, bColTots[i]) : 0);
-    const grandRack = bColRacks.reduce((a, b) => a + b, 0);
-    const bTotRow = '<tr><td style="' + TDT + '">합계</td>' + bColTots.map((t, i) => `<td style="${TDT}">${t}ea / 랙 ${bColRacks[i]}개</td>`).join('') + `<td style="${TDT}">${grand}ea / 랙 ${grandRack}개</td></tr>`;
-    const bTh = `<tr><th style="${TH}">LED</th>${bSizes.map(sk => `<th style="${TH}">${sk}mm</th>`).join('')}<th style="${TH}">합계</th></tr>`;
-    const bTb = bLeds.map(led => {
-      const tot = bSizes.reduce((s, sk) => s + (bCounts[led]?.[sk] || 0), 0);
-      const totRack = bSizes.reduce((s, sk) => s + (bCounts[led]?.[sk] ? pRack(sk, bCounts[led][sk]) : 0), 0);
-      return `<tr><td style="${TDL}">${led}</td>${bSizes.map(sk => { const n = bCounts[led]?.[sk] || 0; return `<td style="${TD}">${n ? `${n}ea / 랙 ${pRack(sk, n)}개` : '-'}</td>`; }).join('')}<td style="${TDT}">${tot}ea / 랙 ${totRack}개</td></tr>`;
-    }).join('');
-    let zoneHtml = '';
-    if (imp.zones && imp.zones.length) {
-      zoneHtml = '<div style="font-size:11px;color:#888;margin:8px 0 3px;">구역별 해상도</div>' + imp.zones.map(z => {
-        const zsp = SPECS[z.led]; if (!zsp) { return ''; }
-        const pC = Math.floor(z.cols / (z.panelW / 500)), pR = Math.floor(z.rows / (z.panelH / 500));
-        let pxW, pxH;
-        if (z.panelW === 1000) { pxW = zsp.px1000.h; pxH = zsp.px1000.w; }
-        else if (z.panelH === 1000) { pxW = zsp.px1000.w; pxH = zsp.px1000.h; }
-        else { pxW = zsp.px500.w; pxH = zsp.px500.h; }
-        return `<div style="display:flex;gap:6px;font-size:11px;background:#f8f8f8;border-radius:5px;padding:4px 7px;margin-bottom:3px;"><b style="color:#0F6E56;min-width:22px">${z.id}</b><span style="color:#666;flex:1">${z.led} · ${z.panelW}×${z.panelH}mm</span><b style="color:#1a1a1a">${pC * pxW}×${pR * pxH}px</b><span style="color:#999;font-size:10px">${(z.cols * 500 / 1000).toFixed(1)}×${(z.rows * 500 / 1000).toFixed(1)}m</span></div>`;
-      }).join('');
-    }
-    ledInfoVal = bLeds.join(' · ') + ' (혼합)';
-    calcResHtml = `
-      <table style="${TS}">${bTh}${bTb}${bTotRow}</table>
-      <div style="background:#E1F5EE;border-radius:8px;padding:10px 14px;margin:10px 0;text-align:center;">
-        <div style="font-size:11px;color:#0F6E56;margin-bottom:3px;">최종 해상도 (${highL} 기준 최대)</div>
-        <div style="font-size:20px;font-weight:600;color:#085041;">${hTW ? `${hTW.toLocaleString()} × ${hTH.toLocaleString()} px` : '—'}</div>
-      </div>
-      ${zoneHtml}`;
-  } else {
-    // 일반 모드: 단일 LED 표
-    const colDefs = [];
-    if (c5  > 0) { colDefs.push({ sk: '500×500',  label: '500×500mm',  count: c5,  rack: pRack('500×500', c5) }); }
-    if (c10 > 0) { colDefs.push({ sk: '500×1000', label: isLand ? '1000×500mm' : '500×1000mm', count: c10, rack: pRack('500×1000', c10) }); }
-    const total = c5 + c10;
-    const totalRackPng = colDefs.reduce((s, cd) => s + cd.rack, 0);
-    const th = `<tr><th style="${TH}">LED</th>${colDefs.map(cd => `<th style="${TH}">${cd.label}</th>`).join('')}<th style="${TH}">합계</th></tr>`;
-    const tb = `<tr><td style="${TDL}">${State.curLed}</td>${colDefs.map(cd => `<td style="${TD}">${cd.count}ea / 랙 ${cd.rack}개</td>`).join('')}<td style="${TDT}">${total}ea / 랙 ${totalRackPng}개</td></tr>`;
-    ledInfoVal = State.curLed;
-    calcResHtml = `
-      <div style="font-size:11px;color:#999;margin:6px 0 2px;">가로 ${State.cols}ea × 세로 ${State.layout.length}행</div>
-      <table style="${TS}">${th}${tb}</table>
-      <div style="background:#E1F5EE;border-radius:8px;padding:10px 14px;margin:10px 0;text-align:center;">
-        <div style="font-size:11px;color:#0F6E56;margin-bottom:3px;">최종 해상도</div>
-        <div style="font-size:20px;font-weight:600;color:#085041;">${tW} × ${tH} px</div>
-      </div>`;
-  }
-
-  const body = `
-    ${SEC('기본 정보')}
-    ${S('설치 면적', imp ? `${(imp.areaW/1000).toFixed(1)}m × ${(imp.areaH/1000).toFixed(1)}m` : `${W}m × ${H}m`)}
-    ${S('LED 종류', ledInfoVal)}
-    ${imp ? '' : S('패널 사이즈', panelEl ? (isLand ? '1000 × 500 mm (가로 사용)' : panelEl.textContent.trim()) : '-')}
-    ${consoleName || State.curSending || mainLen ? SEC('장비') : ''}
-    ${consoleName ? S('콘솔', `${consoleName} (${consoleSpec.cable} · ${consoleSpec.rep})`) : ''}
-    ${consoleName && fiberLen ? S('광케이블 길이', fiberLen + 'm') : ''}
-    ${State.curSending  ? S('샌딩카드', sendingSpec.label) : ''}
-    ${mainLen     ? S('분전함 메인선', mainLen + 'm') : ''}
-    ${SEC('계산 결과')}
-    ${calcResHtml}
-    ${coverHtml}
-    ${lanDataUrl ? SEC('랜선 시뮬레이터') + `<img src="${lanDataUrl}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">` : ''}
-    ${pwrDataUrl ? SEC('파워콘 배선') + `<img src="${pwrDataUrl}" style="width:100%;border-radius:6px;display:block;margin-bottom:4px;">` : ''}
-    ${SEC('케이블')}
-    <div style="background:#E6F1FB;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;">
-      <div style="font-weight:600;color:#0C447C;margin-bottom:8px;">랜선</div>
-      <div style="display:flex;gap:8px;">
-        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
-          <div style="font-size:10px;color:#666;margin-bottom:2px;">1번 랜</div>
-          <div style="font-size:18px;font-weight:700;color:#0C447C;line-height:1.2;">${_lan.l1} 개</div>
-          <div style="font-size:10px;color:#888;margin-top:3px;">메인 ${_lan.l1Main} · 백업 ${_lan.l1Back}</div>
-          <div style="font-size:10px;color:#555;margin-top:2px;">필요 <b>${_lan.l1Main + _lan.l1Back}</b> · 여유 ${_lan.l1Spare}</div>
-        </div>
-        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
-          <div style="font-size:10px;color:#666;margin-bottom:2px;">숏랜</div>
-          <div style="font-size:18px;font-weight:700;color:#0C447C;line-height:1.2;">${_lan.sl} 개</div>
-          <div style="font-size:10px;color:#1D9E75;font-weight:600;margin-top:3px;">${_lan.slBundle}묶음 (×20)</div>
-          <div style="font-size:10px;color:#555;margin-top:2px;">필요 <b>${_lan.slNet}</b> · 여유 ${_lan.slSpare}</div>
-        </div>
-      </div>
-      ${una > 0 ? `<div style="font-size:11px;color:#BA7517;margin-top:6px;">미할당 ${una}/${tot} 패널</div>` : ''}
-    </div>
-    <div style="background:#FAEEDA;border-radius:8px;padding:10px 12px;font-size:13px;">
-      <div style="font-weight:600;color:#633806;margin-bottom:8px;">파워콘</div>
-      <div style="display:flex;gap:8px;">
-        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
-          <div style="font-size:10px;color:#666;margin-bottom:2px;">1번 파워</div>
-          <div style="font-size:18px;font-weight:700;color:#633806;line-height:1.2;">${_pw.c1} 개</div>
-          <div style="font-size:10px;color:#555;margin-top:3px;">필요 <b>${_pw.c1Net}</b> · 여유 ${_pw.c1Spare}</div>
-        </div>
-        <div style="flex:1;background:rgba(255,255,255,0.65);border-radius:8px;padding:8px 10px;">
-          <div style="font-size:10px;color:#666;margin-bottom:2px;">숏 파워</div>
-          <div style="font-size:18px;font-weight:700;color:#633806;line-height:1.2;">${_pw.sp} 개</div>
-          <div style="font-size:10px;color:#1D9E75;font-weight:600;margin-top:3px;">${_pw.spBundle}묶음 (×10)</div>
-          <div style="font-size:10px;color:#555;margin-top:2px;">필요 <b>${_pw.spNet}</b> · 여유 ${_pw.spSpare}</div>
-        </div>
-      </div>
-    </div>
-    ${portRows ? SEC('포트 할당') + `<div style="font-size:13px;color:#555;line-height:1.8;">${portRows}</div>` : ''}
-    ${memoHtml}
-  `;
-
-  // 숨겨진 div에 렌더링 후 html2canvas로 캡처
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;background:#fff;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-sizing:border-box;';
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">LED 설치 계산기</div>
-      <div style="font-size:11px;color:#999;">${new Date().toLocaleDateString('ko-KR')}</div>
-    </div>
-    <div style="height:2px;background:#0F6E56;border-radius:1px;margin-bottom:4px;"></div>
-    ${body}
-    <div style="height:1px;background:#eee;margin-top:16px;"></div>
-  `;
-  document.body.appendChild(wrap);
-  try {
-    const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff', allowTaint: true });
-    showPreview(await _cvToUrl(canvas), 'LED_계산결과_' + dateStr() + '.png');
-  } finally {
-    document.body.removeChild(wrap);
-  }
-}
-
-async function saveChkPng() {
-  const filter = arr => arr.filter(n => State.chkState[n] || State.chkNotes[n]);
-  const comItems = filter(State.COM);
-  const condItems = filter(State.COND);
-  if (!comItems.length && !condItems.length) { return; }
-
-  const row = n => {
-    const checked = State.chkState[n];
-    const note = State.chkNotes[n] || '';
-    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;">
-      <span style="font-size:15px;color:${checked ? '#0F6E56' : '#bbb'};flex-shrink:0;margin-top:1px;">${checked ? '✓' : '○'}</span>
-      <div style="flex:1;">
-        <div style="font-size:13px;color:${checked ? '#1a1a1a' : '#666'};">${n}</div>
-        ${note ? `<div style="font-size:11px;color:#888;margin-top:2px;">${note}</div>` : ''}
-      </div>
-    </div>`;
-  };
-  const sec = (label, items) => items.length === 0 ? '' :
-    `<div style="font-size:10px;font-weight:600;color:#999;letter-spacing:.05em;text-transform:uppercase;margin:12px 0 4px;">${label}</div>${items.map(row).join('')}`;
-
-  const all = State.COM.length + State.COND.length;
-  const done = Object.values(State.chkState).filter(Boolean).length;
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;background:#fff;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-sizing:border-box;';
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">장비 체크리스트</div>
-      <div style="font-size:11px;color:#999;">${new Date().toLocaleDateString('ko-KR')}</div>
-    </div>
-    <div style="height:2px;background:#0F6E56;border-radius:1px;margin-bottom:6px;"></div>
-    <div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">${done} / ${all} 완료</div>
-    ${sec('공통 장비', comItems)}${sec('현장 상황별 장비', condItems)}
-    <div style="height:1px;background:#eee;margin-top:12px;"></div>`;
-  document.body.appendChild(wrap);
-  try {
-    const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-    showPreview(await _cvToUrl(canvas), 'LED_체크리스트_' + dateStr() + '.png');
-  } finally {
-    document.body.removeChild(wrap);
-  }
-}
-
-
-
-// ── §7  확인 다이얼로그 & 전체 초기화 ────────────────────
 
 // 범용 확인 팝업 — title·msg 표시 후 확인 시 onOk() 호출
 function openConfirm(title, msg, onOk) {
@@ -2044,7 +1243,7 @@ function loadAppState(st) {
   if (st.chkNotes) { Object.assign(State.chkNotes, st.chkNotes); }
   renderCL(); _saveChkLayout();
 
-  State.memoList = st.memoList || []; renderMemo();
+  State.memoList = st.memoList || [];
 
   // 혼합 시뮬레이터 β 복원
   State.lanExpanded = !!(st.lanExpanded);
@@ -4033,6 +3232,31 @@ function _betaCalcResolution() {
   return { w: Math.round(State.betaAreaW * s), h: Math.round(State.betaAreaH * s) };
 }
 
+function showResPreview(baseUrl, wmUrl, filename) {
+  _resVersions = { normal: { url: baseUrl, filename } };
+  if (wmUrl) { _resVersions.wm = { url: wmUrl, filename: filename.replace('.png', '_WM.png') }; }
+  document.getElementById('tabWm').style.display       = '';
+  document.getElementById('tabSecRes').style.display   = 'none';
+  document.getElementById('tabWmSecRes').style.display = 'none';
+  document.getElementById('resVersionTabs').style.display = wmUrl ? 'block' : 'none';
+  selectResVersion('normal');
+  history.pushState({ overlay: 'preview' }, '');
+  document.getElementById('previewBg').style.display = 'flex';
+  closeModal();
+}
+
+function selectResVersion(v) {
+  if (!_resVersions || !_resVersions[v]) { return; }
+  pendingDownload = _resVersions[v];
+  document.getElementById('previewImg').src = pendingDownload.url;
+  ['normal','wm','secRes','wmSecRes'].forEach(t => {
+    const el = document.getElementById('tab' + t[0].toUpperCase() + t.slice(1));
+    if (el) { el.classList.toggle('active', t === v); }
+  });
+}
+
+// ── PNG 스냅샷 생성 ──────────────────────────────────────
+
 function betaSaveGuideImage() {
   const res = _betaCalcResolution();
   if (!res) { return; }
@@ -4803,141 +4027,6 @@ function betaRenderPwrPorts() {
 }
 
 // ─ LAN UI ─
-
-function betaExportToCalc() {
-  if (!State.betaZones.length) { _toast('내보낼 구역이 없습니다.'); return; }
-  State._betaCache = null;
-  const allPanels = _betaAllPanels();
-
-  // 지배적 LED·패널 크기 (면적 기준)
-  const ledArea = {}, panelArea = {};
-  for (const z of State.betaZones) {
-    const a = z.rows * z.cols;
-    ledArea[z.led] = (ledArea[z.led] || 0) + a;
-    const pk = `${z.panelW}:${z.panelH}`;
-    panelArea[pk] = (panelArea[pk] || 0) + a;
-  }
-  const domLed = Object.entries(ledArea).sort((a, b) => b[1] - a[1])[0][0];
-  const [domPW, domPH] = Object.entries(panelArea).sort((a, b) => b[1] - a[1])[0][0].split(':').map(Number);
-  const domRotated = domPW === 1000;
-  const domBasePH  = (domPH === 1000 || domRotated) ? 1000 : 500;
-
-  // 직사각형 여부 (전체 격자를 빈틈없이 덮는지)
-  const gW = _betaGW(), gH = _betaGH();
-  const covered = new Set(); let isRect = true;
-  for (const z of State.betaZones) {
-    for (let r = z.startRow; r < z.startRow + z.rows && isRect; r++) {
-      for (let c = z.startCol; c < z.startCol + z.cols; c++) {
-        const k = `${r},${c}`; if (covered.has(k)) { isRect = false; break; } covered.add(k);
-      }
-    }
-  }
-  isRect = isRect && covered.size === gW * gH;
-
-  // 계산기 탭 기본 상태 (LED·패널 칩 설정, iW/iH 입력)
-  const usedLeds = Object.keys(ledArea);
-  State.areaMode = 'single';
-  document.getElementById('modeBtn-single').classList.add('on');
-  document.getElementById('modeBtn-multi').classList.remove('on');
-  document.getElementById('area-single').style.display = '';
-  document.getElementById('area-multi').style.display = 'none';
-  document.getElementById('iW').value = (State.betaAreaW / 1000).toFixed(1);
-  document.getElementById('iH').value = (State.betaAreaH / 1000).toFixed(1);
-  document.querySelectorAll('#ledChips .chip').forEach(el => el.classList.remove('on'));
-  usedLeds.forEach(led => {
-    const el = document.querySelector(`#ledChips .chip[data-v="${led}"]`);
-    if (el) { el.classList.add('on'); }
-  });
-  State.curLed = domLed;
-  document.querySelectorAll('#panelChips .chip').forEach(el => el.classList.remove('on'));
-  // 사용된 모든 패널 크기 칩 활성화 (혼합 레이아웃 시 500·1000 모두 표시)
-  const usedPanelSizes = new Set(State.betaZones.map(z => (z.panelH === 1000 || z.panelW === 1000) ? 1000 : 500));
-  usedPanelSizes.forEach(size => {
-    const el = document.querySelector(`#panelChips .chip[data-v="${size}"]`);
-    if (el) { el.classList.add('on'); }
-  });
-  State.basePH = domBasePH;
-  State.panelRotated = domRotated;
-  const rotBtn = document.getElementById('panelRotateBtn');
-  if (rotBtn) { rotBtn.classList.toggle('on', domRotated); }
-
-  // 해상도 계산 (지배적 LED·패널 기준)
-  const calcCols = Math.round(State.betaAreaW / domPW);
-  const calcRows = Math.round(State.betaAreaH / domPH);
-  const sp = SPECS[domLed];
-  const panelPxW = domRotated ? sp.px1000.h : (domBasePH === 1000 ? sp.px500.w : sp.px500.w);
-  const panelPxH = domRotated ? sp.px1000.w : (domBasePH === 1000 ? sp.px1000.h : sp.px500.h);
-
-  // betaImport 구성 — allPanels 스냅샷 포함 (LAN 렌더링용)
-  const importData = {
-    isRect, totalPanels: allPanels.length,
-    cols: calcCols, rows: calcRows,
-    tW: calcCols * panelPxW, tH: calcRows * panelPxH,
-    usedLeds,
-    areaW: State.betaAreaW, areaH: State.betaAreaH,
-    allPanels: allPanels.map(p => ({ ...p })),
-    zones: State.betaZones.map(z => ({ id: z.id, startRow: z.startRow, startCol: z.startCol, rows: z.rows, cols: z.cols, led: z.led, panelW: z.panelW, panelH: z.panelH })),
-  };
-
-  // LAN 배선: beta 패널 키 그대로 유지 (변환 없음)
-  const maxUsedPort = State.betaPorts.reduce((mx, s, i) => s.size > 0 ? i : mx, -1) + 1;
-  const needExpand  = maxUsedPort > 8;
-  const lanN = needExpand ? 16 : 8;
-  const newPA  = Array.from({ length: lanN }, () => new Set());
-  const newPH2 = Array.from({ length: lanN }, () => []);
-  for (let pi = 0; pi < Math.min(16, lanN); pi++) {
-    if (pi >= State.betaPorts.length) { break; }
-    State.betaPH2[pi].forEach(k => {
-      if (State.betaPorts[pi].has(k)) { newPA[pi].add(k); newPH2[pi].push(k); }
-    });
-  }
-
-  // PWR 자동 배선 (구역별 2열당 1포트 스네이크, 데드존 제외)
-  const tmpPwrPA  = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
-  const tmpPwrPH2 = Array.from({ length: PWR_PORT_COUNT }, () => []);
-  const _pCellW = State.betaAreaW / calcCols, _pCellH = State.betaAreaH / calcRows;
-  const _pa = (pi, k) => { tmpPwrPA[pi].add(k); tmpPwrPH2[pi].push(k); };
-  let pwrPi = 0;
-  const _zoneList = State.betaZones && State.betaZones.length ? State.betaZones : [null];
-  _zoneList.forEach(z => {
-    if (pwrPi >= PWR_PORT_COUNT) { return; }
-    const panels = z ? allPanels.filter(p => p.zoneId === z.id) : allPanels;
-    const zCells = new Set();
-    panels.forEach(p => {
-      const ci0 = Math.round(p.x / _pCellW), ri0 = Math.round(p.y / _pCellH);
-      const ci1 = Math.round((p.x + p.w) / _pCellW), ri1 = Math.round((p.y + p.h) / _pCellH);
-      for (let ri = ri0; ri < ri1; ri++) { for (let ci = ci0; ci < ci1; ci++) { zCells.add(`${ri},${ci}`); } }
-    });
-    if (!zCells.size) { return; }
-    const colList = [...new Set([...zCells].map(k => +k.split(',')[1]))].sort((a, b) => a - b);
-    for (let i = 0; i < colList.length && pwrPi < tmpPwrPA.length; i += 2) {
-      const c0 = colList[i], c1 = i + 1 < colList.length ? colList[i + 1] : null;
-      for (let ri = calcRows - 1; ri >= 0; ri--) { if (zCells.has(`${ri},${c0}`)) { _pa(pwrPi, `${ri},${c0}`); } }
-      if (c1 !== null) { for (let ri = 0; ri < calcRows; ri++) { if (zCells.has(`${ri},${c1}`)) { _pa(pwrPi, `${ri},${c1}`); } } }
-      pwrPi++;
-    }
-  });
-
-  // 탭 전환 후 calc() 호출 → simArea HTML 완전 초기화 (Issue 1 수정)
-  swTab('calc', document.querySelector(".tab-btn[onclick*=\"'calc'\"]"));
-  calc();
-
-  // calc()가 betaImport=null로 만들었으므로 복원, LAN 배선도 복원
-  State.betaImport  = importData;
-  State.lanExpanded = needExpand;
-  State.pA          = newPA;
-  State.pH2         = newPH2;
-  State.aPort       = 0; State.fCell = null; State.drag = false; State.dStk = []; State.dHov = null;
-  State.simTab      = 'lan';
-  State._savedLan   = null;
-  State._savedPwr   = { pA: tmpPwrPA.map(s => new Set(s)), pH2: tmpPwrPH2.map(a => [...a]), aPort: 0 };
-
-  // betaImport 기반으로 재렌더
-  renderRes();
-  buildCv(); renderPorts(); renderLeg(); renderSum();
-  saveState();
-  _toast('혼합 시뮬 데이터를 계산기에 적용했습니다.');
-}
 
 function betaSetSimTab(tab) {
   State.betaSimTab = tab;
