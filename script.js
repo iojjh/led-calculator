@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.8';
-const APP_SW_VERSION = 'v218';
+const APP_VERSION = '2.1.9';
+const APP_SW_VERSION = 'v219';
 
 const CHANGELOG = [
+  { v: '2.1.9', items: [
+    '핵심 버그 수정 — §10 제거 시 누락된 _mkSec() 호출이 State 초기화를 중단시켜 모든 전역 변수가 TDZ 상태로 남던 문제 수정',
+  ]},
   { v: '2.1.8', items: [
     '버그 수정 — v2.1.6 §9.5 제거 시 같이 삭제된 _histBack·_programmaticBack·popstate 핸들러 복원',
   ]},
@@ -612,8 +615,7 @@ const State = {
   cols:   0,
   layout: [],
 
-  // 멀티 모드 레이아웃 (_mkSec 은 함수 선언이라 호이스팅됨)
-  multiSec:       { left: _mkSec(), center: _mkSec(), right: _mkSec() },
+  multiSec:       { left: { cols:0, layout:[], rH:[] }, center: { cols:0, layout:[], rH:[] }, right: { cols:0, layout:[], rH:[] } },
   multiCvOffsets: { left: -1, center: -1, right: -1 },
 
   // 랜선 시뮬레이터
