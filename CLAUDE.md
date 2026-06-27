@@ -78,7 +78,16 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 > script.js 전체를 처음부터 읽는 것은 금지. CLAUDE.md 섹션 맵에 없는 내용이 필요할 때만 Grep으로 위치를 찾은 뒤 해당 범위만 읽는다.
 
-**CLAUDE.md 동기화 원칙**: 코드 수정 후 섹션 맵(줄 번호·함수 목록)이나 State 테이블, 스타일 규칙 등 변경된 내용이 있으면 커밋 전에 CLAUDE.md도 함께 업데이트한다.
+**CLAUDE.md 동기화 — 커밋 전 의무 체크 (해당 항목만 업데이트)**
+
+| 트리거 | 업데이트 대상 |
+|--------|-------------|
+| 함수 추가·제거·이름 변경 | 해당 섹션 함수 목록 |
+| `State` 키 추가·제거 | State 테이블 |
+| 섹션 경계가 ±30줄 이상 이동 | 해당 섹션 이후 줄 번호 전체 |
+| 새 섹션 추가 | 섹션 맵 행 추가 |
+
+위 네 가지 중 해당 없으면 CLAUDE.md 업데이트 불필요 — 명시적으로 skip.
 
 ---
 
@@ -105,38 +114,37 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §8 | 1996 | localStorage 저장/불러오기 (`getAppState`, `loadAppState`, `saveState`, `loadState`) — 계산기 탭 제거 후 beta/체크리스트/메모 상태만 저장 |
 | §9 | 2108 | 소형 계산기 위젯 (`_buildExpr`, `_computePreview`, `_cu`, `calcInput`, `calcDot`, `calcOper`, `calcEquals`, `calcClear`, `calcDel`, `toggleCalc`) — `cExpr`非空이면 '=' 직후 상태(결과 큰/식 작음), 비어있으면 입력 중(식 큰/미리보기 작음) |
 | §9.5 | 2214 | PDF 뷰어 (`openManual`, `_renderAllPdfPages`, `_applyZoom`, `closePdfModal`) |
-| §10 | 2402 | 계산기 핵심 (`selLed`, `selPanel`, `togglePanelRotate`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `_renderResBeta`, `renderRes`, `renderResMulti`) — `State.betaImport` 비null 시 `_renderResBeta()` 호출, `calc()`/`selLed()` 진입 시 `betaImport=null` |
-| §11 | 2839 | 랜선·파워콘 시뮬레이터 (`setSimTab`, `_rowSplitHint`, `_rowSplitHintMulti`, `_applyDefaultPwrWiring`, `_isDefaultPwrWiring`, `_execRstAllPwr`, `doRstAllPwr`, `buildSim`, `openSimFs`, `closeSimFs`, `_refreshSimFs`, `buildCv`, `drawCv`, `_drawImportedCv`, `renderPorts`, `expandLanPorts`, `pxOf`, `cellAt`, `_impCellAt`, `owner`, `assign`, `deassign`, `_calcLan`, `_calcPwr`, `autoAssign`, `autoAssignUnified`, `autoAssignRowSplit`, `autoAssignRowSplitUnified`, `_autoAssignSec`, `_autoAssignSecRowSplit`, `attachEv`) — `State.lanExpanded`에 따라 포트 8개/16개, `State.betaImport` 비null+lan탭 시 `_drawImportedCv`/`_impCellAt` 사용 (혼합 레이아웃 렌더링) |
+| §10 | 2402 | **[데드코드 — UI 없음]** 계산기 핵심 (`selLed`, `selPanel`, `togglePanelRotate`, `setAreaMode`, `syncMultiH`, `calcSection`, `calcMulti`, `calc`, `_renderResBeta`, `renderRes`, `renderResMulti`) — 계산기 탭 제거로 호출 진입점 없음 |
+| §11 | 2839 | **[데드코드 — UI 없음]** 랜선·파워콘 시뮬레이터 (`setSimTab`, `buildSim`, `buildCv`, `drawCv`, `renderPorts`, `autoAssign*` 등) — 계산기 탭 제거로 호출 진입점 없음 |
 | §12 | 4647 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
 | §13 | 5539 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_setSchedTab`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsed`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents`, `_schedTab` |
-| §14 | 5907 | 혼합 시뮬레이터 β (`_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaExportToCalc`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN 모드 전환, 뱀형 자동할당; **계산기로 내보내기**: `betaExportToCalc()` → 면적·칩·레이아웃·LAN·PWR 자동 이전 |
+| §14 | 5907 | LED 설계 탭 (구 혼합 시뮬레이터 β) (`_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaRenderPwrPorts`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN/PWR 모드 전환, 뱀형 자동할당. `betaExportToCalc`는 내보내기 버튼 제거(v2.0.101)로 데드코드 |
 
 **핵심 전역 상태 — `const State` (§1, line 242)**
 
 모든 전역 상태는 `State` 단일 객체로 관리된다. 개별 전역 변수(`let curLed`, `let areaMode` 등)를 새로 추가하지 말 것.
 
+**활성 State 키 (LED 설계 탭)**
+
 | 키 | 설명 |
 |----|------|
-| `State.curLed` | 선택 LED 피치 (`'2mm'`/`'3mm'`/`'4mm'`) |
-| `State.basePH` | 기준 패널 높이 (`500` 또는 `1000`) |
-| `State.panelRotated` | `true` = 1000mm 패널 가로 사용 (1000×500mm) |
-| `State.areaMode` | `'single'` 또는 `'multi'` |
 | `State.lanExpanded` | `false` = 기본 8포트, `true` = 샌딩카드 확장 16포트 |
-| `State.betaImport` | 혼합 시뮬 내보내기 메타 `{isRect, totalPanels, cols, rows, tW, tH, usedLeds}` (null이면 일반 결과 표시) |
-| `State.aPort` | 현재 선택 포트 번호 (LAN: 0–15, PWR: 0–17) |
-| `State.pA` | 포트별 Set 배열 (LAN: 8 또는 16개, PWR 탭: 18개) |
-| `State.pH2` | 포트별 배선 경로 배열 (pA와 동일 크기) |
-| `State.multiSec` | 멀티 섹션 `{ left, center, right }` 각각 `{ cols, rows, layout[] }` |
-| `State.curSending` | 선택 샌딩카드 키 |
-| `State.cols` / `State.layout` | 단일 모드 열 수 / 행 배열 |
 | `State.betaAreaW` / `State.betaAreaH` | 혼합 시뮬 β 설치 면적 가로·세로 (mm) |
 | `State.betaZones` | 구역 배열 `[{id, startRow, startCol, rows, cols, led, panelW, panelH}]` |
 | `State.betaMode` | `'edit'` (구역 편집) 또는 `'lan'` (랜선 배선) |
-| `State.betaPorts` | β 포트별 패널 키 Set 배열 (8개), 키 형식: `zoneId:panelRow:panelCol` |
-| `State.betaPH2` | β 포트별 할당 순서 배열 |
-| `State.betaAPort` | β 현재 선택 포트 번호 (0–7) |
+| `State.betaPorts` | β LAN 포트별 패널 키 Set 배열, 키 형식: `zoneId:panelRow:panelCol` |
+| `State.betaPH2` | β LAN 포트별 할당 순서 배열 |
+| `State.betaAPort` | β LAN 현재 선택 포트 번호 |
+| `State.betaPwrPorts` | β PWR 포트별 패널 키 Set 배열 (18개) |
+| `State.betaPwrPH2` | β PWR 포트별 할당 순서 배열 |
+| `State.betaPwrAPort` | β PWR 현재 선택 포트 번호 |
 | `State.betaSpareAdj` | β 케이블 예비 설정 `{l1, sl}` |
 | `State._betaCache` | `_betaAllPanels()` 결과 캐시 (편집 시 `null`로 초기화) |
+
+**비활성 State 키 (계산기 탭 제거·내보내기 버튼 제거로 데드코드)**
+
+`State.curLed`, `State.basePH`, `State.panelRotated`, `State.areaMode`, `State.aPort`, `State.pA`, `State.pH2`, `State.spareAdj`, `State.multiSec`, `State.cols`, `State.layout`, `State.curSending`, `State.betaImport`
+— 객체에는 존재하지만 현재 UI에서 세팅·읽기가 이루어지지 않음. 수정하지 말 것.
 
 **버전 업 규칙**
 코드 수정 후 반드시: `APP_VERSION` 올리기 → `APP_SW_VERSION` 올리기 → `CHANGELOG` 항목 추가 → `service-worker.js`의 `CACHE_VERSION` 동기화 → 커밋 → **푸시 전 사용자에게 확인 후 진행**
