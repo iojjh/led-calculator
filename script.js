@@ -4,14 +4,20 @@
 //  섹션 구조
 //  §1  스펙 데이터 & 상수
 //  §2  장비 체크리스트
-//  §3  메모
+//  §3  메모 (비워짐)
 //  §4  탭 전환
-//  §5  콘솔 & 샌딩카드
-//  §6  PNG 저장 · 미리보기 · 공유
+//  §5  콘솔 & 샌딩카드 (비워짐)
+//  §6  PNG 저장 · 미리보기 · 공유 (비워짐)
 //  §7  확인 다이얼로그 & 전체 초기화
 //  §8  저장 / 불러오기 (localStorage)
 //  §9  소형 계산기 위젯
-//  §9.5 PDF 뷰어 (PDF.js, 페이지 단위 이동)
+//  §10 계산기 핵심 (비워짐)
+//  §11 랜선 시뮬레이터 (비워짐)
+//  §12 vMix 소스 매크로
+//  §13 일정 불러오기
+//  §14 LED 설계 탭
+// ════════════════════════════════════════════════════════════
+
 //  §10 계산기 핵심 (면적·패널 계산 & 결과 렌더링)
 //  §11 랜선 시뮬레이터 (캔버스, 포트 할당, 이벤트)
 //  §12 vMix 소스 매크로 (파일 로드, 비율 변환, 다운로드)
@@ -20,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.5';
-const APP_SW_VERSION = 'v215';
+const APP_VERSION = '2.1.6';
+const APP_SW_VERSION = 'v216';
 
 const CHANGELOG = [
+  { v: '2.1.6', items: [
+    '전역 최적화 — doFullReset 제거·tryResetAll을 betaReset으로 교체, _schedTarget 기본값 수정, _schedApplyParsed 제거, §9.5 PDF 뷰어 제거, CSPEC/SSPEC 제거, style.css 고아 선택자 제거',
+  ]},
   { v: '2.1.5', items: [
     '§3·§5·§6·§14 데드코드 정리 — 살아있는 함수는 §2·§7·§14로 이동, 빈 섹션은 헤더만 유지 (총 2978줄 제거)',
   ]},
@@ -559,28 +568,6 @@ function portColor(i) {
 }
 
 // 콘솔 장비 스펙
-const CSPEC = {
-  EC90:  { cable: 'LC 광케이블', rep: 'HDMI 리피터', manual: 'MIG-EC90_User_Manual_1.0.pdf' },
-  EC100: { cable: 'LC 광케이블', rep: 'HDMI 리피터', manual: null },
-  J6:    { cable: 'SC 광케이블', rep: 'DVI 리피터',  manual: 'J6-Seamless-Switcher-Specifications-V2.2.0.pdf' },
-};
-
-// 샌딩카드 스펙 — modes 배열: Hz 내림차순으로 커버 가능 여부를 판단
-const SSPEC = {
-  '660pro': {
-    label: '660 Pro',
-    manual: 'MCTRL660PRO.pdf',
-    modes: [
-      { maxW: 1920, maxH: 1200, maxHz: 60 },
-      { maxW: 2560, maxH: 1600, maxHz: 30 },
-    ],
-  },
-  '4k': {
-    label: '4K',
-    manual: 'MCTRL4K.pdf',
-    modes: [{ maxW: 3840, maxH: 2160, maxHz: 60 }],
-  },
-};
 
 
 // ── 전역 앱 상태 ──────────────────────────────────────────
@@ -942,12 +929,6 @@ function _updateBarForTab(id) {
     btnMain.textContent = '일정';
     btnMain.onclick = () => openSchedModal('beta');
     btnMain.disabled = false;
-  } else {
-    btnReset.onclick = tryResetAll;
-    btnReset.title = '전체 초기화';
-    btnMain.textContent = 'PNG 저장';
-    btnMain.onclick = openModal;
-    btnMain.disabled = false;
   }
   if (id === 'chk' || id === 'vmix') {
     btnHelp.style.display = '';
@@ -1169,37 +1150,7 @@ function closeConfirm() {
 function closeConfirmBg(e) { if (e.target === document.getElementById('confirmBg')) closeConfirm(); }
 
 function tryResetAll() {
-  openConfirm('전체 초기화', '계산기 탭의 모든 입력사항을 초기화할까요?', doFullReset);
-}
-function doFullReset() {
-  // 면적 입력 초기화
-  document.getElementById('iW').value = '';
-  document.getElementById('iH').value = '';
-  ['mW_L','mH_L','mW_C','mH_C','mW_R','mH_R'].forEach(id => { document.getElementById(id).value = ''; });
-  // 모드 단일로 복귀
-  State.areaMode = 'single';
-  document.getElementById('modeBtn-single').classList.add('on');
-  document.getElementById('modeBtn-multi').classList.remove('on');
-  document.getElementById('area-single').style.display = '';
-  document.getElementById('area-multi').style.display = 'none';
-  State.spareAdj = { l1: 2, sl: 20, c1: 2, sp: 20 };
-  // 칩 선택 초기화
-  document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
-  State.curLed = null; State.basePH = null; State.curSending = null;
-  // 장비 패널 숨기기
-  document.getElementById('consoleInfo').style.display = 'none';
-  document.getElementById('sendingInfo').style.display = 'none';
-  document.getElementById('fiberLen').value = '';
-  document.getElementById('mainLen').value = '';
-  // 메모 & 체크리스트 초기화
-  State.memoList = []; renderMemo();
-  Object.keys(State.chkNotes).forEach(k => delete State.chkNotes[k]);
-  Object.keys(State.chkState).forEach(k => { State.chkState[k] = false; }); renderCL(); _saveChkLayout();
-  // 시뮬레이터 초기화 및 결과 영역 초기화
-  State.lanExpanded = false; State.betaImport = null;
-  rst(); State.cols = 0; State.layout = [];
-  document.getElementById('resultBody').innerHTML = '<div class="hint-text">LED 종류와 패널 사이즈를 선택하세요</div>';
-  document.getElementById('simArea').innerHTML = '<div class="sim-locked">LED 종류와 패널 사이즈를 먼저 선택해주세요</div>';
+  openConfirm('전체 초기화', 'LED 설계 탭의 모든 설정을 초기화할까요?', betaReset);
 }
 
 
@@ -1418,200 +1369,6 @@ function toggleCalc() {
 }
 
 
-
-
-// ════════════════════════════════════════════════════════════
-//  §9.5  PDF 뷰어 (PDF.js 기반 인앱 전체화면 뷰어)
-// ════════════════════════════════════════════════════════════
-
-let _pdfDoc = null;
-let _pdfTotal = 0;
-let _pdfZoom = 1;
-let _pinchStart = null;
-
-// PDF 전체화면 뷰어 열기
-async function openManual(filename, title) {
-  document.getElementById('pdfModalTitle').textContent = title || '메뉴얼';
-  document.getElementById('pdfPageInfo').textContent = '로딩 중...';
-  document.getElementById('pdfPagesInner').innerHTML = '';
-  document.getElementById('pdfBg').style.display = 'flex';
-  history.pushState({ modal: 'pdf' }, '');
-  _pdfZoom = 1;
-
-  try {
-    const lib = window.pdfjsLib;
-    lib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    _pdfDoc = await lib.getDocument(encodeURI(filename)).promise;
-    _pdfTotal = _pdfDoc.numPages;
-    await _renderAllPdfPages();
-  } catch (err) {
-    document.getElementById('pdfPageInfo').textContent = '파일을 불러올 수 없습니다.';
-    console.warn('PDF 로드 오류:', err);
-  }
-}
-
-// 모든 페이지를 고해상도로 렌더링 — 1페이지를 먼저 그려 빠르게 표시
-async function _renderAllPdfPages() {
-  const inner = document.getElementById('pdfPagesInner');
-  const dpr = window.devicePixelRatio || 1;
-  const cw = document.getElementById('pdfScrollOuter').clientWidth - 16;
-
-  async function _renderOne(i) {
-    const page = await _pdfDoc.getPage(i);
-    const baseVp = page.getViewport({ scale: 1 });
-    const scale = (cw / baseVp.width) * dpr;
-    const viewport = page.getViewport({ scale });
-    const origH = Math.round(viewport.height / dpr);
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(viewport.width);
-    cv.height = Math.round(viewport.height);
-    cv.style.width = Math.round(cw * _pdfZoom) + 'px';
-    cv.style.height = Math.round(origH * _pdfZoom) + 'px';
-    cv.style.display = 'block';
-    cv.dataset.page = i;
-    cv.dataset.origW = cw;
-    cv.dataset.origH = origH;
-    inner.appendChild(cv);
-    await page.render({ canvasContext: cv.getContext('2d'), viewport }).promise;
-  }
-
-  // 1페이지 먼저 렌더링 → 사용자가 즉시 내용 확인 가능
-  await _renderOne(1);
-  document.getElementById('pdfPageInfo').textContent = `1 / ${_pdfTotal}`;
-  document.getElementById('pdfScrollOuter').scrollTop = 0;
-
-  // 나머지 페이지 백그라운드 렌더링
-  for (let i = 2; i <= _pdfTotal; i++) {
-    if (!_pdfDoc) { return; } // 뷰어가 닫혔으면 중단
-    document.getElementById('pdfPageInfo').textContent = `로딩중 ${i}/${_pdfTotal}...`;
-    await _renderOne(i);
-  }
-  if (_pdfDoc) { document.getElementById('pdfPageInfo').textContent = `1 / ${_pdfTotal}`; }
-}
-
-// 스크롤 위치로 현재 페이지 번호 업데이트
-function _pdfScrollTick() {
-  if (!_pdfTotal) { return; }
-  const outer = document.getElementById('pdfScrollOuter');
-  const mid = outer.scrollTop + outer.clientHeight / 2;
-  let cur = 1;
-  document.querySelectorAll('#pdfPagesInner canvas').forEach(cv => {
-    if (cv.offsetTop <= mid) { cur = +cv.dataset.page; }
-  });
-  document.getElementById('pdfPageInfo').textContent = `${cur} / ${_pdfTotal}`;
-}
-
-// 모든 캔버스의 CSS 크기를 zoom 배율에 맞게 직접 재조정
-// minZoom: 캔버스 가로가 뷰어 너비를 꽉 채우는 배율 이하로는 축소 불가
-function _applyZoom(z) {
-  const canvases = document.querySelectorAll('#pdfPagesInner canvas');
-  if (!canvases.length) { return; }
-  const outer = document.getElementById('pdfScrollOuter');
-  const minZoom = outer ? outer.clientWidth / (+canvases[0].dataset.origW) : 1;
-  _pdfZoom = Math.min(4, Math.max(minZoom, z));
-  canvases.forEach(cv => {
-    cv.style.width = Math.round(+cv.dataset.origW * _pdfZoom) + 'px';
-    cv.style.height = Math.round(+cv.dataset.origH * _pdfZoom) + 'px';
-  });
-}
-
-function closePdfModal() {
-  document.getElementById('pdfBg').style.display = 'none';
-  document.getElementById('pdfPagesInner').innerHTML = '';
-  _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
-  if (history.state && history.state.modal === 'pdf') { _histBack(); }
-}
-
-let _programmaticBack = false;
-function _histBack() { _programmaticBack = true; history.back(); }
-
-
-window.addEventListener('popstate', e => {
-  if (_programmaticBack) { _programmaticBack = false; return; }
-  const confirmBg  = document.getElementById('confirmBg');
-  const simFsBg    = document.getElementById('simFsBg');
-  const previewBg  = document.getElementById('previewBg');
-  const pdfBg      = document.getElementById('pdfBg');
-  const tutorialBg = document.getElementById('tutorialBg');
-  const calcPanel  = document.getElementById('calcPanel');
-  // 우선순위: 최상위 레이어부터 닫기 (UI만, _histBack() 호출 없음)
-  if (confirmBg && confirmBg.style.display !== 'none') {
-    confirmBg.style.display = 'none';
-    if (confirmBg.parentElement !== document.body) { document.body.appendChild(confirmBg); }
-  } else if (simFsBg) {
-    simFsBg.remove();
-    if (document.fullscreenElement) { document.exitFullscreen(); }
-    buildSim();
-  } else if (previewBg && previewBg.style.display !== 'none') {
-    previewBg.style.display = 'none';
-    pendingDownload = null; _resVersions = null;
-    _blobUrls.forEach(u => URL.revokeObjectURL(u)); _blobUrls = [];
-    document.getElementById('previewImg').src = '';
-    document.getElementById('resVersionTabs').style.display = 'none';
-  } else if (pdfBg && pdfBg.style.display !== 'none') {
-    pdfBg.style.display = 'none';
-    document.getElementById('pdfPagesInner').innerHTML = '';
-    _pdfDoc = null; _pdfTotal = 0; _pdfZoom = 1;
-  } else if (tutorialBg && tutorialBg.style.display !== 'none') {
-    tutorialBg.style.display = 'none';
-    State._tutZoom = 1;
-    const img = document.getElementById('tutImg');
-    if (img) { img.style.transform = ''; }
-  } else if (calcPanel && calcPanel.style.display !== 'none') {
-    calcPanel.style.display = 'none';
-  } else if (document.getElementById('schedBg') && document.getElementById('schedBg').style.display !== 'none') {
-    document.getElementById('schedBg').style.display = 'none';
-  } else if (document.getElementById('modalBg').style.display !== 'none') {
-    document.getElementById('modalBg').style.display = 'none';
-  } else if (document.getElementById('saveBg').style.display !== 'none') {
-    document.getElementById('saveBg').style.display = 'none';
-  } else if (document.getElementById('vmixSaveBg').style.display !== 'none') {
-    document.getElementById('vmixSaveBg').style.display = 'none';
-  } else if (document.getElementById('chkResetChoiceBg').style.display !== 'none') {
-    document.getElementById('chkResetChoiceBg').style.display = 'none';
-  } else if (document.getElementById('easterBg').style.display !== 'none') {
-    document.getElementById('easterBg').style.display = 'none';
-  }
-});
-
-// 스크롤 · 핀치줌 · Ctrl+휠 이벤트 — 페이지 로드 시 1회 등록
-(function _attachPdfEvents() {
-  const outer = document.getElementById('pdfScrollOuter');
-  if (!outer) { return; }
-  outer.addEventListener('scroll', _pdfScrollTick, { passive: true });
-
-  outer.addEventListener('touchstart', e => {
-    if (e.touches.length !== 2) { return; }
-    _pinchStart = {
-      dist: Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
-                       e.touches[0].clientY - e.touches[1].clientY),
-      zoom: _pdfZoom,
-    };
-  }, { passive: true });
-
-  outer.addEventListener('touchmove', e => {
-    if (e.touches.length !== 2 || !_pinchStart) { return; }
-    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
-                         e.touches[0].clientY - e.touches[1].clientY);
-    _applyZoom(_pinchStart.zoom * (d / _pinchStart.dist));
-  }, { passive: true });
-
-  outer.addEventListener('touchend', () => { _pinchStart = null; }, { passive: true });
-
-  // PC: Ctrl+휠 확대/축소
-  outer.addEventListener('wheel', e => {
-    if (!e.ctrlKey && !e.metaKey) { return; }
-    e.preventDefault();
-    _applyZoom(_pdfZoom * (e.deltaY < 0 ? 1.1 : 0.909));
-  }, { passive: false });
-})();
-
-
-// ════════════════════════════════════════════════════════════
-//  §10  계산기 핵심 (면적·패널 계산 & 결과 렌더링)
-
-//  §11  랜선 시뮬레이터
 
 // ── §12  vMix 소스 매크로 ────────────────────────────────
 
@@ -2511,7 +2268,7 @@ const _SCHED_ICS_URL = 'https://outlook.live.com/owa/calendar/00000000-0000-0000
 
 let _schedEvents = [];
 let _schedTab    = 'upcoming';
-let _schedTarget = 'calc'; // 'calc' | 'beta'
+let _schedTarget = 'beta';
 
 function openSchedModal(target) {
   _schedTarget = target || 'calc';
@@ -2644,22 +2401,6 @@ function _schedSelectEvent(idx) {
         ? parsed.width + '×' + parsed.height + 'm' : null;
       const parts = [pitchStr, areaStr].filter(Boolean);
       _toast(parts.length ? '혼합 시뮬 적용됨: ' + parts.join(' · ') : '혼합 시뮬 적용됨 (면적 정보 없음)');
-    } else {
-      _schedApplyParsed(parsed);
-      closeSchedModal();
-      const pitchStr = parsed.pitch ? parsed.pitch + 'mm' : null;
-      let areaStr;
-      if (parsed.mode === 'multi') {
-        const ap = [];
-        if (parsed.center) { ap.push('중앙 ' + parsed.center.w + '×' + parsed.center.h + 'm'); }
-        if (parsed.left)   { ap.push('좌우 ' + parsed.left.w   + '×' + parsed.left.h   + 'm'); }
-        areaStr = ap.join(' ');
-      } else {
-        areaStr = (parsed.width != null && parsed.height != null)
-          ? parsed.width + '×' + parsed.height + 'm' : null;
-      }
-      const parts = [pitchStr, areaStr].filter(Boolean);
-      _toast(parts.length ? '적용됨: ' + parts.join(' · ') : '일정 적용됨 (면적 정보 없음)');
     }
   } catch (e) {
     const body = document.getElementById('sched-body');
@@ -2734,50 +2475,6 @@ function _schedParseText(text) {
   return { mode: 'single', pitch, width, height };
 }
 
-function _schedApplyParsed(parsed) {
-  // LED 피치 (단일·멀티 공통)
-  if (parsed.pitch) {
-    document.querySelectorAll('#ledChips .chip').forEach(c => c.classList.remove('on'));
-    const el = document.querySelector('#ledChips .chip[data-v="' + parsed.pitch + 'mm"]');
-    if (el) { el.classList.add('on'); State.curLed = parsed.pitch + 'mm'; }
-  }
-  // 패널: 2mm LED는 500×500mm 고정, 그 외는 기본 500×1000mm
-  document.querySelectorAll('#panelChips .chip').forEach(c => c.classList.remove('on'));
-  const rotBtn  = document.getElementById('panelRotateBtn');
-  if (parsed.pitch === 2) {
-    const panelEl = document.querySelector('#panelChips .chip[data-v="500"]');
-    if (panelEl) { panelEl.classList.add('on'); State.basePH = 500; }
-    State.panelRotated = false;
-  } else {
-    const panelEl = document.querySelector('#panelChips .chip[data-v="1000"]');
-    if (panelEl) { panelEl.classList.add('on'); State.basePH = 1000; }
-    if (rotBtn)  { rotBtn.classList.toggle('on', State.panelRotated); }
-  }
-
-  if (parsed.mode === 'multi') {
-    setAreaMode('multi');
-    if (parsed.center) {
-      document.getElementById('mW_C').value = parsed.center.w;
-      document.getElementById('mH_C').value = parsed.center.h;
-    }
-    if (parsed.left) {
-      document.getElementById('mW_L').value = parsed.left.w;
-      document.getElementById('mH_L').value = parsed.left.h;
-    }
-    if (parsed.right) {
-      document.getElementById('mW_R').value = parsed.right.w;
-      document.getElementById('mH_R').value = parsed.right.h;
-    }
-    calcMulti();
-  } else {
-    setAreaMode('single');
-    if (parsed.width != null)  { document.getElementById('iW').value = parsed.width; }
-    if (parsed.height != null) { document.getElementById('iH').value = parsed.height; }
-    rst();
-    calc();
-  }
-  saveState();
-}
 
 function _schedApplyParsedBeta(parsed) {
   if (parsed.width == null || parsed.height == null) {

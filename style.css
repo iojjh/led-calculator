@@ -148,7 +148,6 @@ input[type=number].spare-inp:focus{outline:none;border-bottom-style:solid;border
 .expand-port-btn:active{opacity:.8;}
 .port-info-bar{border-radius:8px;padding:10px 12px;background:#f5f5f5;margin-bottom:8px;}
 .sim-hint{font-size:11px;color:#999;margin-bottom:8px;line-height:1.7;}
-.sim-locked{display:flex;align-items:center;justify-content:center;min-height:80px;background:#f5f5f5;border-radius:8px;font-size:13px;color:#999;}
 .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#888;}
 .leg-dot{width:12px;height:12px;border-radius:2px;flex-shrink:0;}
@@ -217,9 +216,6 @@ canvas{display:block;max-width:100%;touch-action:none;user-select:none;-webkit-u
 .cover-row.cover-over{background:#FCEBEB;color:#A32D2D;}
 .cover-badge{font-weight:600;font-size:12px;}
 
-/* 메모 */
-.memo-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#f8f8f8;border-radius:8px;border:1px solid #eee;margin-bottom:5px;}
-.memo-txt{font-size:13px;color:#1a1a1a;flex:1;word-break:break-all;}
 
 /* 장비 섹션 구분 */
 .equip-section{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f0f0f0;}
@@ -414,12 +410,6 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .save-name-row{display:flex;gap:8px;margin-bottom:16px;}
 .save-name-input{flex:1;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:8px;background:#f8f8f8;}
 .save-list--scroll{max-height:240px;overflow-y:auto;}
-.save-item--featured{background:#E1F5EE;border-color:#1D9E75;}
-.si-label--primary{color:#085041;font-weight:500;}
-.si-btn--primary{background:#085041;}
-.si-label-col{display:flex;flex-direction:column;gap:4px;}
-.si-opt{display:flex;align-items:center;gap:5px;font-size:12px;color:#0F6E56;cursor:pointer;}
-.si-opt input[type=checkbox]{cursor:pointer;accent-color:#0F6E56;}
 
 /* 랜선 시뮬레이터 전체화면 */
 .sim-fs-bg{position:fixed;inset:0;z-index:300;background:#fff;display:flex;flex-direction:column;}

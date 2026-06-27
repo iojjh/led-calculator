@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v215';
+const CACHE_VERSION = 'v216';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
 // Core assets — always cached; bump CACHE_VERSION to force update
@@ -17,8 +17,6 @@ const EXTRA_ASSETS = [
   './3Y_text.png',
   './3Y_no_bg.png',
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
   './온보딩 이미지/2.png',
   './온보딩 이미지/3.png',
   './온보딩 이미지/4.png',
