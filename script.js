@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.9';
-const APP_SW_VERSION = 'v219';
+const APP_VERSION = '2.1.10';
+const APP_SW_VERSION = 'v2110';
 
 const CHANGELOG = [
+  { v: '2.1.10', items: [
+    '버그 수정 — §11 제거 시 누락된 _balancedCols 함수 §14로 복원, 랜선 자동할당 오류 수정',
+  ]},
   { v: '2.1.9', items: [
     '핵심 버그 수정 — §10 제거 시 누락된 _mkSec() 호출이 State 초기화를 중단시켜 모든 전역 변수가 TDZ 상태로 남던 문제 수정',
   ]},
@@ -3938,6 +3941,31 @@ function _betaNextEmpty() {
     if (State.betaPorts[i].size === 0) { return i; }
   }
   return State.betaAPort;
+}
+
+function _balancedCols(total, numPorts, maxRaw, maxEven) {
+  if (numPorts === 1) { return [total]; }
+  const base = Math.floor(total / numPorts);
+  let perPort;
+  if (base < 2 || base % 2 === 0) {
+    const ceilBase = Math.ceil(total / numPorts);
+    perPort = (base < 2 && ceilBase <= maxRaw) ? ceilBase : base;
+  } else {
+    const up = base + 1;
+    const lastIfUp = total - up * (numPorts - 1);
+    if (up <= maxEven && lastIfUp >= 1 && lastIfUp <= maxRaw) {
+      perPort = up;
+    } else {
+      const down = base - 1;
+      const lastIfDown = total - down * (numPorts - 1);
+      perPort = (down >= 1 && lastIfDown >= 1 && lastIfDown <= maxRaw) ? down : base;
+    }
+  }
+  const takes = [];
+  let rem = total;
+  for (let p = 0; p < numPorts - 1; p++) { takes.push(perPort); rem -= perPort; }
+  takes.push(rem);
+  return takes;
 }
 
 function _betaAutoAssignZone(zone, portOff) {
