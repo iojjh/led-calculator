@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.39';
-const APP_SW_VERSION = 'v2139';
+const APP_VERSION = '2.1.40';
+const APP_SW_VERSION = 'v2140';
 
 const CHANGELOG = [
+  { v: '2.1.40', items: [
+    '660 Pro 사양 체크를 픽셀 수 기반으로 개선 (최대 3840 치수, 60Hz 2,304,000px 기준)',
+  ]},
   { v: '2.1.39', items: [
     '샌딩카드: 2대 60Hz + 1대 30Hz 동시 가능한 경우 두 배지 함께 표시',
   ]},
@@ -3364,37 +3367,46 @@ function setBetaSpare(k, v) {
 }
 
 function _betaBuildSendingHtml(tW, tH) {
-  const _eval = m => {
-    const single = tW <= m.maxW && tH <= m.maxH;
-    const dual   = !single && ((tW <= m.maxW * 2 && tH <= m.maxH) || (tW <= m.maxW && tH <= m.maxH * 2));
+  // 660 Pro: 픽셀 수 기반 체크 (스펙: 최대 가로/세로 3840, 60Hz 픽셀 상한 2,304,000)
+  const PX60 = 1920 * 1200;       // 2,304,000 — @60Hz 픽셀 상한
+  const PX30 = PX60 * 2;          // 4,608,000 — @30Hz 추정 (대역폭 기준 2×)
+  const DIM  = 3840;              // 660 Pro 최대 가로/세로
+  const _ok660 = (w, h, hz) => w <= DIM && h <= DIM && w * h <= (hz === 60 ? PX60 : PX30);
+  const _eval660 = hz => {
+    const single = _ok660(tW, tH, hz);
+    const dual   = !single && (_ok660(Math.ceil(tW / 2), tH, hz) || _ok660(tW, Math.ceil(tH / 2), hz));
     const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
-    const txt = single ? `1대 @${m.hz}Hz ✓` : dual ? `2대 @${m.hz}Hz ✓` : `@${m.hz}Hz ✗`;
-    return { ok: single || dual, cls, txt };
+    const txt = single ? `1대 @${hz}Hz ✓` : dual ? `2대 @${hz}Hz ✓` : `@${hz}Hz ✗`;
+    return { cls, txt };
   };
-  const cards = [
-    { label: '660 Pro', modes: [
-      { hz: 60, maxW: 1920, maxH: 1200 },
-      { hz: 30, maxW: 2560, maxH: 1600 },
-    ]},
-    { label: '4K', modes: [
-      { hz: 60, maxW: 3840, maxH: 2160 },
-    ]},
-  ];
+
+  // 4K: 치수 기반 체크 (기존 유지)
+  const _eval4K = () => {
+    const single = tW <= 3840 && tH <= 2160;
+    const dual   = !single && ((tW <= 7680 && tH <= 2160) || (tW <= 3840 && tH <= 4320));
+    const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
+    const txt = single ? '1대 @60Hz ✓' : dual ? '2대 @60Hz ✓' : '@60Hz ✗';
+    return { cls, txt };
+  };
+
   let h = '<div class="beta-send-block">';
-  for (const card of cards) {
-    h += `<div class="beta-send-row"><span class="beta-send-name">${card.label}</span>`;
-    const results = card.modes.map(m => ({ ...m, ..._eval(m) }));
-    const r60 = results[0];
-    h += `<span class="beta-send-badge ${r60.cls}">${r60.txt}</span>`;
-    if (results.length > 1) {
-      const r30 = results[1];
-      // 60Hz 불가, 또는 2대 60Hz이지만 1대 30Hz로 줄일 수 있는 경우만 30Hz 표시
-      if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) {
-        h += `<span class="beta-send-badge ${r30.cls}">${r30.txt}</span>`;
-      }
-    }
-    h += '</div>';
+
+  // 660 Pro
+  const r60 = _eval660(60);
+  const r30 = _eval660(30);
+  h += `<div class="beta-send-row"><span class="beta-send-name">660 Pro</span>`;
+  h += `<span class="beta-send-badge ${r60.cls}">${r60.txt}</span>`;
+  if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) {
+    h += `<span class="beta-send-badge ${r30.cls}">${r30.txt}</span>`;
   }
+  h += '</div>';
+
+  // 4K
+  const r4k = _eval4K();
+  h += `<div class="beta-send-row"><span class="beta-send-name">4K</span>`;
+  h += `<span class="beta-send-badge ${r4k.cls}">${r4k.txt}</span>`;
+  h += '</div>';
+
   h += '</div>';
   return h;
 }
