@@ -26,10 +26,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.49';
-const APP_SW_VERSION = 'v2149';
+const APP_VERSION = '2.1.50';
+const APP_SW_VERSION = 'v2150';
 
 const CHANGELOG = [
+  { v: '2.1.50', items: [
+    '배선 탭에도 전체모드 버튼 표시',
+    '배선 탭 내 랜선·파워콘 하위 탭 버튼 언더라인 스타일로 변경',
+  ]},
   { v: '2.1.49', items: [
     '설치면적 변경 시 기존 구역·배선 자동 초기화',
     '전체모드 버튼에 캔버스와 동일한 cv-reveal 애니메이션 적용',
@@ -3052,7 +3056,7 @@ function betaRender() {
     document.getElementById('betaZoneList').style.display = 'none';
     document.getElementById('betaZoneCfg').style.display = 'none';
     document.getElementById('betaLanUI').style.display = '';
-    if (fb) { fb.style.display = 'none'; }
+    if (fb && !State._betaFull) { fb.style.display = ''; }
     betaAttachLanEv();
     _betaSimDraw();
     betaRenderLanUI();
