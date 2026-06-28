@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.36';
-const APP_SW_VERSION = 'v2136';
+const APP_VERSION = '2.1.37';
+const APP_SW_VERSION = 'v2137';
 
 const CHANGELOG = [
+  { v: '2.1.37', items: [
+    '자동할당 적용 시 버튼 비활성화 + "자동할당 적용됨" 표시',
+  ]},
   { v: '2.1.36', items: [
     '배선 탭 재진입 시 이미 할당된 경우 자동할당 자동 실행 생략',
   ]},
@@ -3959,13 +3962,18 @@ function betaSetSimTab(tab) {
 function betaRenderLanUI() {
   const el = document.getElementById('betaLanBtns');
   if (el) {
-    const isLan = State.betaSimTab !== 'pwr';
+    const isLan    = State.betaSimTab !== 'pwr';
+    const assigned = isLan ? State.betaPorts.some(s => s.size > 0)
+                           : State.betaPwrPorts.some(s => s.size > 0);
+    const autoBtn  = assigned
+      ? `<button class="beta-lan-btn" disabled>자동할당 적용됨</button>`
+      : `<button class="beta-lan-btn" onclick="${isLan ? 'betaAutoAssign()' : 'betaAutoAssignPwr()'}">자동 할당</button>`;
     el.innerHTML = `<div class="beta-lan-tabs">
       <button class="beta-lan-tab${isLan ? ' on' : ''}" onclick="betaSetSimTab('lan')">랜선</button>
       <button class="beta-lan-tab${!isLan ? ' on' : ''}" onclick="betaSetSimTab('pwr')">파워콘</button>
     </div>
     <div class="beta-lan-btns-row">
-      <button class="beta-lan-btn" onclick="${isLan ? 'betaAutoAssign()' : 'betaAutoAssignPwr()'}">자동 할당</button>
+      ${autoBtn}
       <button class="beta-lan-btn danger" onclick="betaRstAllPorts()">전체 배선 초기화</button>
     </div>`;
   }
@@ -4280,7 +4288,6 @@ function _betaAutoAssignZone(zone, portOff) {
 }
 
 function betaAutoAssign() {
-  if (State.betaPorts.some(s => s.size > 0)) { _toast('이미 자동 할당이 적용되어 있습니다. 초기화 후 다시 시도하세요.'); return; }
   State.betaPorts  = Array.from({ length: 16 }, () => new Set());
   State.betaPH2    = Array.from({ length: 16 }, () => []);
   State.betaAPort  = 0;
@@ -4297,7 +4304,6 @@ function betaAutoAssign() {
 }
 
 function betaAutoAssignPwr() {
-  if (State.betaPwrPorts.some(s => s.size > 0)) { _toast('이미 자동 할당이 적용되어 있습니다. 초기화 후 다시 시도하세요.'); return; }
   const cnt = State.betaPwrPorts.length;
   State.betaPwrPorts = Array.from({ length: cnt }, () => new Set());
   State.betaPwrPH2   = Array.from({ length: cnt }, () => []);
