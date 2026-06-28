@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.54';
-const APP_SW_VERSION = 'v2154';
+const APP_VERSION = '2.1.55';
+const APP_SW_VERSION = 'v2155';
 
 const CHANGELOG = [
+  { v: '2.1.55', items: [
+    '설치면적 [적용] 시 구역 존재하면 면적 변경 여부 무관하게 항상 초기화',
+  ]},
   { v: '2.1.54', items: [
     '배선 탭 전체모드: 랜선/파워콘 각 탭에 맞는 캔버스 표시',
   ]},
@@ -2951,7 +2954,7 @@ function betaApplyArea() {
   const w = Math.round((parseFloat(document.getElementById('betaW').value) || 0) * 1000);
   const h = Math.round((parseFloat(document.getElementById('betaH').value) || 0) * 1000);
   if (w < 500 || h < 500) { _toast('최소 0.5m × 0.5m 이상 입력해주세요.'); return; }
-  if (State.betaZones.length > 0 && (w !== State.betaAreaW || h !== State.betaAreaH)) {
+  if (State.betaZones.length > 0) {
     State.betaZones    = [];
     State.betaMode     = 'edit';
     State.betaPorts    = Array.from({ length: 16 }, () => new Set());
