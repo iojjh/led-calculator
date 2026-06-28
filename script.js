@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.25';
-const APP_SW_VERSION = 'v2125';
+const APP_VERSION = '2.1.26';
+const APP_SW_VERSION = 'v2126';
 
 const CHANGELOG = [
+  { v: '2.1.26', items: [
+    '잔여 500×500 패널을 구역 최상단(행) · 최좌측(열) 우선 배치',
+  ]},
   { v: '2.1.25', items: [
     '잔여 500×500 패널을 구역 정보 텍스트 및 패널 집계 표에 반영',
   ]},
@@ -2730,6 +2733,7 @@ function _betaZoneAt(r, c) {
 }
 
 // Zone → 패널 배열 [{key, x, y, w, h, led, zoneId}]
+// 잔여(500×500) 패널은 항상 최상단(remR) · 최좌측(remC) 우선 배치
 function betaPanels(zone) {
   const spanC = zone.panelW / 500;
   const spanR = zone.panelH / 500;
@@ -2738,39 +2742,46 @@ function betaPanels(zone) {
   const remC  = zone.cols % spanC;
   const remR  = zone.rows % spanR;
   const panels = [];
-  for (let pr = 0; pr < fullR; pr++) {
-    for (let pc = 0; pc < fullC; pc++) {
-      panels.push({
-        key: `${zone.id}:${pr}:${pc}`,
-        x: (zone.startCol + pc * spanC) * 500,
-        y: (zone.startRow + pr * spanR) * 500,
-        w: zone.panelW, h: zone.panelH,
-        led: zone.led, zoneId: zone.id,
-      });
-    }
-    if (remC) {
-      for (let rs = 0; rs < spanR; rs++) {
-        panels.push({
-          key: `${zone.id}:${pr}:rc${rs}`,
-          x: (zone.startCol + fullC * spanC) * 500,
-          y: (zone.startRow + pr * spanR + rs) * 500,
-          w: 500, h: 500,
-          led: zone.led, zoneId: zone.id,
-        });
-      }
-    }
-  }
+
+  // 잔여 행 (최상단)
   if (remR) {
     for (let cc = 0; cc < zone.cols; cc++) {
       panels.push({
         key: `${zone.id}:rr:${cc}`,
         x: (zone.startCol + cc) * 500,
-        y: (zone.startRow + fullR * spanR) * 500,
+        y: zone.startRow * 500,
         w: 500, h: 500,
         led: zone.led, zoneId: zone.id,
       });
     }
   }
+
+  // 전체 패널 (잔여 행 아래부터, 잔여 열 오른쪽부터)
+  for (let pr = 0; pr < fullR; pr++) {
+    // 잔여 열 (최좌측)
+    if (remC) {
+      for (let rs = 0; rs < spanR; rs++) {
+        panels.push({
+          key: `${zone.id}:${pr}:rc${rs}`,
+          x: zone.startCol * 500,
+          y: (zone.startRow + remR + pr * spanR + rs) * 500,
+          w: 500, h: 500,
+          led: zone.led, zoneId: zone.id,
+        });
+      }
+    }
+    // 전체 크기 패널
+    for (let pc = 0; pc < fullC; pc++) {
+      panels.push({
+        key: `${zone.id}:${pr}:${pc}`,
+        x: (zone.startCol + remC + pc * spanC) * 500,
+        y: (zone.startRow + remR + pr * spanR) * 500,
+        w: zone.panelW, h: zone.panelH,
+        led: zone.led, zoneId: zone.id,
+      });
+    }
+  }
+
   return panels;
 }
 
