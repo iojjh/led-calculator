@@ -26,10 +26,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.19';
-const APP_SW_VERSION = 'v2119';
+const APP_VERSION = '2.1.20';
+const APP_SW_VERSION = 'v2120';
 
 const CHANGELOG = [
+  { v: '2.1.20', items: [
+    '설치면적 재적용 시에도 캔버스 펼침 애니메이션 적용',
+    '설계탭 초기화 시 설치 면적까지 완전 초기화',
+  ]},
   { v: '2.1.19', items: [
     '설치면적 적용 시 캔버스 위→아래 펼침 애니메이션 추가',
   ]},
@@ -2833,6 +2837,11 @@ function betaApplyArea() {
   });
   State._betaCache = null;
   betaRender();
+  const _wrap = document.getElementById('betaCanvasWrap');
+  _wrap.classList.remove('cv-reveal');
+  void _wrap.offsetWidth;
+  _wrap.classList.add('cv-reveal');
+  _wrap.addEventListener('animationend', () => _wrap.classList.remove('cv-reveal'), { once: true });
   saveState();
 }
 
@@ -2867,15 +2876,7 @@ function betaRender() {
     return;
   }
 
-  const _wasHidden = cv.style.display === 'none';
   cv.style.display = 'block';
-  if (_wasHidden) {
-    const _wrap = document.getElementById('betaCanvasWrap');
-    _wrap.classList.remove('cv-reveal');
-    void _wrap.offsetWidth;
-    _wrap.classList.add('cv-reveal');
-    _wrap.addEventListener('animationend', () => _wrap.classList.remove('cv-reveal'), { once: true });
-  }
   const sc = State.betaMode === 'edit' ? _betaScEdit() : _betaSc();
   cv.width  = Math.round(State.betaAreaW * sc);
   cv.height = Math.round(State.betaAreaH * sc);
@@ -4066,7 +4067,11 @@ function betaExitFull() {
 
 function betaReset() {
   if (State.betaMode === 'lan') { betaRstAllPorts(); return; }
-  openConfirm('혼합 시뮬 초기화', '구역과 배선을 모두 초기화할까요?', () => {
+  openConfirm('혼합 시뮬 초기화', '설치 면적, 구역, 배선을 모두 초기화할까요?', () => {
+    State.betaAreaW = 0; State.betaAreaH = 0;
+    State.betaMode  = 'edit';
+    document.getElementById('betaW').value = '';
+    document.getElementById('betaH').value = '';
     State.betaZones    = []; State._betaCache = null;
     State.betaPorts    = Array.from({ length: 16 }, () => new Set());
     State.betaPH2      = Array.from({ length: 16 }, () => []);
