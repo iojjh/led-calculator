@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.26';
-const APP_SW_VERSION = 'v2126';
+const APP_VERSION = '2.1.27';
+const APP_SW_VERSION = 'v2127';
 
 const CHANGELOG = [
+  { v: '2.1.27', items: [
+    '구역 드래그 미리보기에 라운드 모서리 적용',
+  ]},
   { v: '2.1.26', items: [
     '잔여 500×500 패널을 구역 최상단(행) · 최좌측(열) 우선 배치',
   ]},
@@ -2998,10 +3001,11 @@ function betaDrawEdit() {
     const l = State._betaDragLerp;
     const sx = l.c0 * 500 * sc; const sy = l.r0 * 500 * sc;
     const sw = (l.c1 - l.c0) * 500 * sc; const sh = (l.r1 - l.r0) * 500 * sc;
-    ctx.fillStyle = 'rgba(79,140,255,0.22)';
-    ctx.fillRect(sx, sy, sw, sh);
-    ctx.strokeStyle = '#4F8CFF'; ctx.lineWidth = 2;
-    ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+    const pr = Math.min(8, sw * 0.14, sh * 0.14);
+    ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, pr);
+    ctx.fillStyle = 'rgba(79,140,255,0.22)'; ctx.fill();
+    ctx.beginPath(); ctx.roundRect(sx + 1, sy + 1, sw - 2, sh - 2, pr);
+    ctx.strokeStyle = '#4F8CFF'; ctx.lineWidth = 2; ctx.stroke();
     // 치수 텍스트는 정수 스냅값 표시
     const ir0 = Math.min(State._betaDragSt.r, State._betaDragCur.r);
     const ic0 = Math.min(State._betaDragSt.c, State._betaDragCur.c);
