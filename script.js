@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.32';
-const APP_SW_VERSION = 'v2132';
+const APP_VERSION = '2.1.33';
+const APP_SW_VERSION = 'v2133';
 
 const CHANGELOG = [
+  { v: '2.1.33', items: [
+    '모드 전환 시 캔버스 오버레이 페이드 + 콘텐츠 슬라이드 동시 적용',
+  ]},
   { v: '2.1.32', items: [
     '캔버스 격자/오버레이 레이어 분리 — 모드 전환 시 격자 고정·오버레이 페이드',
   ]},
@@ -2907,20 +2910,28 @@ function betaSetMode(m) {
   if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
   if (m === State.betaMode) { return; }
   const wasEdit = State.betaMode === 'edit';
-  const cv = document.getElementById('betaCanvas');
+  const goRight = m === 'lan';
+  const prevEl   = document.getElementById(wasEdit ? 'betaZoneList' : 'betaLanUI');
+  const cv       = document.getElementById('betaCanvas');
+  const exitCls  = goRight ? 'beta-slide-exit-l'  : 'beta-slide-exit-r';
+  const enterCls = goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l';
 
-  // 오버레이 캔버스 페이드 아웃 (格子 bg는 그대로 유지)
+  // 캔버스 오버레이 페이드 아웃 + 콘텐츠 슬라이드 퇴장 동시 시작
   cv.style.transition = 'opacity .22s';
   cv.style.opacity = '0';
+  prevEl.classList.add(exitCls);
+  prevEl.addEventListener('animationend', () => prevEl.classList.remove(exitCls), { once: true });
 
+  // 캔버스 페이드 완료 → 모드 전환 → 캔버스 페이드 인 + 콘텐츠 슬라이드 진입
   cv.addEventListener('transitionend', () => {
     cv.style.transition = '';
-    // opacity:0 상태 유지한 채 모드 전환 + 재렌더
     if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
     State.betaMode = m;
     betaRender();
     if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
-    // 페이드 인
+    const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
+    nextEl.classList.add(enterCls);
+    nextEl.addEventListener('animationend', () => nextEl.classList.remove(enterCls), { once: true });
     cv.offsetHeight;
     cv.style.transition = 'opacity .22s';
     cv.style.opacity = '1';
