@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.43';
-const APP_SW_VERSION = 'v2143';
+const APP_VERSION = '2.1.44';
+const APP_SW_VERSION = 'v2144';
 
 const CHANGELOG = [
+  { v: '2.1.44', items: [
+    '120Hz 체크를 4K 전용으로 수정 (660 Pro는 60Hz까지만 지원)',
+  ]},
   { v: '2.1.43', items: [
     '샌딩카드 120Hz 커버 가능 여부 추가 (60Hz 픽셀 상한의 절반 기준)',
   ]},
@@ -3376,13 +3379,12 @@ function setBetaSpare(k, v) {
 }
 
 function _betaBuildSendingHtml(tW, tH) {
-  // 660 Pro: 60Hz 픽셀 상한 2,304,000 / 120Hz는 절반 / 30Hz는 치수(3840)만
-  const PX60  = 1920 * 1200; // 2,304,000
-  const DIM   = 3840;
+  // 660 Pro: 최대 60Hz / 60Hz 픽셀 상한 2,304,000 / 30Hz는 치수(3840)만
+  const PX60 = 1920 * 1200; // 2,304,000
+  const DIM  = 3840;
   const _ok660 = (w, h, hz) => {
     if (w > DIM || h > DIM) { return false; }
-    if (hz === 120) { return w * h <= PX60 / 2; }
-    if (hz === 60)  { return w * h <= PX60; }
+    if (hz === 60) { return w * h <= PX60; }
     return true; // 30Hz: 치수 제한만
   };
   const _eval660 = hz => {
@@ -3408,17 +3410,12 @@ function _betaBuildSendingHtml(tW, tH) {
   const badge = r => `<span class="beta-send-badge ${r.cls}">${r.txt}</span>`;
   let h = '<div class="beta-send-block">';
 
-  // 660 Pro: 120Hz 가능 → 120만 (2대120+1대60이면 둘 다), 불가 → 60/30 기존 로직
+  // 660 Pro: 최대 60Hz 출력 — 60/30Hz만 체크
   {
-    const r120 = _eval660(120); const r60 = _eval660(60); const r30 = _eval660(30);
+    const r60 = _eval660(60); const r30 = _eval660(30);
     h += `<div class="beta-send-row"><span class="beta-send-name">660 Pro</span>`;
-    if (r120.cls !== 'ng') {
-      h += badge(r120);
-      if (r120.cls === 'ok2' && r60.cls === 'ok') { h += badge(r60); }
-    } else {
-      h += badge(r60);
-      if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) { h += badge(r30); }
-    }
+    h += badge(r60);
+    if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) { h += badge(r30); }
     h += '</div>';
   }
 
