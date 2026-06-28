@@ -26,10 +26,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.48';
-const APP_SW_VERSION = 'v2148';
+const APP_VERSION = '2.1.49';
+const APP_SW_VERSION = 'v2149';
 
 const CHANGELOG = [
+  { v: '2.1.49', items: [
+    '설치면적 변경 시 기존 구역·배선 자동 초기화',
+    '전체모드 버튼에 캔버스와 동일한 cv-reveal 애니메이션 적용',
+  ]},
   { v: '2.1.48', items: [
     '최종 해상도 픽셀 수 표기: = 등호 추가, 단위 px 통일',
   ]},
@@ -2931,14 +2935,16 @@ function betaApplyArea() {
   const w = Math.round((parseFloat(document.getElementById('betaW').value) || 0) * 1000);
   const h = Math.round((parseFloat(document.getElementById('betaH').value) || 0) * 1000);
   if (w < 500 || h < 500) { _toast('최소 0.5m × 0.5m 이상 입력해주세요.'); return; }
-  State.betaAreaW = w;
-  State.betaAreaH = h;
-  const gW = _betaGW(); const gH = _betaGH();
-  State.betaZones = State.betaZones.filter(z => z.startRow < gH && z.startCol < gW);
-  State.betaZones.forEach(z => {
-    if (z.startRow + z.rows > gH) { z.rows = gH - z.startRow; }
-    if (z.startCol + z.cols > gW) { z.cols = gW - z.startCol; }
-  });
+  if (State.betaZones.length > 0 && (w !== State.betaAreaW || h !== State.betaAreaH)) {
+    State.betaZones    = [];
+    State.betaMode     = 'edit';
+    State.betaPorts    = Array.from({ length: 16 }, () => new Set());
+    State.betaPH2      = Array.from({ length: 16 }, () => []);
+    State.betaPwrPorts = Array.from({ length: PWR_PORT_COUNT }, () => new Set());
+    State.betaPwrPH2   = Array.from({ length: PWR_PORT_COUNT }, () => []);
+  }
+  State.betaAreaW  = w;
+  State.betaAreaH  = h;
   State._betaCache = null;
   betaRender();
   const _wrap = document.getElementById('betaCanvasWrap');
@@ -2946,6 +2952,13 @@ function betaApplyArea() {
   void _wrap.offsetWidth;
   _wrap.classList.add('cv-reveal');
   _wrap.addEventListener('animationend', () => _wrap.classList.remove('cv-reveal'), { once: true });
+  const fb = document.getElementById('betaFullBtn');
+  if (fb && fb.style.display !== 'none') {
+    fb.classList.remove('cv-reveal');
+    void fb.offsetWidth;
+    fb.classList.add('cv-reveal');
+    fb.addEventListener('animationend', () => fb.classList.remove('cv-reveal'), { once: true });
+  }
   saveState();
 }
 
