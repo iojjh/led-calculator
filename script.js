@@ -26,10 +26,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.55';
-const APP_SW_VERSION = 'v2155';
+const APP_VERSION = '2.1.56';
+const APP_SW_VERSION = 'v2156';
 
 const CHANGELOG = [
+  { v: '2.1.56', items: [
+    '구역 미리보기 라운드 처리',
+    '설치면적 재입력 시 생성 중인 구역 취소',
+    '배선 전체모드 뱀형 라인 좌표 수정 (_betaCvSc 전체모드 캔버스 기준)',
+  ]},
   { v: '2.1.55', items: [
     '설치면적 [적용] 시 구역 존재하면 면적 변경 여부 무관하게 항상 초기화',
   ]},
@@ -2923,9 +2928,9 @@ function _betaNextSimEmpty()   {
 function _betaPanelCx(p) { return (p.x + p.w / 2) * _betaCvSc(); }
 function _betaPanelCy(p) { return (p.y + p.h / 2) * _betaCvSc(); }
 
-// 캔버스 실제 픽셀 폭 기준 스케일 (betaCanvas 혹은 betaCanvasBg로부터 계산)
+// 캔버스 실제 픽셀 폭 기준 스케일 (전체모드 시 betaFullCanvas 기준)
 function _betaCvSc() {
-  const cv = document.getElementById('betaCanvas');
+  const cv = _betaEditCv();
   return cv && State.betaAreaW ? cv.width / State.betaAreaW : _betaScEdit();
 }
 
@@ -2954,7 +2959,12 @@ function betaApplyArea() {
   const w = Math.round((parseFloat(document.getElementById('betaW').value) || 0) * 1000);
   const h = Math.round((parseFloat(document.getElementById('betaH').value) || 0) * 1000);
   if (w < 500 || h < 500) { _toast('최소 0.5m × 0.5m 이상 입력해주세요.'); return; }
-  if (State.betaZones.length > 0) {
+  // 구역 생성 중이면 취소
+  if (State._betaSelNew) {
+    State._betaSelNew = null;
+    document.getElementById('betaZoneCfg').style.display = 'none';
+  }
+  if (State.betaZones.length > 0 && (w !== State.betaAreaW || h !== State.betaAreaH)) {
     State.betaZones    = [];
     State.betaMode     = 'edit';
     State.betaPorts    = Array.from({ length: 16 }, () => new Set());
@@ -3179,10 +3189,11 @@ function betaDrawEdit() {
     const { startR, startC, rows, cols } = State._betaSelNew;
     const sx = startC * 500 * sc; const sy = startR * 500 * sc;
     const sw = cols * 500 * sc; const sh = rows * 500 * sc;
+    const cr = Math.min(8, sw * 0.12, sh * 0.12);
     ctx.fillStyle = 'rgba(40,200,80,0.18)';
-    ctx.fillRect(sx, sy, sw, sh);
+    ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, cr); ctx.fill();
     ctx.strokeStyle = '#28C850'; ctx.lineWidth = 2.5;
-    ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+    ctx.beginPath(); ctx.roundRect(sx + 1, sy + 1, sw - 2, sh - 2, cr); ctx.stroke();
   }
 }
 
