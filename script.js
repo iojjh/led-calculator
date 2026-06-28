@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.23';
-const APP_SW_VERSION = 'v2123';
+const APP_VERSION = '2.1.24';
+const APP_SW_VERSION = 'v2124';
 
 const CHANGELOG = [
+  { v: '2.1.24', items: [
+    '하나의 구역 내 잔여 공간 500×500 패널 캔버스에 함께 표시',
+  ]},
   { v: '2.1.23', items: [
     '구역 모서리 라운드 처리 + 존 라벨 위치 보정',
     '구역 생성 시 패널 크기 불일치 자동 분할 구역 제거 (단일 구역 생성)',
@@ -2950,18 +2953,10 @@ function betaDrawEdit() {
     ctx.save();
     ctx.beginPath(); ctx.roundRect(zx, zy, zw, zh, cr); ctx.clip();
     ctx.fillStyle = BETA_ZONE_BG[ci]; ctx.fillRect(zx, zy, zw, zh);
-    const spanC = zone.panelW / 500; const spanR = zone.panelH / 500;
-    const fullC = Math.floor(zone.cols / spanC); const fullR = Math.floor(zone.rows / spanR);
     ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 1.2;
-    for (let pr = 0; pr < fullR; pr++) {
-      for (let pc = 0; pc < fullC; pc++) {
-        ctx.strokeRect(
-          (zone.startCol + pc * spanC) * 500 * sc + 0.6,
-          (zone.startRow + pr * spanR) * 500 * sc + 0.6,
-          zone.panelW * sc - 1.2, zone.panelH * sc - 1.2
-        );
-      }
-    }
+    betaPanels(zone).forEach(p => {
+      ctx.strokeRect(p.x * sc + 0.6, p.y * sc + 0.6, p.w * sc - 1.2, p.h * sc - 1.2);
+    });
     ctx.restore();
     // Zone 라운드 외곽선
     ctx.beginPath(); ctx.roundRect(zx + 1, zy + 1, zw - 2, zh - 2, cr);
