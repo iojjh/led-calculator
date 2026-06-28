@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.38';
-const APP_SW_VERSION = 'v2138';
+const APP_VERSION = '2.1.39';
+const APP_SW_VERSION = 'v2139';
 
 const CHANGELOG = [
+  { v: '2.1.39', items: [
+    '샌딩카드: 2대 60Hz + 1대 30Hz 동시 가능한 경우 두 배지 함께 표시',
+  ]},
   { v: '2.1.38', items: [
     '샌딩카드 사양: 60Hz 가능 시 60Hz만 표시, 불가 시 30Hz 결과 병기',
   ]},
@@ -3381,10 +3384,14 @@ function _betaBuildSendingHtml(tW, tH) {
   for (const card of cards) {
     h += `<div class="beta-send-row"><span class="beta-send-name">${card.label}</span>`;
     const results = card.modes.map(m => ({ ...m, ..._eval(m) }));
-    // 60Hz 가능하면 60Hz만 표시, 불가하면 모든 hz 결과 표시
-    const show = results[0].ok ? [results[0]] : results;
-    for (const r of show) {
-      h += `<span class="beta-send-badge ${r.cls}">${r.txt}</span>`;
+    const r60 = results[0];
+    h += `<span class="beta-send-badge ${r60.cls}">${r60.txt}</span>`;
+    if (results.length > 1) {
+      const r30 = results[1];
+      // 60Hz 불가, 또는 2대 60Hz이지만 1대 30Hz로 줄일 수 있는 경우만 30Hz 표시
+      if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) {
+        h += `<span class="beta-send-badge ${r30.cls}">${r30.txt}</span>`;
+      }
     }
     h += '</div>';
   }
