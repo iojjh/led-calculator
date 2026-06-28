@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.24';
-const APP_SW_VERSION = 'v2124';
+const APP_VERSION = '2.1.25';
+const APP_SW_VERSION = 'v2125';
 
 const CHANGELOG = [
+  { v: '2.1.25', items: [
+    '잔여 500×500 패널을 구역 정보 텍스트 및 패널 집계 표에 반영',
+  ]},
   { v: '2.1.24', items: [
     '하나의 구역 내 잔여 공간 500×500 패널 캔버스에 함께 표시',
   ]},
@@ -3203,11 +3206,12 @@ function _betaBuildPanelTable() {
   };
   const counts = {}; const usedLeds = new Set(); const usedPanels = new Set();
   State.betaZones.forEach(zone => {
-    const pKey = `${zone.panelW}x${zone.panelH}`;
-    const cnt  = Math.round((zone.cols * 500) / zone.panelW) * Math.round((zone.rows * 500) / zone.panelH);
-    usedLeds.add(zone.led); usedPanels.add(pKey);
-    if (!counts[zone.led]) { counts[zone.led] = {}; }
-    counts[zone.led][pKey] = (counts[zone.led][pKey] || 0) + cnt;
+    betaPanels(zone).forEach(p => {
+      const pKey = `${p.w}x${p.h}`;
+      usedLeds.add(zone.led); usedPanels.add(pKey);
+      if (!counts[zone.led]) { counts[zone.led] = {}; }
+      counts[zone.led][pKey] = (counts[zone.led][pKey] || 0) + 1;
+    });
   });
   const leds   = ledOrder.filter(l => usedLeds.has(l));
   const panels = panelOrder.filter(p => usedPanels.has(p));
@@ -3312,7 +3316,7 @@ function betaRenderZoneList() {
     const selStyle = isSel ? `background:${col}18;outline:2px solid ${col};outline-offset:-1px;` : '';
     return `<div class="beta-zone-card" style="border-left:4px solid ${col};${selStyle}cursor:pointer" onclick="betaSelectZone('${z.id}')">
       <span class="beta-zone-tag" style="color:${col}">구역 ${i + 1}</span>
-      <span class="beta-zone-info">${wm(z.cols * 500)} × ${wm(z.rows * 500)} | ${z.cols * SPECS[z.led].px500.w} × ${z.rows * SPECS[z.led].px500.h}px | ${z.led} | ${z.panelW}×${z.panelH}mm</span>
+      <span class="beta-zone-info">${wm(z.cols * 500)} × ${wm(z.rows * 500)} | ${z.cols * SPECS[z.led].px500.w} × ${z.rows * SPECS[z.led].px500.h}px | ${z.led} | ${z.panelW}×${z.panelH}mm${((z.rows % (z.panelH / 500)) > 0 || (z.cols % (z.panelW / 500)) > 0) ? ' +500×500mm' : ''}</span>
       <button class="beta-zone-edit-btn" onclick="event.stopPropagation();betaEditZone('${z.id}')">편집</button>
       <button class="beta-zone-del-btn" onclick="event.stopPropagation();betaDeleteZone('${z.id}')">삭제</button>
     </div>`;
