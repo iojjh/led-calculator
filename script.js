@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.28';
-const APP_SW_VERSION = 'v2128';
+const APP_VERSION = '2.1.29';
+const APP_SW_VERSION = 'v2129';
 
 const CHANGELOG = [
+  { v: '2.1.29', items: [
+    '설계탭 모드 전환 시 캔버스+콘텐츠 동시 슬라이드 애니메이션',
+  ]},
   { v: '2.1.28', items: [
     '설계탭 구역편집↔배선 전환 시 슬라이드 애니메이션 추가',
   ]},
@@ -2881,23 +2884,35 @@ function betaApplyArea() {
 function betaSetMode(m) {
   if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
   if (m === State.betaMode) { return; }
-  const goRight = m === 'lan'; // edit(0)→lan(1) = 오른쪽
-  const prevEl  = document.getElementById(State.betaMode === 'edit' ? 'betaZoneList' : 'betaLanUI');
+  const goRight = m === 'lan';
   const wasEdit = State.betaMode === 'edit';
-  if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
-  State.betaMode = m;
-  betaRender();
-  if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
-  const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
-  if (prevEl && prevEl !== nextEl) {
-    prevEl.classList.add(goRight ? 'beta-slide-exit-l' : 'beta-slide-exit-r');
-    prevEl.addEventListener('animationend', () => {
-      prevEl.classList.remove('beta-slide-exit-l', 'beta-slide-exit-r');
-    }, { once: true });
+  const prevEl  = document.getElementById(wasEdit ? 'betaZoneList' : 'betaLanUI');
+  const cvWrap  = document.getElementById('betaCanvasWrap');
+  const DUR = '.26s cubic-bezier(.4,0,.2,1)';
+  const exitAnim  = goRight ? `_sOL ${DUR} forwards` : `_sOR ${DUR} forwards`;
+  const enterAnim = goRight ? `_sIR ${DUR} both`     : `_sIL ${DUR} both`;
+  const exitCls   = goRight ? 'beta-slide-exit-l'  : 'beta-slide-exit-r';
+  const enterCls  = goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l';
+
+  // 캔버스 + 콘텐츠 동시 퇴장
+  cvWrap.style.animation = exitAnim;
+  if (prevEl) {
+    prevEl.classList.add(exitCls);
+    prevEl.addEventListener('animationend', () => prevEl.classList.remove(exitCls), { once: true });
   }
-  nextEl.classList.add(goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l');
-  nextEl.addEventListener('animationend', () => {
-    nextEl.classList.remove('beta-slide-enter-r', 'beta-slide-enter-l');
+
+  // 캔버스 퇴장 완료 후 모드 전환 → 진입 애니메이션
+  cvWrap.addEventListener('animationend', () => {
+    cvWrap.style.animation = '';
+    if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
+    State.betaMode = m;
+    betaRender();
+    if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
+    const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
+    cvWrap.style.animation = enterAnim;
+    cvWrap.addEventListener('animationend', () => { cvWrap.style.animation = ''; }, { once: true });
+    nextEl.classList.add(enterCls);
+    nextEl.addEventListener('animationend', () => nextEl.classList.remove(enterCls), { once: true });
   }, { once: true });
 }
 
