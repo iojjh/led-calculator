@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.27';
-const APP_SW_VERSION = 'v2127';
+const APP_VERSION = '2.1.28';
+const APP_SW_VERSION = 'v2128';
 
 const CHANGELOG = [
+  { v: '2.1.28', items: [
+    '설계탭 구역편집↔배선 전환 시 슬라이드 애니메이션 추가',
+  ]},
   { v: '2.1.27', items: [
     '구역 드래그 미리보기에 라운드 모서리 적용',
   ]},
@@ -2877,15 +2880,25 @@ function betaApplyArea() {
 
 function betaSetMode(m) {
   if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
+  if (m === State.betaMode) { return; }
+  const goRight = m === 'lan'; // edit(0)→lan(1) = 오른쪽
+  const prevEl  = document.getElementById(State.betaMode === 'edit' ? 'betaZoneList' : 'betaLanUI');
   const wasEdit = State.betaMode === 'edit';
   if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
   State.betaMode = m;
   betaRender();
-  if (m === 'lan' && wasEdit) {
-    betaAutoAssign();
-    betaAutoAssignPwr();
-    _betaSimDraw();
+  if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
+  const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
+  if (prevEl && prevEl !== nextEl) {
+    prevEl.classList.add(goRight ? 'beta-slide-exit-l' : 'beta-slide-exit-r');
+    prevEl.addEventListener('animationend', () => {
+      prevEl.classList.remove('beta-slide-exit-l', 'beta-slide-exit-r');
+    }, { once: true });
   }
+  nextEl.classList.add(goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l');
+  nextEl.addEventListener('animationend', () => {
+    nextEl.classList.remove('beta-slide-enter-r', 'beta-slide-enter-l');
+  }, { once: true });
 }
 
 function betaRender() {
