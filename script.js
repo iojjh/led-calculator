@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.37';
-const APP_SW_VERSION = 'v2137';
+const APP_VERSION = '2.1.38';
+const APP_SW_VERSION = 'v2138';
 
 const CHANGELOG = [
+  { v: '2.1.38', items: [
+    '샌딩카드 사양: 60Hz 가능 시 60Hz만 표시, 불가 시 30Hz 결과 병기',
+  ]},
   { v: '2.1.37', items: [
     '자동할당 적용 시 버튼 비활성화 + "자동할당 적용됨" 표시',
   ]},
@@ -3358,24 +3361,30 @@ function setBetaSpare(k, v) {
 }
 
 function _betaBuildSendingHtml(tW, tH) {
+  const _eval = m => {
+    const single = tW <= m.maxW && tH <= m.maxH;
+    const dual   = !single && ((tW <= m.maxW * 2 && tH <= m.maxH) || (tW <= m.maxW && tH <= m.maxH * 2));
+    const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
+    const txt = single ? `1대 @${m.hz}Hz ✓` : dual ? `2대 @${m.hz}Hz ✓` : `@${m.hz}Hz ✗`;
+    return { ok: single || dual, cls, txt };
+  };
   const cards = [
-    { label: '660 Pro', count: 2, modes: [
+    { label: '660 Pro', modes: [
       { hz: 60, maxW: 1920, maxH: 1200 },
       { hz: 30, maxW: 2560, maxH: 1600 },
     ]},
-    { label: '4K', count: 2, modes: [
+    { label: '4K', modes: [
       { hz: 60, maxW: 3840, maxH: 2160 },
     ]},
   ];
   let h = '<div class="beta-send-block">';
   for (const card of cards) {
     h += `<div class="beta-send-row"><span class="beta-send-name">${card.label}</span>`;
-    for (const m of card.modes) {
-      const single = tW <= m.maxW && tH <= m.maxH;
-      const dual   = !single && ((tW <= m.maxW * 2 && tH <= m.maxH) || (tW <= m.maxW && tH <= m.maxH * 2));
-      const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
-      const txt = single ? `1대 @${m.hz}Hz ✓` : dual ? `2대 @${m.hz}Hz ✓` : `@${m.hz}Hz ✗`;
-      h += `<span class="beta-send-badge ${cls}">${txt}</span>`;
+    const results = card.modes.map(m => ({ ...m, ..._eval(m) }));
+    // 60Hz 가능하면 60Hz만 표시, 불가하면 모든 hz 결과 표시
+    const show = results[0].ok ? [results[0]] : results;
+    for (const r of show) {
+      h += `<span class="beta-send-badge ${r.cls}">${r.txt}</span>`;
     }
     h += '</div>';
   }
