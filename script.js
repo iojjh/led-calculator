@@ -26,10 +26,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.22';
-const APP_SW_VERSION = 'v2122';
+const APP_VERSION = '2.1.23';
+const APP_SW_VERSION = 'v2123';
 
 const CHANGELOG = [
+  { v: '2.1.23', items: [
+    '구역 모서리 라운드 처리 + 존 라벨 위치 보정',
+    '구역 생성 시 패널 크기 불일치 자동 분할 구역 제거 (단일 구역 생성)',
+  ]},
   { v: '2.1.22', items: [
     '구역 드래그 미리보기 박스 부드러운 lerp 이동 애니메이션 추가',
   ]},
@@ -2931,6 +2935,7 @@ function betaDrawEdit() {
     const ci  = zi % BETA_ZONE_BG.length;
     const zx  = zone.startCol * 500 * sc; const zy = zone.startRow * 500 * sc;
     const zw  = zone.cols * 500 * sc; const zh = zone.rows * 500 * sc;
+    const cr  = Math.min(8, zw * 0.14, zh * 0.14); // corner radius
     const _ap = State._betaAnimProg;
     const _isNew = _ap && _ap.ids.has(zone.id);
     if (_isNew) {
@@ -2941,9 +2946,10 @@ function betaDrawEdit() {
       ctx.scale(_s, _s);
       ctx.translate(-(zx + zw / 2), -(zy + zh / 2));
     }
-    ctx.fillStyle = BETA_ZONE_BG[ci];
-    ctx.fillRect(zx, zy, zw, zh);
-    // 패널 경계
+    // 라운드 클립: fill + 패널 경계를 rounded rect 안에 가둠
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(zx, zy, zw, zh, cr); ctx.clip();
+    ctx.fillStyle = BETA_ZONE_BG[ci]; ctx.fillRect(zx, zy, zw, zh);
     const spanC = zone.panelW / 500; const spanR = zone.panelH / 500;
     const fullC = Math.floor(zone.cols / spanC); const fullR = Math.floor(zone.rows / spanR);
     ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 1.2;
@@ -2956,12 +2962,13 @@ function betaDrawEdit() {
         );
       }
     }
-    // Zone 외곽선
-    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2;
-    ctx.strokeRect(zx + 1, zy + 1, zw - 2, zh - 2);
+    ctx.restore();
+    // Zone 라운드 외곽선
+    ctx.beginPath(); ctx.roundRect(zx + 1, zy + 1, zw - 2, zh - 2, cr);
+    ctx.strokeStyle = BETA_ZONE_LINE[ci]; ctx.lineWidth = 2; ctx.stroke();
     // Zone 정보 텍스트 (흰 글씨 + 검정 아웃라인) + 번호
-    const fs = Math.max(11, Math.min(16, 500 * sc * 0.22));
-    const pad = Math.max(3, Math.round(fs * 0.5));
+    const fs  = Math.max(11, Math.min(16, 500 * sc * 0.22));
+    const pad = Math.max(3, Math.round(fs * 0.5)) + Math.round(cr * 0.5);
     ctx.font = `700 ${fs}px sans-serif`;
     ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, fs * 0.3); ctx.strokeStyle = 'rgba(0,0,0,0.85)';
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
@@ -3429,19 +3436,9 @@ function betaCfgApply() {
     }
   } else {
     if (_betaOverlaps(startR, startC, rows, cols, null)) { _toast('다른 구역과 겹칩니다.'); return; }
-    const _before = State.betaZones.length;
-    State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC, rows, cols, led, panelW: pw, panelH: ph });
-    // 남는 500×500 격자 자동 채움 (500×1000 또는 1000×500 패널)
-    const spanC = pw / 500, spanR = ph / 500;
-    const leftR = rows % spanR;
-    const leftC = cols % spanC;
-    if (leftR > 0) {
-      State.betaZones.push({ id: _betaZid(), startRow: startR + rows - leftR, startCol: startC, rows: leftR, cols, led, panelW: 500, panelH: 500 });
-    }
-    if (leftC > 0) {
-      State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC + cols - leftC, rows, cols: leftC, led, panelW: 500, panelH: 500 });
-    }
-    _newIds = new Set(State.betaZones.slice(_before).map(z => z.id));
+    const _newZone = { id: _betaZid(), startRow: startR, startCol: startC, rows, cols, led, panelW: pw, panelH: ph };
+    State.betaZones.push(_newZone);
+    _newIds = new Set([_newZone.id]);
   }
 
   State._betaSelNew  = null;
