@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.21';
-const APP_SW_VERSION = 'v2121';
+const APP_VERSION = '2.1.22';
+const APP_SW_VERSION = 'v2122';
 
 const CHANGELOG = [
+  { v: '2.1.22', items: [
+    '구역 드래그 미리보기 박스 부드러운 lerp 이동 애니메이션 추가',
+  ]},
   { v: '2.1.21', items: [
     '구역 생성 시 캔버스 내 페이드+스케일 애니메이션 추가',
   ]},
@@ -2974,20 +2977,22 @@ function betaDrawEdit() {
     if (_isNew) { ctx.restore(); }
   });
 
-  // pass3: 드래그 선택 미리보기
-  if (State._betaDragSt && State._betaDragCur) {
-    const r0 = Math.min(State._betaDragSt.r, State._betaDragCur.r);
-    const c0 = Math.min(State._betaDragSt.c, State._betaDragCur.c);
-    const r1 = Math.max(State._betaDragSt.r, State._betaDragCur.r);
-    const c1 = Math.max(State._betaDragSt.c, State._betaDragCur.c);
-    const sx = c0 * 500 * sc; const sy = r0 * 500 * sc;
-    const sw = (c1 - c0 + 1) * 500 * sc; const sh = (r1 - r0 + 1) * 500 * sc;
+  // pass3: 드래그 선택 미리보기 (lerp 좌표로 부드럽게 이동)
+  if (State._betaDragSt && State._betaDragCur && State._betaDragLerp) {
+    const l = State._betaDragLerp;
+    const sx = l.c0 * 500 * sc; const sy = l.r0 * 500 * sc;
+    const sw = (l.c1 - l.c0) * 500 * sc; const sh = (l.r1 - l.r0) * 500 * sc;
     ctx.fillStyle = 'rgba(79,140,255,0.22)';
     ctx.fillRect(sx, sy, sw, sh);
     ctx.strokeStyle = '#4F8CFF'; ctx.lineWidth = 2;
     ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
-    const wm = ((c1 - c0 + 1) * 0.5).toFixed(1).replace(/\.0$/, '');
-    const hm = ((r1 - r0 + 1) * 0.5).toFixed(1).replace(/\.0$/, '');
+    // 치수 텍스트는 정수 스냅값 표시
+    const ir0 = Math.min(State._betaDragSt.r, State._betaDragCur.r);
+    const ic0 = Math.min(State._betaDragSt.c, State._betaDragCur.c);
+    const ir1 = Math.max(State._betaDragSt.r, State._betaDragCur.r);
+    const ic1 = Math.max(State._betaDragSt.c, State._betaDragCur.c);
+    const wm = ((ic1 - ic0 + 1) * 0.5).toFixed(1).replace(/\.0$/, '');
+    const hm = ((ir1 - ir0 + 1) * 0.5).toFixed(1).replace(/\.0$/, '');
     const fs2 = Math.max(11, Math.min(16, sw * 0.18));
     ctx.font = `700 ${fs2}px sans-serif`;
     ctx.fillStyle = '#1a4fcc'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -3457,6 +3462,18 @@ function betaCfgCancel() {
 
 // ─ 편집 모드 이벤트 ─
 
+function _betaDragRafLoop() {
+  if (!State._betaDragLerp || !State._betaDragSt) { return; }
+  const st = State._betaDragSt; const cur = State._betaDragCur;
+  const tr0 = Math.min(st.r, cur.r), tc0 = Math.min(st.c, cur.c);
+  const tr1 = Math.max(st.r, cur.r) + 1, tc1 = Math.max(st.c, cur.c) + 1;
+  const L = 0.25; const l = State._betaDragLerp;
+  l.r0 += (tr0 - l.r0) * L; l.c0 += (tc0 - l.c0) * L;
+  l.r1 += (tr1 - l.r1) * L; l.c1 += (tc1 - l.c1) * L;
+  betaDrawEdit();
+  requestAnimationFrame(_betaDragRafLoop);
+}
+
 function betaAttachEditEv() {
   const cv = _betaEditCv();
   if (!cv) { return; }
@@ -3488,6 +3505,8 @@ function betaAttachEditEv() {
     wasDrag = false;
     State._betaDragSt  = cell;
     State._betaDragCur = cell;
+    State._betaDragLerp = { r0: cell.r, c0: cell.c, r1: cell.r + 1, c1: cell.c + 1 };
+    requestAnimationFrame(_betaDragRafLoop);
   }
 
   function onMove(e) {
@@ -3500,7 +3519,6 @@ function betaAttachEditEv() {
     if (!prev || prev.r !== cell.r || prev.c !== cell.c) {
       State._betaDragCur = cell;
       wasDrag = true;
-      betaDrawEdit();
     }
   }
 
@@ -3514,7 +3532,7 @@ function betaAttachEditEv() {
     const startR = r0; const startC = c0;
     const rows = r1 - r0 + 1; const cols = c1 - c0 + 1;
     const drag = wasDrag;
-    State._betaDragSt = null; State._betaDragCur = null; wasDrag = false;
+    State._betaDragSt = null; State._betaDragCur = null; State._betaDragLerp = null; wasDrag = false;
 
     if (!drag) {
       // 단순 탭 → 구역 선택 (+ 기존 구역이면 편집 패널 열기)
