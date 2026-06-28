@@ -60,8 +60,8 @@ input[type=number]:focus{outline:none;border-color:#0F6E56;}
 @keyframes _sIL{from{transform:translateX(-100%)}to{transform:translateX(0)}}
 @keyframes _sOL{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 @keyframes _sOR{from{transform:translateX(0)}to{transform:translateX(100%)}}
-@keyframes _cvReveal{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0% 0)}}
-.cv-reveal{animation:_cvReveal .45s cubic-bezier(.4,0,.2,1) both;}
+@keyframes _cvReveal{from{transform:translateY(-24px);opacity:0}to{transform:translateY(0);opacity:1}}
+.cv-reveal{animation:_cvReveal .35s cubic-bezier(.4,0,.2,1) both;}
 .beta-mode-vp{overflow:hidden;position:relative;}
 .beta-slide-exit-l,.beta-slide-exit-r{position:absolute;top:0;left:0;width:100%;display:block !important;}
 .beta-slide-exit-l{animation:_sOL .28s cubic-bezier(.4,0,.2,1) forwards;}
