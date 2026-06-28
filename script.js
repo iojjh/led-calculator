@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.35';
-const APP_SW_VERSION = 'v2135';
+const APP_VERSION = '2.1.36';
+const APP_SW_VERSION = 'v2136';
 
 const CHANGELOG = [
+  { v: '2.1.36', items: [
+    '배선 탭 재진입 시 이미 할당된 경우 자동할당 자동 실행 생략',
+  ]},
   { v: '2.1.35', items: [
     '랜선↔파워콘 탭 전환 시 스냅샷 크로스페이드 적용',
     '자동 할당 이미 적용 시 안내 토스트 표시',
@@ -2937,7 +2940,11 @@ function betaSetMode(m) {
   if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
   State.betaMode = m;
   betaRender();
-  if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
+  if (m === 'lan' && wasEdit) {
+    if (State.betaPorts.every(s => s.size === 0))    { betaAutoAssign(); }
+    if (State.betaPwrPorts.every(s => s.size === 0)) { betaAutoAssignPwr(); }
+    _betaSimDraw();
+  }
 
   // 콘텐츠 슬라이드 진입
   const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
