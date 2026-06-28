@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.17';
-const APP_SW_VERSION = 'v2117';
+const APP_VERSION = '2.1.18';
+const APP_SW_VERSION = 'v2118';
 
 const CHANGELOG = [
+  { v: '2.1.18', items: [
+    '탭 전환 슬라이드 애니메이션 추가',
+  ]},
   { v: '2.1.17', items: [
     '구역 설정 기본 패널 사이즈를 500×500mm → 500×1000mm(세로)로 변경',
   ]},
@@ -930,13 +933,32 @@ async function saveChkPng() {
 
 // ── §4  탭 전환 & 버전 표시 ──────────────────────────────
 
+const _TAB_ORDER = ['beta', 'chk', 'vmix'];
+
 function swTab(id, btn) {
-  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('on'));
-  document.getElementById('tab-' + id).classList.add('on');
+  const prev = document.querySelector('.tab-page.on');
+  const next = document.getElementById('tab-' + id);
+  if (prev === next) { return; }
+
+  const fromIdx = prev ? _TAB_ORDER.indexOf(prev.id.replace('tab-', '')) : -1;
+  const goRight = _TAB_ORDER.indexOf(id) > fromIdx;
+
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   _updateBarForTab(id);
+
+  if (prev) {
+    prev.classList.add(goRight ? 'slide-exit-l' : 'slide-exit-r');
+    prev.addEventListener('animationend', () => {
+      prev.classList.remove('on', 'slide-exit-l', 'slide-exit-r');
+    }, { once: true });
+  }
+
+  next.classList.add('on', goRight ? 'slide-enter-r' : 'slide-enter-l');
   if (id === 'beta') { betaRender(); }
+  next.addEventListener('animationend', () => {
+    next.classList.remove('slide-enter-r', 'slide-enter-l');
+  }, { once: true });
 }
 
 function _updateBarForTab(id) {

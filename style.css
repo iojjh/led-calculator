@@ -49,7 +49,17 @@ input[type=number]:focus{outline:none;border-color:#0F6E56;}
 .e-log-v{display:inline-block;font-size:10px;font-weight:700;color:#0F6E56;background:#E1F5EE;border-radius:4px;padding:1px 6px;margin-bottom:3px;}
 .e-log-row ul{margin:0;padding-left:16px;}
 .e-log-row li{font-size:11px;color:#555;line-height:1.6;}
+.tab-viewport{overflow:hidden;position:relative;}
 .tab-page{display:none;padding:12px 12px 0;}.tab-page.on{display:block;}
+.tab-page.slide-exit-l,.tab-page.slide-exit-r{position:absolute;top:0;left:0;width:100%;}
+.tab-page.slide-exit-l{animation:_sOL .28s cubic-bezier(.4,0,.2,1) forwards;}
+.tab-page.slide-exit-r{animation:_sOR .28s cubic-bezier(.4,0,.2,1) forwards;}
+.tab-page.slide-enter-r{animation:_sIR .28s cubic-bezier(.4,0,.2,1) both;}
+.tab-page.slide-enter-l{animation:_sIL .28s cubic-bezier(.4,0,.2,1) both;}
+@keyframes _sIR{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes _sIL{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes _sOL{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@keyframes _sOR{from{transform:translateX(0)}to{transform:translateX(100%)}}
 
 /* 카드 */
 .card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
