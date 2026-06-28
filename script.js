@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.42';
-const APP_SW_VERSION = 'v2142';
+const APP_VERSION = '2.1.43';
+const APP_SW_VERSION = 'v2143';
 
 const CHANGELOG = [
+  { v: '2.1.43', items: [
+    '샌딩카드 120Hz 커버 가능 여부 추가 (60Hz 픽셀 상한의 절반 기준)',
+  ]},
   { v: '2.1.42', items: [
     '4K 사양 체크 픽셀 수 기반으로 개선 (최대 7680 치수, 60Hz 8,847,360px 기준)',
   ]},
@@ -3373,10 +3376,15 @@ function setBetaSpare(k, v) {
 }
 
 function _betaBuildSendingHtml(tW, tH) {
-  // 660 Pro: 픽셀 수 기반 체크 (스펙: 최대 가로/세로 3840, 60Hz 픽셀 상한 2,304,000)
-  const PX60 = 1920 * 1200; // 2,304,000 — @60Hz 픽셀 상한
-  const DIM  = 3840;        // 660 Pro 최대 가로/세로 (30Hz는 치수 제한만 적용)
-  const _ok660 = (w, h, hz) => w <= DIM && h <= DIM && (hz !== 60 || w * h <= PX60);
+  // 660 Pro: 60Hz 픽셀 상한 2,304,000 / 120Hz는 절반 / 30Hz는 치수(3840)만
+  const PX60  = 1920 * 1200; // 2,304,000
+  const DIM   = 3840;
+  const _ok660 = (w, h, hz) => {
+    if (w > DIM || h > DIM) { return false; }
+    if (hz === 120) { return w * h <= PX60 / 2; }
+    if (hz === 60)  { return w * h <= PX60; }
+    return true; // 30Hz: 치수 제한만
+  };
   const _eval660 = hz => {
     const single = _ok660(tW, tH, hz);
     const dual   = !single && (_ok660(Math.ceil(tW / 2), tH, hz) || _ok660(tW, Math.ceil(tH / 2), hz));
@@ -3385,35 +3393,47 @@ function _betaBuildSendingHtml(tW, tH) {
     return { cls, txt };
   };
 
-  // 4K: 픽셀 수 기반 체크 (스펙: 최대 4096×2160@60Hz, 최대 가로/세로 7680)
-  const PX_4K  = 4096 * 2160; // 8,847,360 — @60Hz 픽셀 상한
+  // 4K: 60Hz 픽셀 상한 8,847,360 / 120Hz는 절반 / 최대 치수 7680
+  const PX_4K  = 4096 * 2160; // 8,847,360
   const DIM_4K = 7680;
-  const _ok4K  = (w, h) => w <= DIM_4K && h <= DIM_4K && w * h <= PX_4K;
-  const _eval4K = () => {
-    const single = _ok4K(tW, tH);
-    const dual   = !single && (_ok4K(Math.ceil(tW / 2), tH) || _ok4K(tW, Math.ceil(tH / 2)));
+  const _ok4K  = (w, h, hz) => w <= DIM_4K && h <= DIM_4K && w * h <= (hz === 120 ? PX_4K / 2 : PX_4K);
+  const _eval4K = hz => {
+    const single = _ok4K(tW, tH, hz);
+    const dual   = !single && (_ok4K(Math.ceil(tW / 2), tH, hz) || _ok4K(tW, Math.ceil(tH / 2), hz));
     const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
-    const txt = single ? '1대 @60Hz ✓' : dual ? '2대 @60Hz ✓' : '@60Hz ✗';
+    const txt = single ? `1대 @${hz}Hz ✓` : dual ? `2대 @${hz}Hz ✓` : `@${hz}Hz ✗`;
     return { cls, txt };
   };
 
+  const badge = r => `<span class="beta-send-badge ${r.cls}">${r.txt}</span>`;
   let h = '<div class="beta-send-block">';
 
-  // 660 Pro
-  const r60 = _eval660(60);
-  const r30 = _eval660(30);
-  h += `<div class="beta-send-row"><span class="beta-send-name">660 Pro</span>`;
-  h += `<span class="beta-send-badge ${r60.cls}">${r60.txt}</span>`;
-  if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) {
-    h += `<span class="beta-send-badge ${r30.cls}">${r30.txt}</span>`;
+  // 660 Pro: 120Hz 가능 → 120만 (2대120+1대60이면 둘 다), 불가 → 60/30 기존 로직
+  {
+    const r120 = _eval660(120); const r60 = _eval660(60); const r30 = _eval660(30);
+    h += `<div class="beta-send-row"><span class="beta-send-name">660 Pro</span>`;
+    if (r120.cls !== 'ng') {
+      h += badge(r120);
+      if (r120.cls === 'ok2' && r60.cls === 'ok') { h += badge(r60); }
+    } else {
+      h += badge(r60);
+      if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) { h += badge(r30); }
+    }
+    h += '</div>';
   }
-  h += '</div>';
 
-  // 4K
-  const r4k = _eval4K();
-  h += `<div class="beta-send-row"><span class="beta-send-name">4K</span>`;
-  h += `<span class="beta-send-badge ${r4k.cls}">${r4k.txt}</span>`;
-  h += '</div>';
+  // 4K: 120Hz 가능 → 120만 (2대120+1대60이면 둘 다), 불가 → 60 표시
+  {
+    const r120 = _eval4K(120); const r60 = _eval4K(60);
+    h += `<div class="beta-send-row"><span class="beta-send-name">4K</span>`;
+    if (r120.cls !== 'ng') {
+      h += badge(r120);
+      if (r120.cls === 'ok2' && r60.cls === 'ok') { h += badge(r60); }
+    } else {
+      h += badge(r60);
+    }
+    h += '</div>';
+  }
 
   h += '</div>';
   return h;
