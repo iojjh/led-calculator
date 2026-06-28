@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.47';
-const APP_SW_VERSION = 'v2147';
+const APP_VERSION = '2.1.48';
+const APP_SW_VERSION = 'v2148';
 
 const CHANGELOG = [
+  { v: '2.1.48', items: [
+    '최종 해상도 픽셀 수 표기: = 등호 추가, 단위 px 통일',
+  ]},
   { v: '2.1.47', items: [
     '최종 해상도 표시에 픽셀 수 통합, 샌딩카드 체크 상단 현재 구역 블록 제거',
   ]},
@@ -3516,7 +3519,7 @@ function betaRenderZoneList() {
   const res = _betaCalcResolution();
   const resHtml = res
     ? `<div class="beta-res-bar">
-        최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>&nbsp;<strong>${(res.w * res.h).toLocaleString()} 픽셀</strong>
+        최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>&nbsp;=&nbsp;<strong>${(res.w * res.h).toLocaleString()} px</strong>
         <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
        </div>${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}`
     : '';
