@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.18';
-const APP_SW_VERSION = 'v2118';
+const APP_VERSION = '2.1.19';
+const APP_SW_VERSION = 'v2119';
 
 const CHANGELOG = [
+  { v: '2.1.19', items: [
+    '설치면적 적용 시 캔버스 위→아래 펼침 애니메이션 추가',
+  ]},
   { v: '2.1.18', items: [
     '탭 전환 슬라이드 애니메이션 추가',
   ]},
@@ -2864,7 +2867,15 @@ function betaRender() {
     return;
   }
 
+  const _wasHidden = cv.style.display === 'none';
   cv.style.display = 'block';
+  if (_wasHidden) {
+    const _wrap = document.getElementById('betaCanvasWrap');
+    _wrap.classList.remove('cv-reveal');
+    void _wrap.offsetWidth;
+    _wrap.classList.add('cv-reveal');
+    _wrap.addEventListener('animationend', () => _wrap.classList.remove('cv-reveal'), { once: true });
+  }
   const sc = State.betaMode === 'edit' ? _betaScEdit() : _betaSc();
   cv.width  = Math.round(State.betaAreaW * sc);
   cv.height = Math.round(State.betaAreaH * sc);
