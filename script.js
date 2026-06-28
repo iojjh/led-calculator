@@ -26,10 +26,14 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.34';
-const APP_SW_VERSION = 'v2134';
+const APP_VERSION = '2.1.35';
+const APP_SW_VERSION = 'v2135';
 
 const CHANGELOG = [
+  { v: '2.1.35', items: [
+    '랜선↔파워콘 탭 전환 시 스냅샷 크로스페이드 적용',
+    '자동 할당 이미 적용 시 안내 토스트 표시',
+  ]},
   { v: '2.1.34', items: [
     '모드 전환 스냅샷 크로스페이드 — 빈 격자 노출 제거, 콘텐츠 슬라이드 동시 적용',
   ]},
@@ -3927,9 +3931,22 @@ function betaRenderPwrPorts() {
 // ─ LAN UI ─
 
 function betaSetSimTab(tab) {
+  if (tab === State.betaSimTab) { return; }
+  const cv   = document.getElementById('betaCanvas');
+  const snap = document.getElementById('betaCanvasSnap');
+  snap.width  = cv.width;
+  snap.height = cv.height;
+  snap.getContext('2d').drawImage(cv, 0, 0);
+  snap.style.display = 'block';
+  snap.style.transition = '';
+  snap.style.opacity = '1';
   State.betaSimTab = tab;
   _betaSimDraw();
   betaRenderLanUI();
+  snap.offsetHeight;
+  snap.style.transition = 'opacity .28s';
+  snap.style.opacity = '0';
+  snap.addEventListener('transitionend', () => { snap.style.display = 'none'; snap.style.transition = ''; }, { once: true });
 }
 
 function betaRenderLanUI() {
@@ -4256,6 +4273,7 @@ function _betaAutoAssignZone(zone, portOff) {
 }
 
 function betaAutoAssign() {
+  if (State.betaPorts.some(s => s.size > 0)) { _toast('이미 자동 할당이 적용되어 있습니다. 초기화 후 다시 시도하세요.'); return; }
   State.betaPorts  = Array.from({ length: 16 }, () => new Set());
   State.betaPH2    = Array.from({ length: 16 }, () => []);
   State.betaAPort  = 0;
@@ -4272,6 +4290,7 @@ function betaAutoAssign() {
 }
 
 function betaAutoAssignPwr() {
+  if (State.betaPwrPorts.some(s => s.size > 0)) { _toast('이미 자동 할당이 적용되어 있습니다. 초기화 후 다시 시도하세요.'); return; }
   const cnt = State.betaPwrPorts.length;
   State.betaPwrPorts = Array.from({ length: cnt }, () => new Set());
   State.betaPwrPH2   = Array.from({ length: cnt }, () => []);
