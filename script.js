@@ -26,12 +26,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.30';
-const APP_SW_VERSION = 'v2130';
+const APP_VERSION = '2.1.31';
+const APP_SW_VERSION = 'v2131';
 
 const CHANGELOG = [
-  { v: '2.1.30', items: [
-    '설계탭 모드 전환 시 캔버스 페이드 + 콘텐츠 슬라이드 애니메이션',
+  { v: '2.1.31', items: [
+    '설계탭 모드 전환 시 콘텐츠 패널 페이드 인-아웃 (캔버스 고정)',
   ]},
   { v: '2.1.28', items: [
     '설계탭 구역편집↔배선 전환 시 슬라이드 애니메이션 추가',
@@ -2884,30 +2884,29 @@ function betaApplyArea() {
 function betaSetMode(m) {
   if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
   if (m === State.betaMode) { return; }
-  const goRight = m === 'lan';
   const wasEdit = State.betaMode === 'edit';
   const prevEl  = document.getElementById(wasEdit ? 'betaZoneList' : 'betaLanUI');
-  const cvWrap  = document.getElementById('betaCanvasWrap');
 
-  // 캔버스 페이드 아웃 + 콘텐츠 슬라이드 퇴장 동시 시작
-  cvWrap.style.transition = 'opacity .2s';
-  cvWrap.style.opacity = '0';
-  if (prevEl) {
-    prevEl.classList.add(goRight ? 'beta-slide-exit-l' : 'beta-slide-exit-r');
-    prevEl.addEventListener('animationend', () => prevEl.classList.remove('beta-slide-exit-l', 'beta-slide-exit-r'), { once: true });
-  }
+  // 현재 콘텐츠 페이드 아웃
+  prevEl.style.transition = 'opacity .18s';
+  prevEl.style.opacity = '0';
 
-  // 페이드 아웃 완료 → 모드 전환 → 페이드 인 + 콘텐츠 진입
-  cvWrap.addEventListener('transitionend', () => {
+  prevEl.addEventListener('transitionend', () => {
+    prevEl.style.transition = '';
+    prevEl.style.opacity = '';
     if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
     State.betaMode = m;
-    betaRender();
-    if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
     const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
-    nextEl.classList.add(goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l');
-    nextEl.addEventListener('animationend', () => nextEl.classList.remove('beta-slide-enter-r', 'beta-slide-enter-l'), { once: true });
-    cvWrap.style.opacity = '1';
-    cvWrap.addEventListener('transitionend', () => { cvWrap.style.transition = ''; }, { once: true });
+    nextEl.style.opacity = '0';
+    betaRender(); // prevEl → display:none, nextEl → display:block
+    if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
+    nextEl.offsetHeight; // force reflow
+    nextEl.style.transition = 'opacity .18s';
+    nextEl.style.opacity = '1';
+    nextEl.addEventListener('transitionend', () => {
+      nextEl.style.transition = '';
+      nextEl.style.opacity = '';
+    }, { once: true });
   }, { once: true });
 }
 
