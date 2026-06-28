@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.20';
-const APP_SW_VERSION = 'v2120';
+const APP_VERSION = '2.1.21';
+const APP_SW_VERSION = 'v2121';
 
 const CHANGELOG = [
+  { v: '2.1.21', items: [
+    '구역 생성 시 캔버스 내 페이드+스케일 애니메이션 추가',
+  ]},
   { v: '2.1.20', items: [
     '설치면적 재적용 시에도 캔버스 펼침 애니메이션 적용',
     '설계탭 초기화 시 설치 면적까지 완전 초기화',
@@ -2925,6 +2928,16 @@ function betaDrawEdit() {
     const ci  = zi % BETA_ZONE_BG.length;
     const zx  = zone.startCol * 500 * sc; const zy = zone.startRow * 500 * sc;
     const zw  = zone.cols * 500 * sc; const zh = zone.rows * 500 * sc;
+    const _ap = State._betaAnimProg;
+    const _isNew = _ap && _ap.ids.has(zone.id);
+    if (_isNew) {
+      ctx.save();
+      ctx.globalAlpha = _ap.t;
+      const _s = 0.88 + 0.12 * _ap.t;
+      ctx.translate(zx + zw / 2, zy + zh / 2);
+      ctx.scale(_s, _s);
+      ctx.translate(-(zx + zw / 2), -(zy + zh / 2));
+    }
     ctx.fillStyle = BETA_ZONE_BG[ci];
     ctx.fillRect(zx, zy, zw, zh);
     // 패널 경계
@@ -2958,6 +2971,7 @@ function betaDrawEdit() {
     ctx.strokeText(`${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, midY + fs * 0.7);
     ctx.fillText(`${zone.panelW}×${zone.panelH}mm`, zx + zw / 2, midY + fs * 0.7);
     ctx.textBaseline = 'alphabetic';
+    if (_isNew) { ctx.restore(); }
   });
 
   // pass3: 드래그 선택 미리보기
@@ -3373,6 +3387,20 @@ function _betaCfgSelPanel(btn) {
   btn.classList.add('on');
 }
 
+function _betaAnimNewZones(ids) {
+  const t0 = performance.now();
+  const DUR = 380;
+  function frame() {
+    const p = Math.min((performance.now() - t0) / DUR, 1);
+    const t = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    State._betaAnimProg = { ids, t };
+    betaDrawEdit();
+    if (p < 1) { requestAnimationFrame(frame); }
+    else { State._betaAnimProg = null; }
+  }
+  requestAnimationFrame(frame);
+}
+
 function betaCfgApply() {
   if (!State._betaSelNew) { return; }
   const ledBtn   = document.querySelector('#betaCfgLed .beta-cfg-chip.on');
@@ -3381,6 +3409,7 @@ function betaCfgApply() {
   const pw  = panelBtn ? parseInt(panelBtn.dataset.w) : 500;
   const ph  = panelBtn ? parseInt(panelBtn.dataset.h) : 500;
   const { startR, startC, rows, cols } = State._betaSelNew;
+  let _newIds = null;
 
   if (State._betaSelEdit) {
     if (_betaOverlaps(startR, startC, rows, cols, State._betaSelEdit)) { _toast('다른 구역과 겹칩니다.'); return; }
@@ -3395,6 +3424,7 @@ function betaCfgApply() {
     }
   } else {
     if (_betaOverlaps(startR, startC, rows, cols, null)) { _toast('다른 구역과 겹칩니다.'); return; }
+    const _before = State.betaZones.length;
     State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC, rows, cols, led, panelW: pw, panelH: ph });
     // 남는 500×500 격자 자동 채움 (500×1000 또는 1000×500 패널)
     const spanC = pw / 500, spanR = ph / 500;
@@ -3406,6 +3436,7 @@ function betaCfgApply() {
     if (leftC > 0) {
       State.betaZones.push({ id: _betaZid(), startRow: startR, startCol: startC + cols - leftC, rows, cols: leftC, led, panelW: 500, panelH: 500 });
     }
+    _newIds = new Set(State.betaZones.slice(_before).map(z => z.id));
   }
 
   State._betaSelNew  = null;
@@ -3413,6 +3444,7 @@ function betaCfgApply() {
   State._betaCache   = null;
   document.getElementById(State._betaFull ? 'betaFullZoneCfg' : 'betaZoneCfg').style.display = 'none';
   if (State._betaFull) { _betaRenderFull(); } else { betaRender(); }
+  if (_newIds) { _betaAnimNewZones(_newIds); }
   saveState();
 }
 
