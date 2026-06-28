@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2141';
+const CACHE_VERSION = 'v2142';
 const CORE_CACHE    = `led-calc-core-${CACHE_VERSION}`;
 
 // Core assets — always cached; bump CACHE_VERSION to force update

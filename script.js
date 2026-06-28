@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.41';
-const APP_SW_VERSION = 'v2141';
+const APP_VERSION = '2.1.42';
+const APP_SW_VERSION = 'v2142';
 
 const CHANGELOG = [
+  { v: '2.1.42', items: [
+    '4K 사양 체크 픽셀 수 기반으로 개선 (최대 7680 치수, 60Hz 8,847,360px 기준)',
+  ]},
   { v: '2.1.41', items: [
     '660 Pro 30Hz 체크: 3840 치수 제한만 적용 (픽셀 총합 상한 제거)',
   ]},
@@ -3382,10 +3385,13 @@ function _betaBuildSendingHtml(tW, tH) {
     return { cls, txt };
   };
 
-  // 4K: 치수 기반 체크 (기존 유지)
+  // 4K: 픽셀 수 기반 체크 (스펙: 최대 4096×2160@60Hz, 최대 가로/세로 7680)
+  const PX_4K  = 4096 * 2160; // 8,847,360 — @60Hz 픽셀 상한
+  const DIM_4K = 7680;
+  const _ok4K  = (w, h) => w <= DIM_4K && h <= DIM_4K && w * h <= PX_4K;
   const _eval4K = () => {
-    const single = tW <= 3840 && tH <= 2160;
-    const dual   = !single && ((tW <= 7680 && tH <= 2160) || (tW <= 3840 && tH <= 4320));
+    const single = _ok4K(tW, tH);
+    const dual   = !single && (_ok4K(Math.ceil(tW / 2), tH) || _ok4K(tW, Math.ceil(tH / 2)));
     const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
     const txt = single ? '1대 @60Hz ✓' : dual ? '2대 @60Hz ✓' : '@60Hz ✗';
     return { cls, txt };
