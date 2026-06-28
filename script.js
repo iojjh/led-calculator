@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.45';
-const APP_SW_VERSION = 'v2145';
+const APP_VERSION = '2.1.46';
+const APP_SW_VERSION = 'v2146';
 
 const CHANGELOG = [
+  { v: '2.1.46', items: [
+    '샌딩카드 체크 UI: 픽셀 비교 행 제거, 2대 사용 시 분할 해상도만 표시, 현재 픽셀 수 폰트 통일',
+  ]},
   { v: '2.1.45', items: [
     '샌딩카드 체크 UI 개선: 현재 해상도·픽셀 수 표시, 토글 스펙 상세, 분할 방향 비교 과정 표시',
   ]},
@@ -3434,22 +3437,15 @@ function _betaBuildSendingHtml(tW, tH) {
 
   const badge = r => `<span class="beta-send-badge ${r.cls}">${r.txt}</span>`;
 
-  const cmpRow = r => {
-    const { hz, single, dual, splitDir, splitW, splitH, splitPx, px, lim } = r;
-    let detail = '';
-    if (single) {
-      detail = `<span class="bsc-ok">${fmt(px)}px ≤ ${fmt(lim)}px</span>`;
-    } else if (dual) {
-      const dir = splitDir === 'h' ? '가로 분할' : '세로 분할';
-      detail = `${fmt(px)}px &gt; ${fmt(lim)}px &nbsp;→&nbsp; ${dir} <span class="bsc-dim">${splitW}×${splitH}</span> = <span class="bsc-ok">${fmt(splitPx)}px ≤ ${fmt(lim)}px</span>`;
-    } else {
-      detail = `<span class="bsc-ng">${fmt(px)}px &gt; ${fmt(lim)}px</span>`;
-    }
-    return `<div class="beta-send-cmp-row">
-      <span class="beta-send-cmp-hz">@${hz}Hz</span>
-      <span class="beta-send-cmp-detail">${detail}</span>
-      ${badge(r)}
-    </div>`;
+  const splitHtml = results => {
+    const seen = new Set();
+    return results.filter(r => r.dual).map(r => {
+      const key = `${r.splitW}×${r.splitH}`;
+      if (seen.has(key)) { return ''; }
+      seen.add(key);
+      const dir = r.splitDir === 'h' ? '가로' : '세로';
+      return `<div class="beta-send-split">2대 사용 시 — ${dir} 분할: <b>${r.splitW} × ${r.splitH}</b></div>`;
+    }).join('');
   };
 
   // 660 Pro 결과
@@ -3461,14 +3457,14 @@ function _betaBuildSendingHtml(tW, tH) {
   // 4K 결과
   const r4k120 = _eval4K(120);
   const r4k60  = _eval4K(60);
-  let badges4k = '', cmp4k = '';
+  let badges4k = '', shown4k = [];
   if (r4k120.cls !== 'ng') {
     badges4k = badge(r4k120);
-    cmp4k = cmpRow(r4k120);
-    if (r4k120.cls === 'ok2' && r4k60.cls === 'ok') { badges4k += badge(r4k60); cmp4k += cmpRow(r4k60); }
+    shown4k = [r4k120];
+    if (r4k120.cls === 'ok2' && r4k60.cls === 'ok') { badges4k += badge(r4k60); shown4k.push(r4k60); }
   } else {
     badges4k = badge(r4k60);
-    cmp4k = cmpRow(r4k60);
+    shown4k = [r4k60];
   }
 
   return `<div class="beta-send-block">
@@ -3489,7 +3485,7 @@ function _betaBuildSendingHtml(tW, tH) {
           <tr><td>최대 세로</td><td>${fmt(DIM)} 픽셀</td></tr>
           <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX60)} 픽셀</td></tr>
         </table>
-        <div class="beta-send-cmp">${cmpRow(r660_60)}</div>
+        ${splitHtml([r660_60])}
       </div>
     </div>
     <div class="beta-send-card-wrap">
@@ -3505,7 +3501,7 @@ function _betaBuildSendingHtml(tW, tH) {
           <tr><td>@120Hz 픽셀 상한</td><td>${fmt(PX_4K / 2)} 픽셀</td></tr>
           <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX_4K)} 픽셀</td></tr>
         </table>
-        <div class="beta-send-cmp">${cmp4k}</div>
+        ${splitHtml(shown4k)}
       </div>
     </div>
   </div>`;
