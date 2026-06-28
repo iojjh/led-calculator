@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.51';
-const APP_SW_VERSION = 'v2151';
+const APP_VERSION = '2.1.52';
+const APP_SW_VERSION = 'v2152';
 
 const CHANGELOG = [
+  { v: '2.1.52', items: [
+    '캔버스 등장 애니메이션: 셔터 슬라이드 다운 강화 (페이드 제거, 이동 거리·easing 조정)',
+  ]},
   { v: '2.1.51', items: [
     '캔버스·전체모드 버튼 등장 애니메이션: 펼침→위에서 슬라이드 다운으로 변경',
   ]},
