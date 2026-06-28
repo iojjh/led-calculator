@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.53';
-const APP_SW_VERSION = 'v2153';
+const APP_VERSION = '2.1.54';
+const APP_SW_VERSION = 'v2154';
 
 const CHANGELOG = [
+  { v: '2.1.54', items: [
+    '배선 탭 전체모드: 랜선/파워콘 각 탭에 맞는 캔버스 표시',
+  ]},
   { v: '2.1.53', items: [
     '캔버스 셔터 애니메이션: 이동 거리 확대(설치면적 입력란 기준), 속도 완화, 버튼 뒤로 통과',
   ]},
@@ -3796,13 +3799,13 @@ function betaAttachEditEv() {
 // ─ LAN 캔버스 ─
 
 function betaDrawLan() {
-  const cv = document.getElementById('betaCanvas');
+  const cv = _betaEditCv();
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
   const sc  = cv.width / (State.betaAreaW || 1);
   const panels = _betaAllPanels();
   const curPi  = State.betaAPort;
-  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!State._betaFull) { ctx.clearRect(0, 0, cv.width, cv.height); }
 
   // 배선 순서 번호 맵
   const stepOf = new Map();
@@ -3928,13 +3931,13 @@ function betaDrawLan() {
 // ─ PWR 캔버스 ─
 
 function betaDrawPwr() {
-  const cv = document.getElementById('betaCanvas');
+  const cv = _betaEditCv();
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
   const sc  = cv.width / (State.betaAreaW || 1);
   const panels = _betaAllPanels();
   const curPi  = State.betaPwrAPort;
-  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!State._betaFull) { ctx.clearRect(0, 0, cv.width, cv.height); }
 
   // 배선 순서 번호 맵
   const stepOf = new Map();
@@ -4276,8 +4279,13 @@ function _betaRenderFull() {
   const sc = _betaScEdit();
   cv.width  = Math.round(State.betaAreaW * sc);
   cv.height = Math.round(State.betaAreaH * sc);
-  betaAttachEditEv();
-  betaDrawEdit();
+  if (State.betaMode === 'lan') {
+    _betaDrawGrid(cv); // betaCanvasBg 없는 전체모드에서 격자를 직접 그림
+    if (State.betaSimTab === 'pwr') { betaDrawPwr(); } else { betaDrawLan(); }
+  } else {
+    betaAttachEditEv();
+    betaDrawEdit();
+  }
 }
 
 function betaEnterFull() {
