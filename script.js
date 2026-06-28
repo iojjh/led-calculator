@@ -26,12 +26,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.31';
-const APP_SW_VERSION = 'v2131';
+const APP_VERSION = '2.1.32';
+const APP_SW_VERSION = 'v2132';
 
 const CHANGELOG = [
-  { v: '2.1.31', items: [
-    '설계탭 모드 전환 시 콘텐츠 패널 페이드 인-아웃 (캔버스 고정)',
+  { v: '2.1.32', items: [
+    '캔버스 격자/오버레이 레이어 분리 — 모드 전환 시 격자 고정·오버레이 페이드',
   ]},
   { v: '2.1.28', items: [
     '설계탭 구역편집↔배선 전환 시 슬라이드 애니메이션 추가',
@@ -2851,8 +2851,30 @@ function _betaNextSimEmpty()   {
   return _betaSimAPort();
 }
 
-function _betaPanelCx(p) { return (p.x + p.w / 2) * _betaSc(); }
-function _betaPanelCy(p) { return (p.y + p.h / 2) * _betaSc(); }
+function _betaPanelCx(p) { return (p.x + p.w / 2) * _betaCvSc(); }
+function _betaPanelCy(p) { return (p.y + p.h / 2) * _betaCvSc(); }
+
+// 캔버스 실제 픽셀 폭 기준 스케일 (betaCanvas 혹은 betaCanvasBg로부터 계산)
+function _betaCvSc() {
+  const cv = document.getElementById('betaCanvas');
+  return cv && State.betaAreaW ? cv.width / State.betaAreaW : _betaScEdit();
+}
+
+// betaCanvasBg에 격자만 그림 (탭 전환 시 변경되지 않는 고정 레이어)
+function _betaDrawGrid(cv) {
+  const ctx = cv.getContext('2d');
+  const sc  = cv.width / (State.betaAreaW || 1);
+  const gW  = _betaGW(); const gH = _betaGH();
+  ctx.fillStyle = '#f0f0f0';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 0.5;
+  for (let c = 0; c <= gW; c++) {
+    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
+  }
+  for (let r = 0; r <= gH; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
+  }
+}
 
 let _betaZidSeq = 0;
 function _betaZid() { return 'z' + (++_betaZidSeq); }
@@ -2885,28 +2907,24 @@ function betaSetMode(m) {
   if (m === 'lan' && State.betaZones.length === 0) { _toast('먼저 구역을 1개 이상 설정해주세요.'); return; }
   if (m === State.betaMode) { return; }
   const wasEdit = State.betaMode === 'edit';
-  const prevEl  = document.getElementById(wasEdit ? 'betaZoneList' : 'betaLanUI');
+  const cv = document.getElementById('betaCanvas');
 
-  // 현재 콘텐츠 페이드 아웃
-  prevEl.style.transition = 'opacity .18s';
-  prevEl.style.opacity = '0';
+  // 오버레이 캔버스 페이드 아웃 (格子 bg는 그대로 유지)
+  cv.style.transition = 'opacity .22s';
+  cv.style.opacity = '0';
 
-  prevEl.addEventListener('transitionend', () => {
-    prevEl.style.transition = '';
-    prevEl.style.opacity = '';
+  cv.addEventListener('transitionend', () => {
+    cv.style.transition = '';
+    // opacity:0 상태 유지한 채 모드 전환 + 재렌더
     if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
     State.betaMode = m;
-    const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
-    nextEl.style.opacity = '0';
-    betaRender(); // prevEl → display:none, nextEl → display:block
+    betaRender();
     if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
-    nextEl.offsetHeight; // force reflow
-    nextEl.style.transition = 'opacity .18s';
-    nextEl.style.opacity = '1';
-    nextEl.addEventListener('transitionend', () => {
-      nextEl.style.transition = '';
-      nextEl.style.opacity = '';
-    }, { once: true });
+    // 페이드 인
+    cv.offsetHeight;
+    cv.style.transition = 'opacity .22s';
+    cv.style.opacity = '1';
+    cv.addEventListener('transitionend', () => { cv.style.transition = ''; cv.style.opacity = ''; }, { once: true });
   }, { once: true });
 }
 
@@ -2918,9 +2936,11 @@ function betaRender() {
   document.getElementById('betaModeEdit').classList.toggle('on', State.betaMode === 'edit');
   document.getElementById('betaModeLan').classList.toggle('on',  State.betaMode === 'lan');
 
+  const cvBg = document.getElementById('betaCanvasBg');
   const fb = document.getElementById('betaFullBtn');
   if (!State.betaAreaW || !State.betaAreaH) {
     cv.style.display = 'none';
+    if (cvBg) { cvBg.style.display = 'none'; }
     document.getElementById('betaZoneList').innerHTML = '<div class="beta-empty-hint">설치 면적을 입력 후 [적용]을 누르세요.</div>';
     document.getElementById('betaLanUI').style.display = 'none';
     document.getElementById('betaZoneCfg').style.display = 'none';
@@ -2929,9 +2949,15 @@ function betaRender() {
   }
 
   cv.style.display = 'block';
-  const sc = State.betaMode === 'edit' ? _betaScEdit() : _betaSc();
+  const sc = _betaScEdit(); // 두 모드 동일 스케일 — 격자 고정 유지
   cv.width  = Math.round(State.betaAreaW * sc);
   cv.height = Math.round(State.betaAreaH * sc);
+  if (cvBg) {
+    cvBg.style.display = 'block';
+    cvBg.width  = cv.width;
+    cvBg.height = cv.height;
+    _betaDrawGrid(cvBg);
+  }
 
   if (State.betaMode === 'edit') {
     document.getElementById('betaLanUI').style.display = 'none';
@@ -2957,20 +2983,9 @@ function betaDrawEdit() {
   const cv = _betaEditCv();
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
-  const sc  = cv.width / (State.betaAreaW || 1); // betaRender()가 설정한 캔버스 픽셀 폭 기준 — 동적 재계산 금지
+  const sc  = cv.width / (State.betaAreaW || 1);
   const gW  = _betaGW(); const gH = _betaGH();
-  ctx.clearRect(0, 0, cv.width, cv.height);
-
-  // pass1: 격자
-  ctx.fillStyle = '#f0f0f0';
-  ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 0.5;
-  for (let c = 0; c <= gW; c++) {
-    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
-  }
-  for (let r = 0; r <= gH; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
-  }
+  ctx.clearRect(0, 0, cv.width, cv.height); // 오버레이만 클리어 (격자는 betaCanvasBg에 있음)
 
   // pass2: Zone 채우기 + 패널 경계
   State.betaZones.forEach((zone, zi) => {
@@ -3597,22 +3612,10 @@ function betaDrawLan() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
-  const sc  = _betaSc();
+  const sc  = cv.width / (State.betaAreaW || 1);
   const panels = _betaAllPanels();
   const curPi  = State.betaAPort;
   ctx.clearRect(0, 0, cv.width, cv.height);
-
-  // 격자 배경
-  ctx.fillStyle = '#d8d8d8';
-  ctx.fillRect(0, 0, cv.width, cv.height);
-  const gW = _betaGW(); const gH = _betaGH();
-  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.5;
-  for (let c = 0; c <= gW; c++) {
-    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
-  }
-  for (let r = 0; r <= gH; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
-  }
 
   // 배선 순서 번호 맵
   const stepOf = new Map();
@@ -3741,22 +3744,10 @@ function betaDrawPwr() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   const ctx = cv.getContext('2d');
-  const sc  = _betaSc();
+  const sc  = cv.width / (State.betaAreaW || 1);
   const panels = _betaAllPanels();
   const curPi  = State.betaPwrAPort;
   ctx.clearRect(0, 0, cv.width, cv.height);
-
-  // 격자 배경 (LAN과 동일)
-  ctx.fillStyle = '#d8d8d8';
-  ctx.fillRect(0, 0, cv.width, cv.height);
-  const gW = _betaGW(), gH = _betaGH();
-  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.5;
-  for (let c = 0; c <= gW; c++) {
-    ctx.beginPath(); ctx.moveTo(c * 500 * sc, 0); ctx.lineTo(c * 500 * sc, cv.height); ctx.stroke();
-  }
-  for (let r = 0; r <= gH; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r * 500 * sc); ctx.lineTo(cv.width, r * 500 * sc); ctx.stroke();
-  }
 
   // 배선 순서 번호 맵
   const stepOf = new Map();
