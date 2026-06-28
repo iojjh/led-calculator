@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.46';
-const APP_SW_VERSION = 'v2146';
+const APP_VERSION = '2.1.47';
+const APP_SW_VERSION = 'v2147';
 
 const CHANGELOG = [
+  { v: '2.1.47', items: [
+    '최종 해상도 표시에 픽셀 수 통합, 샌딩카드 체크 상단 현재 구역 블록 제거',
+  ]},
   { v: '2.1.46', items: [
     '샌딩카드 체크 UI: 픽셀 비교 행 제거, 2대 사용 시 분할 해상도만 표시, 현재 픽셀 수 폰트 통일',
   ]},
@@ -3468,11 +3471,6 @@ function _betaBuildSendingHtml(tW, tH) {
   }
 
   return `<div class="beta-send-block">
-    <div class="beta-send-cur">
-      <span class="beta-send-cur-lbl">현재 구역</span>
-      <span class="beta-send-cur-res">${tW} × ${tH}</span>
-      <span class="beta-send-cur-px">= ${fmt(tW * tH)} 픽셀</span>
-    </div>
     <div class="beta-send-card-wrap">
       <div class="beta-send-card-head" onclick="_betaSendToggle('betaSendD660')">
         <span class="beta-send-card-name">660 Pro</span>
@@ -3518,7 +3516,7 @@ function betaRenderZoneList() {
   const res = _betaCalcResolution();
   const resHtml = res
     ? `<div class="beta-res-bar">
-        최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>
+        최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>&nbsp;<strong>${(res.w * res.h).toLocaleString()} 픽셀</strong>
         <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
        </div>${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}`
     : '';

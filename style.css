@@ -556,9 +556,6 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .beta-send-badge.ok{background:#D4EDDA;color:#155724;}
 .beta-send-badge.ok2{background:#FFF3CD;color:#856404;}
 .beta-send-badge.ng{background:#F8D7DA;color:#721c24;}
-.beta-send-cur{background:#f2f4f7;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.beta-send-cur-lbl{font-size:11px;color:#999;font-weight:600;}
-.beta-send-cur-res,.beta-send-cur-px{font-size:14px;font-weight:700;color:#222;}
 .beta-send-card-wrap{border-radius:8px;overflow:hidden;border:1px solid #e8e8e8;}
 .beta-send-card-head{background:#fafafa;padding:8px 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer;user-select:none;}
 .beta-send-card-head:hover{background:#f3f3f3;}
