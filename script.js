@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.52';
-const APP_SW_VERSION = 'v2152';
+const APP_VERSION = '2.1.53';
+const APP_SW_VERSION = 'v2153';
 
 const CHANGELOG = [
+  { v: '2.1.53', items: [
+    '캔버스 셔터 애니메이션: 이동 거리 확대(설치면적 입력란 기준), 속도 완화, 버튼 뒤로 통과',
+  ]},
   { v: '2.1.52', items: [
     '캔버스 등장 애니메이션: 셔터 슬라이드 다운 강화 (페이드 제거, 이동 거리·easing 조정)',
   ]},
