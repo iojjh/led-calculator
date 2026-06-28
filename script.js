@@ -26,12 +26,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.33';
-const APP_SW_VERSION = 'v2133';
+const APP_VERSION = '2.1.34';
+const APP_SW_VERSION = 'v2134';
 
 const CHANGELOG = [
-  { v: '2.1.33', items: [
-    '모드 전환 시 캔버스 오버레이 페이드 + 콘텐츠 슬라이드 동시 적용',
+  { v: '2.1.34', items: [
+    '모드 전환 스냅샷 크로스페이드 — 빈 격자 노출 제거, 콘텐츠 슬라이드 동시 적용',
   ]},
   { v: '2.1.32', items: [
     '캔버스 격자/오버레이 레이어 분리 — 모드 전환 시 격자 고정·오버레이 페이드',
@@ -2913,29 +2913,40 @@ function betaSetMode(m) {
   const goRight = m === 'lan';
   const prevEl   = document.getElementById(wasEdit ? 'betaZoneList' : 'betaLanUI');
   const cv       = document.getElementById('betaCanvas');
+  const snap     = document.getElementById('betaCanvasSnap');
   const exitCls  = goRight ? 'beta-slide-exit-l'  : 'beta-slide-exit-r';
   const enterCls = goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l';
 
-  // 캔버스 오버레이 페이드 아웃 + 콘텐츠 슬라이드 퇴장 동시 시작
-  cv.style.transition = 'opacity .22s';
-  cv.style.opacity = '0';
+  // 현재 오버레이를 스냅샷에 복사 → 빈 격자가 노출되지 않게
+  snap.width  = cv.width;
+  snap.height = cv.height;
+  snap.getContext('2d').drawImage(cv, 0, 0);
+  snap.style.display = 'block';
+  snap.style.transition = '';
+  snap.style.opacity = '1';
+
+  // 콘텐츠 슬라이드 퇴장 시작
   prevEl.classList.add(exitCls);
   prevEl.addEventListener('animationend', () => prevEl.classList.remove(exitCls), { once: true });
 
-  // 캔버스 페이드 완료 → 모드 전환 → 캔버스 페이드 인 + 콘텐츠 슬라이드 진입
-  cv.addEventListener('transitionend', () => {
-    cv.style.transition = '';
-    if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
-    State.betaMode = m;
-    betaRender();
-    if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
-    const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
-    nextEl.classList.add(enterCls);
-    nextEl.addEventListener('animationend', () => nextEl.classList.remove(enterCls), { once: true });
-    cv.offsetHeight;
-    cv.style.transition = 'opacity .22s';
-    cv.style.opacity = '1';
-    cv.addEventListener('transitionend', () => { cv.style.transition = ''; cv.style.opacity = ''; }, { once: true });
+  // 즉시 모드 전환 + 재렌더 (스냅샷이 위에 덮여 있으므로 캔버스 깜빡임 없음)
+  if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
+  State.betaMode = m;
+  betaRender();
+  if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
+
+  // 콘텐츠 슬라이드 진입
+  const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
+  nextEl.classList.add(enterCls);
+  nextEl.addEventListener('animationend', () => nextEl.classList.remove(enterCls), { once: true });
+
+  // 스냅샷 페이드 아웃 → 새 캔버스 내용이 드러남
+  snap.offsetHeight;
+  snap.style.transition = 'opacity .28s';
+  snap.style.opacity = '0';
+  snap.addEventListener('transitionend', () => {
+    snap.style.display = 'none';
+    snap.style.transition = '';
   }, { once: true });
 }
 
