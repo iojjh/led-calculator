@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.16';
-const APP_SW_VERSION = 'v2116';
+const APP_VERSION = '2.1.17';
+const APP_SW_VERSION = 'v2117';
 
 const CHANGELOG = [
+  { v: '2.1.17', items: [
+    '구역 설정 기본 패널 사이즈를 500×500mm → 500×1000mm(세로)로 변경',
+  ]},
   { v: '2.1.16', items: [
     '전체모드 재구현 — DOM 이동 방식 제거, betaFullCanvas 독립 캔버스 팝업 방식으로 변경. 구역 목록·해상도 정보 등 불필요한 정보 미표시, 구역 생성 패널만 표시',
   ]},
@@ -3299,7 +3302,7 @@ function betaShowCfgPanel() {
   const ev = State._betaSelEdit ? State.betaZones.find(z => z.id === State._betaSelEdit) : null;
   const curLed = ev ? ev.led : '3mm';
   const curPW  = ev ? ev.panelW : 500;
-  const curPH  = ev ? ev.panelH : 500;
+  const curPH  = ev ? ev.panelH : 1000;
   const leds = ['2mm', '3mm', '4mm'];
   const panelOpts = [
     { w: 500,  h: 500,  label: '500×500mm' },
