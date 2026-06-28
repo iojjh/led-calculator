@@ -26,12 +26,12 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.29';
-const APP_SW_VERSION = 'v2129';
+const APP_VERSION = '2.1.30';
+const APP_SW_VERSION = 'v2130';
 
 const CHANGELOG = [
-  { v: '2.1.29', items: [
-    '설계탭 모드 전환 시 캔버스+콘텐츠 동시 슬라이드 애니메이션',
+  { v: '2.1.30', items: [
+    '설계탭 모드 전환 시 캔버스 페이드 + 콘텐츠 슬라이드 애니메이션',
   ]},
   { v: '2.1.28', items: [
     '설계탭 구역편집↔배선 전환 시 슬라이드 애니메이션 추가',
@@ -2888,31 +2888,26 @@ function betaSetMode(m) {
   const wasEdit = State.betaMode === 'edit';
   const prevEl  = document.getElementById(wasEdit ? 'betaZoneList' : 'betaLanUI');
   const cvWrap  = document.getElementById('betaCanvasWrap');
-  const DUR = '.26s cubic-bezier(.4,0,.2,1)';
-  const exitAnim  = goRight ? `_sOL ${DUR} forwards` : `_sOR ${DUR} forwards`;
-  const enterAnim = goRight ? `_sIR ${DUR} both`     : `_sIL ${DUR} both`;
-  const exitCls   = goRight ? 'beta-slide-exit-l'  : 'beta-slide-exit-r';
-  const enterCls  = goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l';
 
-  // 캔버스 + 콘텐츠 동시 퇴장
-  cvWrap.style.animation = exitAnim;
+  // 캔버스 페이드 아웃 + 콘텐츠 슬라이드 퇴장 동시 시작
+  cvWrap.style.transition = 'opacity .2s';
+  cvWrap.style.opacity = '0';
   if (prevEl) {
-    prevEl.classList.add(exitCls);
-    prevEl.addEventListener('animationend', () => prevEl.classList.remove(exitCls), { once: true });
+    prevEl.classList.add(goRight ? 'beta-slide-exit-l' : 'beta-slide-exit-r');
+    prevEl.addEventListener('animationend', () => prevEl.classList.remove('beta-slide-exit-l', 'beta-slide-exit-r'), { once: true });
   }
 
-  // 캔버스 퇴장 완료 후 모드 전환 → 진입 애니메이션
-  cvWrap.addEventListener('animationend', () => {
-    cvWrap.style.animation = '';
+  // 페이드 아웃 완료 → 모드 전환 → 페이드 인 + 콘텐츠 진입
+  cvWrap.addEventListener('transitionend', () => {
     if (m === 'lan') { State._betaCache = null; _betaAllPanels(); }
     State.betaMode = m;
     betaRender();
     if (m === 'lan' && wasEdit) { betaAutoAssign(); betaAutoAssignPwr(); _betaSimDraw(); }
     const nextEl = document.getElementById(m === 'edit' ? 'betaZoneList' : 'betaLanUI');
-    cvWrap.style.animation = enterAnim;
-    cvWrap.addEventListener('animationend', () => { cvWrap.style.animation = ''; }, { once: true });
-    nextEl.classList.add(enterCls);
-    nextEl.addEventListener('animationend', () => nextEl.classList.remove(enterCls), { once: true });
+    nextEl.classList.add(goRight ? 'beta-slide-enter-r' : 'beta-slide-enter-l');
+    nextEl.addEventListener('animationend', () => nextEl.classList.remove('beta-slide-enter-r', 'beta-slide-enter-l'), { once: true });
+    cvWrap.style.opacity = '1';
+    cvWrap.addEventListener('transitionend', () => { cvWrap.style.transition = ''; }, { once: true });
   }, { once: true });
 }
 
