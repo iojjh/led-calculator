@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.40';
-const APP_SW_VERSION = 'v2140';
+const APP_VERSION = '2.1.41';
+const APP_SW_VERSION = 'v2141';
 
 const CHANGELOG = [
+  { v: '2.1.41', items: [
+    '660 Pro 30Hz 체크: 3840 치수 제한만 적용 (픽셀 총합 상한 제거)',
+  ]},
   { v: '2.1.40', items: [
     '660 Pro 사양 체크를 픽셀 수 기반으로 개선 (최대 3840 치수, 60Hz 2,304,000px 기준)',
   ]},
@@ -3368,10 +3371,9 @@ function setBetaSpare(k, v) {
 
 function _betaBuildSendingHtml(tW, tH) {
   // 660 Pro: 픽셀 수 기반 체크 (스펙: 최대 가로/세로 3840, 60Hz 픽셀 상한 2,304,000)
-  const PX60 = 1920 * 1200;       // 2,304,000 — @60Hz 픽셀 상한
-  const PX30 = PX60 * 2;          // 4,608,000 — @30Hz 추정 (대역폭 기준 2×)
-  const DIM  = 3840;              // 660 Pro 최대 가로/세로
-  const _ok660 = (w, h, hz) => w <= DIM && h <= DIM && w * h <= (hz === 60 ? PX60 : PX30);
+  const PX60 = 1920 * 1200; // 2,304,000 — @60Hz 픽셀 상한
+  const DIM  = 3840;        // 660 Pro 최대 가로/세로 (30Hz는 치수 제한만 적용)
+  const _ok660 = (w, h, hz) => w <= DIM && h <= DIM && (hz !== 60 || w * h <= PX60);
   const _eval660 = hz => {
     const single = _ok660(tW, tH, hz);
     const dual   = !single && (_ok660(Math.ceil(tW / 2), tH, hz) || _ok660(tW, Math.ceil(tH / 2), hz));
