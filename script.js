@@ -26,10 +26,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.44';
-const APP_SW_VERSION = 'v2144';
+const APP_VERSION = '2.1.45';
+const APP_SW_VERSION = 'v2145';
 
 const CHANGELOG = [
+  { v: '2.1.45', items: [
+    '샌딩카드 체크 UI 개선: 현재 해상도·픽셀 수 표시, 토글 스펙 상세, 분할 방향 비교 과정 표시',
+  ]},
   { v: '2.1.44', items: [
     '120Hz 체크를 4K 전용으로 수정 (660 Pro는 60Hz까지만 지원)',
   ]},
@@ -3378,62 +3381,134 @@ function setBetaSpare(k, v) {
   saveState();
 }
 
+function _betaSendToggle(id) {
+  const el = document.getElementById(id);
+  if (!el) { return; }
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 function _betaBuildSendingHtml(tW, tH) {
-  // 660 Pro: 최대 60Hz / 60Hz 픽셀 상한 2,304,000 / 30Hz는 치수(3840)만
-  const PX60 = 1920 * 1200; // 2,304,000
+  const fmt = n => Math.round(n).toLocaleString();
+
+  // 660 Pro: 최대 60Hz / @60Hz 픽셀 상한 2,304,000 / @30Hz 치수(3840)만
+  const PX60 = 1920 * 1200;
   const DIM  = 3840;
   const _ok660 = (w, h, hz) => {
     if (w > DIM || h > DIM) { return false; }
     if (hz === 60) { return w * h <= PX60; }
-    return true; // 30Hz: 치수 제한만
+    return true;
   };
   const _eval660 = hz => {
+    const px = tW * tH;
+    const lim = hz === 60 ? PX60 : null;
     const single = _ok660(tW, tH, hz);
-    const dual   = !single && (_ok660(Math.ceil(tW / 2), tH, hz) || _ok660(tW, Math.ceil(tH / 2), hz));
+    let dual = false, splitDir = null, splitW = 0, splitH = 0, splitPx = 0;
+    if (!single) {
+      const hw = Math.ceil(tW / 2), hh = Math.ceil(tH / 2);
+      if (_ok660(hw, tH, hz))      { dual = true; splitDir = 'h'; splitW = hw; splitH = tH; splitPx = hw * tH; }
+      else if (_ok660(tW, hh, hz)) { dual = true; splitDir = 'v'; splitW = tW; splitH = hh; splitPx = tW * hh; }
+    }
     const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
     const txt = single ? `1대 @${hz}Hz ✓` : dual ? `2대 @${hz}Hz ✓` : `@${hz}Hz ✗`;
-    return { cls, txt };
+    return { cls, txt, hz, single, dual, splitDir, splitW, splitH, splitPx, px, lim };
   };
 
-  // 4K: 60Hz 픽셀 상한 8,847,360 / 120Hz는 절반 / 최대 치수 7680
-  const PX_4K  = 4096 * 2160; // 8,847,360
+  // 4K: @120Hz 픽셀 상한 4,423,680 / @60Hz 8,847,360 / 최대 치수 7,680
+  const PX_4K  = 4096 * 2160;
   const DIM_4K = 7680;
   const _ok4K  = (w, h, hz) => w <= DIM_4K && h <= DIM_4K && w * h <= (hz === 120 ? PX_4K / 2 : PX_4K);
   const _eval4K = hz => {
+    const px = tW * tH;
+    const lim = hz === 120 ? PX_4K / 2 : PX_4K;
     const single = _ok4K(tW, tH, hz);
-    const dual   = !single && (_ok4K(Math.ceil(tW / 2), tH, hz) || _ok4K(tW, Math.ceil(tH / 2), hz));
+    let dual = false, splitDir = null, splitW = 0, splitH = 0, splitPx = 0;
+    if (!single) {
+      const hw = Math.ceil(tW / 2), hh = Math.ceil(tH / 2);
+      if (_ok4K(hw, tH, hz))      { dual = true; splitDir = 'h'; splitW = hw; splitH = tH; splitPx = hw * tH; }
+      else if (_ok4K(tW, hh, hz)) { dual = true; splitDir = 'v'; splitW = tW; splitH = hh; splitPx = tW * hh; }
+    }
     const cls = single ? 'ok' : dual ? 'ok2' : 'ng';
     const txt = single ? `1대 @${hz}Hz ✓` : dual ? `2대 @${hz}Hz ✓` : `@${hz}Hz ✗`;
-    return { cls, txt };
+    return { cls, txt, hz, single, dual, splitDir, splitW, splitH, splitPx, px, lim };
   };
 
   const badge = r => `<span class="beta-send-badge ${r.cls}">${r.txt}</span>`;
-  let h = '<div class="beta-send-block">';
 
-  // 660 Pro: 최대 60Hz 출력 — 60/30Hz만 체크
-  {
-    const r60 = _eval660(60); const r30 = _eval660(30);
-    h += `<div class="beta-send-row"><span class="beta-send-name">660 Pro</span>`;
-    h += badge(r60);
-    if (r60.cls === 'ng' || (r60.cls === 'ok2' && r30.cls === 'ok')) { h += badge(r30); }
-    h += '</div>';
-  }
-
-  // 4K: 120Hz 가능 → 120만 (2대120+1대60이면 둘 다), 불가 → 60 표시
-  {
-    const r120 = _eval4K(120); const r60 = _eval4K(60);
-    h += `<div class="beta-send-row"><span class="beta-send-name">4K</span>`;
-    if (r120.cls !== 'ng') {
-      h += badge(r120);
-      if (r120.cls === 'ok2' && r60.cls === 'ok') { h += badge(r60); }
+  const cmpRow = r => {
+    const { hz, single, dual, splitDir, splitW, splitH, splitPx, px, lim } = r;
+    let detail = '';
+    if (single) {
+      detail = `<span class="bsc-ok">${fmt(px)}px ≤ ${fmt(lim)}px</span>`;
+    } else if (dual) {
+      const dir = splitDir === 'h' ? '가로 분할' : '세로 분할';
+      detail = `${fmt(px)}px &gt; ${fmt(lim)}px &nbsp;→&nbsp; ${dir} <span class="bsc-dim">${splitW}×${splitH}</span> = <span class="bsc-ok">${fmt(splitPx)}px ≤ ${fmt(lim)}px</span>`;
     } else {
-      h += badge(r60);
+      detail = `<span class="bsc-ng">${fmt(px)}px &gt; ${fmt(lim)}px</span>`;
     }
-    h += '</div>';
+    return `<div class="beta-send-cmp-row">
+      <span class="beta-send-cmp-hz">@${hz}Hz</span>
+      <span class="beta-send-cmp-detail">${detail}</span>
+      ${badge(r)}
+    </div>`;
+  };
+
+  // 660 Pro 결과
+  const r660_60 = _eval660(60);
+  const r660_30 = _eval660(30);
+  let badges660 = badge(r660_60);
+  if (r660_60.cls === 'ng' || (r660_60.cls === 'ok2' && r660_30.cls === 'ok')) { badges660 += badge(r660_30); }
+
+  // 4K 결과
+  const r4k120 = _eval4K(120);
+  const r4k60  = _eval4K(60);
+  let badges4k = '', cmp4k = '';
+  if (r4k120.cls !== 'ng') {
+    badges4k = badge(r4k120);
+    cmp4k = cmpRow(r4k120);
+    if (r4k120.cls === 'ok2' && r4k60.cls === 'ok') { badges4k += badge(r4k60); cmp4k += cmpRow(r4k60); }
+  } else {
+    badges4k = badge(r4k60);
+    cmp4k = cmpRow(r4k60);
   }
 
-  h += '</div>';
-  return h;
+  return `<div class="beta-send-block">
+    <div class="beta-send-cur">
+      <span class="beta-send-cur-lbl">현재 구역</span>
+      <span class="beta-send-cur-res">${tW} × ${tH}</span>
+      <span class="beta-send-cur-px">= ${fmt(tW * tH)} 픽셀</span>
+    </div>
+    <div class="beta-send-card-wrap">
+      <div class="beta-send-card-head" onclick="_betaSendToggle('betaSendD660')">
+        <span class="beta-send-card-name">660 Pro</span>
+        ${badges660}
+        <span class="beta-send-card-toggle">▾</span>
+      </div>
+      <div class="beta-send-detail" id="betaSendD660" style="display:none">
+        <table class="beta-send-spec-table">
+          <tr><td>최대 가로</td><td>${fmt(DIM)} 픽셀</td></tr>
+          <tr><td>최대 세로</td><td>${fmt(DIM)} 픽셀</td></tr>
+          <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX60)} 픽셀</td></tr>
+        </table>
+        <div class="beta-send-cmp">${cmpRow(r660_60)}</div>
+      </div>
+    </div>
+    <div class="beta-send-card-wrap">
+      <div class="beta-send-card-head" onclick="_betaSendToggle('betaSendD4k')">
+        <span class="beta-send-card-name">4K</span>
+        ${badges4k}
+        <span class="beta-send-card-toggle">▾</span>
+      </div>
+      <div class="beta-send-detail" id="betaSendD4k" style="display:none">
+        <table class="beta-send-spec-table">
+          <tr><td>최대 가로</td><td>${fmt(DIM_4K)} 픽셀</td></tr>
+          <tr><td>최대 세로</td><td>${fmt(DIM_4K)} 픽셀</td></tr>
+          <tr><td>@120Hz 픽셀 상한</td><td>${fmt(PX_4K / 2)} 픽셀</td></tr>
+          <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX_4K)} 픽셀</td></tr>
+        </table>
+        <div class="beta-send-cmp">${cmp4k}</div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function betaRenderZoneList() {
