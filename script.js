@@ -26,10 +26,15 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.58';
-const APP_SW_VERSION = 'v2158';
+const APP_VERSION = '2.1.59';
+const APP_SW_VERSION = 'v2159';
 
 const CHANGELOG = [
+  { v: '2.1.59', items: [
+    '전체모드 가로 잠금 복원 (requestFullscreen + orientation.lock)',
+    '전체모드 구역 편집 그래픽 겹침 수정 — betaDrawEdit에서 격자 재그림',
+    '자동할당 상태 플래그 추가 — 수동 할당/초기화 시 자동할당 적용됨 해제',
+  ]},
   { v: '2.1.58', items: [
     '전체모드 requestFullscreen 제거 → 파란 알림 제거, 더블rAF로 캔버스 타이밍 수정',
     '전체모드 구역탭 격자 추가, 초기화 버튼 구역만 초기화',
@@ -2924,11 +2929,16 @@ function _betaSimAssign(pi, key) {
   const ports = _betaSimPorts(), ph2 = _betaSimPH2();
   if (ports[pi].has(key)) { return; }
   ports[pi].add(key); ph2[pi].push(key);
+  // 수동 할당 → 자동할당 플래그 해제
+  if (State.betaSimTab === 'pwr') { State._betaPwrAutoAssigned = false; }
+  else { State._betaLanAutoAssigned = false; }
 }
 function _betaSimDeassign(pi, key) {
   const ports = _betaSimPorts(), ph2 = _betaSimPH2();
   ports[pi].delete(key);
   const idx = ph2[pi].indexOf(key); if (idx >= 0) { ph2[pi].splice(idx, 1); }
+  if (State.betaSimTab === 'pwr') { State._betaPwrAutoAssigned = false; }
+  else { State._betaLanAutoAssigned = false; }
 }
 function _betaSimDraw() {
   if (State._betaFull) { const _gcv = document.getElementById('betaFullCanvas'); if (_gcv) { _betaDrawGrid(_gcv); } }
@@ -3115,8 +3125,8 @@ function betaDrawEdit() {
   const ctx = cv.getContext('2d');
   const sc  = cv.width / (State.betaAreaW || 1);
   const gW  = _betaGW(); const gH = _betaGH();
-  // 전체모드는 _betaRenderFull에서 _betaDrawGrid로 격자를 이미 그림
-  if (!State._betaFull) { ctx.clearRect(0, 0, cv.width, cv.height); }
+  // 전체모드: 격자 재그림 → 이전 드로잉 완전히 지움 / 일반모드: 오버레이 클리어
+  if (State._betaFull) { _betaDrawGrid(cv); } else { ctx.clearRect(0, 0, cv.width, cv.height); }
 
   // pass2: Zone 채우기 + 패널 경계
   State.betaZones.forEach((zone, zi) => {
@@ -4188,9 +4198,8 @@ function betaRenderLanUI() {
         <button class="beta-lan-tab${!isLan ? ' on' : ''}" onclick="betaSetSimTab('pwr')">파워콘</button>
       </div>`;
     } else {
-      const assigned = isLan ? State.betaPorts.some(s => s.size > 0)
-                             : State.betaPwrPorts.some(s => s.size > 0);
-      const autoBtn  = assigned
+      const autoApplied = isLan ? State._betaLanAutoAssigned : State._betaPwrAutoAssigned;
+      const autoBtn  = autoApplied
         ? `<button class="beta-lan-btn" disabled>자동할당 적용됨</button>`
         : `<button class="beta-lan-btn" onclick="${isLan ? 'betaAutoAssign()' : 'betaAutoAssignPwr()'}">자동 할당</button>`;
       el.innerHTML = `<div class="beta-lan-tabs">
@@ -4313,12 +4322,14 @@ function betaDeassign(pi, key) {
 function betaRstPort(pi) {
   State.betaPorts[pi] = new Set();
   State.betaPH2[pi]   = [];
+  State._betaLanAutoAssigned = false;
   _betaSimDraw(); betaRenderPorts(); betaRenderSum(); saveState();
 }
 
 function betaRstPwrPort(pi) {
   State.betaPwrPorts[pi] = new Set();
   State.betaPwrPH2[pi]   = [];
+  State._betaPwrAutoAssigned = false;
   _betaSimDraw(); betaRenderPwrPorts(); betaRenderSum(); saveState();
 }
 
@@ -4329,6 +4340,7 @@ function betaRstAllPorts() {
       State.betaPwrPorts = Array.from({ length: cnt }, () => new Set());
       State.betaPwrPH2   = Array.from({ length: cnt }, () => []);
       State.betaPwrAPort = 0;
+      State._betaPwrAutoAssigned = false;
       _betaSimDraw(); betaRenderLanUI(); saveState();
     });
   } else {
@@ -4336,6 +4348,7 @@ function betaRstAllPorts() {
       State.betaPorts = Array.from({ length: 16 }, () => new Set());
       State.betaPH2   = Array.from({ length: 16 }, () => []);
       State.betaAPort = 0;
+      State._betaLanAutoAssigned = false;
       _betaSimDraw(); betaRenderLanUI(); saveState();
     });
   }
@@ -4366,9 +4379,8 @@ function _betaRenderFull() {
     const sc = Math.min(wrap.clientWidth / State.betaAreaW, wrap.clientHeight / State.betaAreaH);
     cv.width  = Math.round(State.betaAreaW * sc);
     cv.height = Math.round(State.betaAreaH * sc);
-    _betaDrawGrid(cv); // 전체모드는 betaCanvasBg가 없으므로 직접 격자 그림
     betaAttachEditEv();
-    betaDrawEdit();
+    betaDrawEdit(); // betaDrawEdit 내부에서 _betaDrawGrid 호출함
   }
 }
 
@@ -4380,9 +4392,16 @@ function betaEnterFull() {
   document.body.style.overflow = 'hidden';
   history.pushState({ overlay: 'betaFull' }, '');
 
-  // 가로 방향 잠금 (requestFullscreen 없이 — 브라우저 알림 방지)
-  if (screen.orientation && screen.orientation.lock) {
-    screen.orientation.lock('landscape').catch(() => {});
+  // 가로 방향 잠금 — PWA: 직접 lock, 브라우저: requestFullscreen 경유 fallback
+  const _lockLandscape = () => {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  };
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().then(_lockLandscape).catch(_lockLandscape);
+  } else {
+    _lockLandscape();
   }
 
   State._betaFullResizeHandler = () => requestAnimationFrame(() => _betaRenderFull());
@@ -4417,6 +4436,9 @@ function betaExitFull() {
 
   if (screen.orientation && screen.orientation.unlock) {
     try { screen.orientation.unlock(); } catch (e) {}
+  }
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
   }
   const fpp = document.getElementById('betaFullPortPopup');
   if (fpp) { fpp.style.display = 'none'; }
@@ -4553,6 +4575,7 @@ function betaAutoAssign() {
     portOff = Math.min(16, portOff + _betaAutoAssignZone(zone, portOff));
   }
   State.betaAPort = 0;
+  State._betaLanAutoAssigned = true;
   _betaSimDraw(); betaRenderLanUI(); saveState();
 }
 
@@ -4703,6 +4726,7 @@ function betaAutoAssignPwr() {
     }
   }
 
+  State._betaPwrAutoAssigned = true;
   _betaSimDraw(); betaRenderLanUI(); saveState();
 }
 
