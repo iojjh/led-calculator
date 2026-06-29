@@ -300,11 +300,15 @@
 <!-- 구역 편집 전체모드 팝업 (독립 캔버스) -->
 <div id="betaFullOverlay" style="display:none">
   <div class="beta-full-hdr">
-    <span class="beta-full-hdr-title">구역 편집</span>
+    <span class="beta-full-hdr-title" id="betaFullHdrTitle">구역 편집</span>
     <button class="beta-full-reset-btn" onclick="betaReset()">↺ 초기화</button>
     <button class="beta-full-close-btn" onclick="betaExitFull()">✕ 닫기</button>
   </div>
   <div class="beta-full-body" id="betaFullBody">
+    <div id="betaFullLanUI" style="display:none">
+      <div id="betaFullLanBtns"></div>
+      <div id="betaFullPortRow"></div>
+    </div>
     <div class="beta-full-canvas-wrap" id="betaFullCanvasWrap">
       <canvas id="betaFullCanvas" style="display:block;cursor:crosshair;touch-action:none;"></canvas>
     </div>
