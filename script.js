@@ -16,10 +16,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.63';
-const APP_SW_VERSION = 'v2163';
+const APP_VERSION = '2.1.64';
+const APP_SW_VERSION = 'v2164';
 
 const CHANGELOG = [
+  { v: '2.1.64', items: [
+    '코드 품질 — CLAUDE.md 섹션 맵 줄 번호 동기화, margin-left:auto 마지막 인라인 스타일 → .ml-auto 클래스 전환',
+  ] },
   { v: '2.1.63', items: [
     '테스트 확장 — utils(_se·_stripSchedFooter), calcWidget(_buildExpr·_computePreview), betaPanels 보강 포함 총 40개 케이스',
   ] },
@@ -4143,7 +4146,7 @@ function betaRenderPwrPorts() {
     <span class="port-count">${sz}장</span>
     <button class="beta-rst-port-btn" onclick="betaRstPwrPort(${pi})">포트 ${pi + 1} 초기화</button>
     ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
-    <button class="port-btn expand-port-btn" onclick="betaAddPwrPort()" style="margin-left:auto">+ 포트</button>
+    <button class="port-btn expand-port-btn ml-auto" onclick="betaAddPwrPort()">+ 포트</button>
     <button class="port-btn expand-port-btn" onclick="betaRemovePwrPort()">− 포트</button>
   </div>`;
   el.innerHTML = html;

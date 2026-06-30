@@ -621,3 +621,4 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .sched-primary-btn.secondary{background:#555;}
 /* vMix 붙여넣기 버튼 */
 .vmix-paste-btn{flex:none;padding:8px 14px;}
+.ml-auto{margin-left:auto;}
