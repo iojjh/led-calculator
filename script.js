@@ -16,10 +16,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.62';
-const APP_SW_VERSION = 'v2162';
+const APP_VERSION = '2.1.63';
+const APP_SW_VERSION = 'v2163';
 
 const CHANGELOG = [
+  { v: '2.1.63', items: [
+    '테스트 확장 — utils(_se·_stripSchedFooter), calcWidget(_buildExpr·_computePreview), betaPanels 보강 포함 총 40개 케이스',
+  ] },
   { v: '2.1.62', items: [
     '코드 품질 — vMix·일정탭 잔여 인라인 스타일 → CSS 클래스 전환 (vmix-tag-modified, vmix-expand-arrow, vmix-action-row, chk-mark, sched-btn-row, sched-primary-btn.secondary, vmix-paste-btn)',
   ] },

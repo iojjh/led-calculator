@@ -79,4 +79,32 @@ describe('betaPanels — 엣지 케이스', () => {
     const keys = panels.map(p => p.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  test('구역 크기와 무관하게 모든 패널에 led 값 유지', () => {
+    const panels = betaPanels(zone({ rows: 3, cols: 3, panelW: 500, panelH: 500, led: 'P3.9' }));
+    panels.forEach(p => expect(p.led).toBe('P3.9'));
+  });
+
+  test('전체 패널 면적 합 = 구역 면적', () => {
+    // 5×4 구역, 1000×1000 패널 → 잔여행 1, 전체패널 2×2
+    // 잔여행: 4×(500×500) = 1,000,000 / 전체패널: 4×(1000×1000) = 4,000,000 → 합 5,000,000
+    // 구역: 5×4×500×500 = 5,000,000
+    const panels = betaPanels(zone({ rows: 5, cols: 4, panelW: 1000, panelH: 1000 }));
+    const totalArea = panels.reduce((sum, p) => sum + p.w * p.h, 0);
+    expect(totalArea).toBe(5 * 4 * 500 * 500);
+  });
+
+  test('잔여행 패널은 항상 h=500', () => {
+    // rows=3, spanR=2 → remR=1 → 첫 행이 잔여행
+    const panels = betaPanels(zone({ rows: 3, cols: 2, panelW: 1000, panelH: 1000 }));
+    const remRowPanels = panels.filter(p => p.key.includes(':rr:'));
+    remRowPanels.forEach(p => expect(p.h).toBe(500));
+  });
+
+  test('잔여열 패널은 항상 w=500', () => {
+    // cols=3, spanC=2 → remC=1 → 첫 열이 잔여열
+    const panels = betaPanels(zone({ rows: 2, cols: 3, panelW: 1000, panelH: 1000 }));
+    const remColPanels = panels.filter(p => p.key.includes(':rc'));
+    remColPanels.forEach(p => expect(p.w).toBe(500));
+  });
 });
