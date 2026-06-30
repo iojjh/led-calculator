@@ -2093,17 +2093,7 @@ function betaAttachLanEv() {
   ncv.addEventListener('touchend',    onUp,   sig);
   ncv.addEventListener('touchcancel', cl,     { signal: ctrl.signal, passive: true });
 }
-export {
-  betaApplyArea, betaSetMode, betaRender, betaDrawEdit,
-  betaSaveGuideImage, betaRenderZoneList, betaSelectZone, betaDeleteZone, betaEditZone,
-  betaShowCfgPanel, betaCfgApply, betaCfgCancel,
-  betaAttachEditEv, betaDrawLan, betaDrawPwr,
-  betaAddPwrPort, betaRemovePwrPort, betaRenderPwrPorts,
-  betaSetSimTab, betaRenderLanUI, betaRenderPorts, betaRenderSum, betaRenderLeg,
-  betaAssign, betaDeassign, betaRstPort, betaRstPwrPort, betaRstAllPorts,
-  betaEnterFull, betaExitFull, betaReset,
-  betaAutoAssign, betaAutoAssignPwr, betaAttachLanEv,
-  betaPanels, setBetaSpare,
-};
+export { betaApplyArea, betaSetMode, betaRender, betaDrawEdit, betaSaveGuideImage, betaRenderZoneList, betaSelectZone, betaDeleteZone, betaEditZone, betaShowCfgPanel, betaCfgApply, betaCfgCancel, betaAttachEditEv, betaDrawLan, betaDrawPwr, betaAddPwrPort, betaRemovePwrPort, betaRenderPwrPorts, betaSetSimTab, betaRenderLanUI, betaRenderPorts, betaRenderSum, betaRenderLeg, betaAssign, betaDeassign, betaRstPort, betaRstPwrPort, betaRstAllPorts, betaEnterFull, betaExitFull, betaReset, betaAutoAssign, betaAutoAssignPwr, betaAttachLanEv, betaPanels, setBetaSpare, _betaSendToggle, _betaCfgSelLed, _betaCfgSelPanel, _betaSimDraw };
+
 
 

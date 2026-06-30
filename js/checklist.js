@@ -158,9 +158,6 @@ function attachCLDragEvents() {
     }, { passive: false });
   });
 }
-renderCL();
-// beta 탭이 기본 탭이므로 초기 렌더링 및 하단 바 설정
-document.addEventListener('DOMContentLoaded', () => { _updateBarForTab('beta'); betaRender(); });
 
 
 
@@ -205,6 +202,7 @@ async function saveChkPng() {
     document.body.removeChild(wrap);
   }
 }
-export { renderCL, tog, clearAllChecks, openChkResetChoice, closeChkResetChoice, _doChkResetSoft, _doChkResetFull, addItem, delItem, saveChkPng, _saveChkLayout, attachCLDragEvents };
+export { renderCL, tog, clearAllChecks, openChkResetChoice, closeChkResetChoice, _doChkResetSoft, _doChkResetFull, addItem, delItem, saveChkPng, _saveChkLayout, attachCLDragEvents, _toggleCINote, _onCINote };
+
 
 

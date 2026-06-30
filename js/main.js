@@ -1,19 +1,20 @@
-import {} from './constants.js';
+import { State } from './constants.js';
 import {} from './utils.js';
-import { renderCL, tog, clearAllChecks, openChkResetChoice, closeChkResetChoice, _doChkResetSoft, _doChkResetFull, addItem, delItem, saveChkPng, _saveChkLayout, attachCLDragEvents } from './checklist.js';
+import { renderCL, tog, clearAllChecks, openChkResetChoice, closeChkResetChoice, _doChkResetSoft, _doChkResetFull, addItem, delItem, saveChkPng, _saveChkLayout, attachCLDragEvents, _toggleCINote, _onCINote } from './checklist.js';
 import { swTab, _updateBarForTab, _onVersionTap, openTutorial, closeTutorial, closeEaster, closeEasterBg, _tutorialPrev, _tutorialNext } from './tabs.js';
 import { openModal, closeModal, closeModalBg, dl, dateStr, _cvToUrl, showPreview, closePreviewModal, closePreview, confirmDownload, shareImage, showResPreview, selectResVersion, openConfirm, closeConfirm, closeConfirmBg, tryResetAll, _histBack, _consumeProgrammaticBack } from './modal.js';
 import { getAppState, loadAppState, saveState, loadState, deleteState, renderSaveList, openSaveModal, closeSaveModal, closeSaveBg } from './storage.js';
 import { calcInput, calcDot, calcOper, calcEquals, calcClear, calcDel, toggleCalc } from './calculator.js';
 import { vmixLoad, vmixApplyWide, vmixApplyWideSelected, vmixDownload, vmixResetAR, vmixResetPos, vmixResetVI, vmixResetSplit, vmixSwitchTab, vmixSetArCat, vmixSetPosCat, vmixSetLayerCat, vmixRenderArList, vmixRenderPosList, vmixRenderLayerPane, vmixRenderSplitPane, vmixAutoSplit, vmixCreateVirtuals, vmixFullReset, vmixCopyPos, vmixTogglePosAll, vmixPasteToSelected, vmixToggleLayerCard, vmixLayerNameSearch, vmixLayerNumSearch, vmixUpdateLayer, vmixLayerNumChange, vmixLayerSelChange, vmixResetLayers, vmixRenderVIPane, vmixUpdateVIOverlay, vmixVILayerNumChange, vmixVILayerSelChange, vmixSetSplitCat, openVmixSaveModal, closeVmixSaveModal, closeVmixSaveBg } from './vmix.js';
 import { openSchedModal, closeSchedModal, _schedBgClick, _schedOpenSettings } from './schedule.js';
-import { betaApplyArea, betaSetMode, betaRender, betaDrawEdit, betaSaveGuideImage, betaRenderZoneList, betaSelectZone, betaDeleteZone, betaEditZone, betaShowCfgPanel, betaCfgApply, betaCfgCancel, betaAttachEditEv, betaDrawLan, betaDrawPwr, betaAddPwrPort, betaRemovePwrPort, betaRenderPwrPorts, betaSetSimTab, betaRenderLanUI, betaRenderPorts, betaRenderSum, betaRenderLeg, betaAssign, betaDeassign, betaRstPort, betaRstPwrPort, betaRstAllPorts, betaEnterFull, betaExitFull, betaReset, betaAutoAssign, betaAutoAssignPwr, betaAttachLanEv, betaPanels, setBetaSpare } from './led-design.js';
+import { betaApplyArea, betaSetMode, betaRender, betaDrawEdit, betaSaveGuideImage, betaRenderZoneList, betaSelectZone, betaDeleteZone, betaEditZone, betaShowCfgPanel, betaCfgApply, betaCfgCancel, betaAttachEditEv, betaDrawLan, betaDrawPwr, betaAddPwrPort, betaRemovePwrPort, betaRenderPwrPorts, betaSetSimTab, betaRenderLanUI, betaRenderPorts, betaRenderSum, betaRenderLeg, betaAssign, betaDeassign, betaRstPort, betaRstPwrPort, betaRstAllPorts, betaEnterFull, betaExitFull, betaReset, betaAutoAssign, betaAutoAssignPwr, betaAttachLanEv, betaPanels, setBetaSpare, _betaSendToggle, _betaCfgSelLed, _betaCfgSelPanel, _betaSimDraw } from './led-design.js';
 
 // HTML onclick 핸들러에서 접근 가능하도록 window에 노출
 Object.assign(window, {
   // checklist
   renderCL, tog, clearAllChecks, openChkResetChoice, closeChkResetChoice,
   _doChkResetSoft, _doChkResetFull, addItem, delItem, saveChkPng,
+  _toggleCINote, _onCINote,
   // tabs
   swTab, _onVersionTap, openTutorial, closeTutorial,
   closeEaster, closeEasterBg, _tutorialPrev, _tutorialNext,
@@ -51,6 +52,9 @@ Object.assign(window, {
   betaEnterFull, betaExitFull, betaReset,
   betaAutoAssign, betaAutoAssignPwr, betaAttachLanEv,
   betaPanels, setBetaSpare,
+  _betaSendToggle, _betaCfgSelLed, _betaCfgSelPanel, _betaSimDraw,
+  // State 직접 참조 (innerHTML onclick에서 State.xxx 사용)
+  State,
 });
 
 // popstate 핸들러 (modal.js에서 이동 — 모든 모듈이 로드된 후 등록)
