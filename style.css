@@ -609,3 +609,15 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .chk-png-footer{height:1px;background:#eee;margin-top:12px;}
 /* vMix 검색 행 */
 .vmix-search-row{display:flex;gap:8px;margin-bottom:12px;}
+/* vMix 레이어 카드 */
+.vmix-tag-modified{background:#fff3e0;color:#e65100;}
+.vmix-expand-arrow{font-size:11px;color:#999;}
+.vmix-action-row{display:flex;gap:8px;margin-top:10px;align-items:center;}
+/* vMix 저장 체크마크 */
+.chk-mark{color:#0F6E56;font-weight:600;}
+.chk-mark-off{color:#ccc;}
+/* 일정 탭 보조 버튼 */
+.sched-btn-row{display:flex;gap:8px;align-items:center;}
+.sched-primary-btn.secondary{background:#555;}
+/* vMix 붙여넣기 버튼 */
+.vmix-paste-btn{flex:none;padding:8px 14px;}

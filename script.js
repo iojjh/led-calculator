@@ -16,10 +16,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.61';
-const APP_SW_VERSION = 'v2161';
+const APP_VERSION = '2.1.62';
+const APP_SW_VERSION = 'v2162';
 
 const CHANGELOG = [
+  { v: '2.1.62', items: [
+    '코드 품질 — vMix·일정탭 잔여 인라인 스타일 → CSS 클래스 전환 (vmix-tag-modified, vmix-expand-arrow, vmix-action-row, chk-mark, sched-btn-row, sched-primary-btn.secondary, vmix-paste-btn)',
+  ] },
   { v: '2.1.61', items: [
     '코드 품질 — 체크리스트·저장목록·vMix 검색 인라인 스타일 → CSS 클래스 전환 (chk-row, chk-section-label, chk-png-*, si-date, si-actions, empty-msg, vmix-search-row)',
   ] },
@@ -1836,7 +1839,7 @@ function vmixRenderPosList() {
   const hasCopied = _vmixCopiedKey !== null;
   const header = hasCopied ? `<div class="vmix-action-bar" style="margin-top:0;padding-top:0;border-top:none;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #f0f0f0;">
     <label class="vmix-selall-wrap"><input type="checkbox" id="vmixPosSelAll" onchange="vmixTogglePosAll(this.checked)"><span>전체 선택</span></label>
-    <button class="vmix-act-btn accent" style="flex:none;padding:8px 14px;" onclick="vmixPasteToSelected()">선택 항목에 붙여넣기</button>
+    <button class="vmix-act-btn accent vmix-paste-btn" onclick="vmixPasteToSelected()">선택 항목에 붙여넣기</button>
   </div>` : '';
   const rows = inputs.map(inp => {
     const title = inp.getAttribute('OriginalTitle');
@@ -1978,14 +1981,14 @@ function vmixRenderLayerPane() {
       </div>`;
     }).join('');
     const badge = isEdited
-      ? `<span class="vmix-vi-parent-tag" style="background:#fff3e0;color:#e65100;">수정됨</span>` : '';
+      ? `<span class="vmix-vi-parent-tag vmix-tag-modified">수정됨</span>` : '';
     const isExpanded = _vmixLayerExpanded.has(key);
     return `<div class="vmix-vi-card">
       <div class="vmix-vi-card-header" style="cursor:pointer;" onclick="vmixToggleLayerCard('${key}')">
         <span class="vmix-num">${_vmixNum(inp)}</span>
         <span class="vmix-vi-card-title">${title}</span>
         ${badge}
-        <span id="varrow-${key}" style="font-size:11px;color:#999;">${isExpanded ? '▼' : '▶'}</span>
+        <span id="varrow-${key}" class="vmix-expand-arrow">${isExpanded ? '▼' : '▶'}</span>
       </div>
       <div id="vlayers-${key}" class="vmix-vi-layers" style="display:${isExpanded ? '' : 'none'};">${layers}</div>
     </div>`;
@@ -2090,7 +2093,7 @@ function vmixRenderVIPane() {
       <span class="vmix-vi-label">생성 수</span>
       <input type="number" id="vmixVICount" class="vmix-vi-count" min="1" max="20" value="1">
     </div>
-    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+    <div class="vmix-action-row">
       <button class="vmix-act-btn" onclick="vmixCreateVirtuals()">생성하기</button>
     </div>
   </div>`;
@@ -2430,8 +2433,8 @@ function _vmixUpdateSaveBtn() {
 function openVmixSaveModal() {
   if (!_vmixAnyChanged()) { return; }
   const chk = v => v
-    ? '<span style="color:#0F6E56;font-weight:600;">✓</span>'
-    : '<span style="color:#ccc;">✓</span>';
+    ? '<span class="chk-mark">✓</span>'
+    : '<span class="chk-mark-off">✓</span>';
   document.getElementById('vmixSaveSummary').innerHTML = [
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixArChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixArChanged())} 화면비율</div>`,
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:${_vmixPosChanged() ? '#1a1a1a' : '#bbb'};">${chk(_vmixPosChanged())} 포지션 복사</div>`,
@@ -2526,7 +2529,7 @@ async function _schedFetchEvents(icsUrl) {
     _schedRenderList();
   } catch (e) {
     body.innerHTML = `<div class="sched-hint">일정 로드 실패: ${_se(e.message)}</div>
-      <button class="sched-primary-btn" style="margin-top:14px;background:#555" onclick="_schedOpenSettings()">URL 변경</button>`;
+      <button class="sched-primary-btn secondary" onclick="_schedOpenSettings()">URL 변경</button>`;
   }
 }
 
@@ -2599,7 +2602,7 @@ function _schedSelectEvent(idx) {
   } catch (e) {
     const body = document.getElementById('sched-body');
     body.innerHTML = `<div class="sched-hint">${_se(e.message)}</div>
-      <button class="sched-primary-btn" style="margin-top:12px;background:#555" onclick="_schedRenderList()">목록으로</button>`;
+      <button class="sched-primary-btn secondary" onclick="_schedRenderList()">목록으로</button>`;
   }
 }
 
