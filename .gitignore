@@ -1,2 +1,6 @@
 # 중복 파일
 index.html.html
+
+# Node.js
+node_modules/
+package-lock.json

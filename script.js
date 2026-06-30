@@ -1,35 +1,28 @@
 ﻿// ════════════════════════════════════════════════════════════
-//  LED 설치 계산기  v1.0.1
+//  LED 설치 계산기
 //
 //  섹션 구조
 //  §1  스펙 데이터 & 상수
 //  §2  장비 체크리스트
-//  §3  메모 (비워짐)
 //  §4  탭 전환
-//  §5  콘솔 & 샌딩카드 (비워짐)
-//  §6  PNG 저장 · 미리보기 · 공유 (비워짐)
 //  §7  확인 다이얼로그 & 전체 초기화
 //  §8  저장 / 불러오기 (localStorage)
 //  §9  소형 계산기 위젯
-//  §10 계산기 핵심 (비워짐)
-//  §11 랜선 시뮬레이터 (비워짐)
 //  §12 vMix 소스 매크로
 //  §13 일정 불러오기
 //  §14 LED 설계 탭
 // ════════════════════════════════════════════════════════════
 
-//  §10 계산기 핵심 (면적·패널 계산 & 결과 렌더링)
-//  §11 랜선 시뮬레이터 (캔버스, 포트 할당, 이벤트)
-//  §12 vMix 소스 매크로 (파일 로드, 비율 변환, 다운로드)
-// ════════════════════════════════════════════════════════════
-
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.59';
-const APP_SW_VERSION = 'v2159';
+const APP_VERSION = '2.1.60';
+const APP_SW_VERSION = 'v2160';
 
 const CHANGELOG = [
+  { v: '2.1.60', items: [
+    '코드 품질 개선 — 빈 섹션 헤더(§3·§5·§6) 제거, 포트 정보 반복 인라인 스타일 → CSS 클래스(port-info-row·port-name·px-bar 등) 전환, betaPanels 단위 테스트 11개 추가(npm test)',
+  ] },
   { v: '2.1.59', items: [
     '전체모드 가로 잠금 복원 (requestFullscreen + orientation.lock)',
     '전체모드 구역 편집 그래픽 겹침 수정 — betaDrawEdit에서 격자 재그림',
@@ -1055,9 +1048,6 @@ async function saveChkPng() {
   }
 }
 
-// ── §3  메모 ──────────────────────────────────────────────
-
-
 // ── §4  탭 전환 & 버전 표시 ──────────────────────────────
 
 const _TAB_ORDER = ['beta', 'chk', 'vmix'];
@@ -1220,11 +1210,6 @@ function closeEaster()    { document.getElementById('easterBg').style.display = 
 function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')) closeEaster(); }
 
 
-
-// ── §5  콘솔 & 샌딩카드 ──────────────────────────────────
-
-
-// ── §6  PNG 저장 · 미리보기 · 공유 ───────────────────────
 
 // ── §7  확인 다이얼로그 & 전체 초기화 ────────────────────
 
@@ -4144,9 +4129,9 @@ function betaRenderPwrPorts() {
   html += '</div>';
   const sz   = State.betaPwrPorts[pi].size;
   const _apc = portColor(pi);
-  html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
-    <span style="font-size:13px;color:#333;">${sz}장</span>
+  html += `<div class="port-info-row">
+    <span class="port-name" style="color:${_apc}">포트 ${pi + 1}</span>
+    <span class="port-count">${sz}장</span>
     <button class="beta-rst-port-btn" onclick="betaRstPwrPort(${pi})">포트 ${pi + 1} 초기화</button>
     ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
     <button class="port-btn expand-port-btn" onclick="betaAddPwrPort()" style="margin-left:auto">+ 포트</button>
@@ -4239,16 +4224,14 @@ function betaRenderPorts() {
   const pct = Math.min(100, Math.round(px / MAX_PX * 100));
   const ov  = px > MAX_PX;
   const _apc = portColor(pi);
-  html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="font-size:13px;font-weight:500;color:${_apc}">포트 ${pi + 1}</span>
-    <span style="font-size:13px;color:#333;">${sz}장 · ${px.toLocaleString()} px</span>
-    <span style="font-size:12px;color:${ov ? '#A32D2D' : '#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
+  html += `<div class="port-info-row">
+    <span class="port-name" style="color:${_apc}">포트 ${pi + 1}</span>
+    <span class="port-count">${sz}장 · ${px.toLocaleString()} px</span>
+    <span class="port-px-meta ${ov ? 'over' : 'ok'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
     <button class="beta-rst-port-btn" onclick="betaRstPort(${pi})">포트 ${pi + 1} 초기화</button>
     ${State._betaLanDrag ? `<span class="drag-badge" style="background:${_apc}">드래그 중</span>` : ''}
   </div>
-  <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
-    <div style="height:5px;width:${pct}%;background:${ov ? '#E24B4A' : _apc};border-radius:3px;"></div>
-  </div>`;
+  <div class="px-bar"><div class="px-bar-fill" style="width:${pct}%;background:${ov ? '#E24B4A' : _apc};"></div></div>`;
   el.innerHTML = html;
 }
 
@@ -4745,21 +4728,19 @@ function _betaFullShowPortPopup() {
     const ov  = px > MAX_PX;
     popup.innerHTML = `
       <button class="beta-full-popup-close" onclick="document.getElementById('betaFullPortPopup').style.display='none'">✕</button>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:13px;font-weight:600;color:${col}">포트 ${pi + 1}</span>
-        <span style="font-size:13px;color:#333;">${sz}장 · ${px.toLocaleString()} px</span>
-        <span style="font-size:12px;color:${ov ? '#A32D2D' : '#888'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
+      <div class="port-info-row">
+        <span class="port-name" style="color:${col}">포트 ${pi + 1}</span>
+        <span class="port-count">${sz}장 · ${px.toLocaleString()} px</span>
+        <span class="port-px-meta ${ov ? 'over' : 'ok'}">/ ${MAX_PX.toLocaleString()} (${pct}%)${ov ? ' ⚠ 초과' : ''}</span>
       </div>
-      <div style="height:5px;background:#eee;border-radius:3px;margin-top:6px;">
-        <div style="height:5px;width:${pct}%;background:${ov ? '#E24B4A' : col};border-radius:3px;"></div>
-      </div>`;
+      <div class="px-bar"><div class="px-bar-fill" style="width:${pct}%;background:${ov ? '#E24B4A' : col};"></div></div>`;
   } else {
     const sz = State.betaPwrPorts[pi].size;
     popup.innerHTML = `
       <button class="beta-full-popup-close" onclick="document.getElementById('betaFullPortPopup').style.display='none'">✕</button>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:13px;font-weight:600;color:${col}">포트 ${pi + 1}</span>
-        <span style="font-size:13px;color:#333;">${sz}장</span>
+      <div class="port-info-row">
+        <span class="port-name" style="color:${col}">포트 ${pi + 1}</span>
+        <span class="port-count">${sz}장</span>
       </div>`;
   }
   popup.style.display = 'block';
