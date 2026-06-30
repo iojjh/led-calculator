@@ -16,10 +16,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.64';
-const APP_SW_VERSION = 'v2164';
+const APP_VERSION = '2.1.65';
+const APP_SW_VERSION = 'v2165';
 
 const CHANGELOG = [
+  { v: '2.1.65', items: [
+    '전송장비 스펙 테이블: 최저 해상도 800×600 행 추가, 최대 가로·세로에 가로×세로@Hz 포맷 표시 (660Pro: 3840×600@60Hz / 4K: 7680×1080@60Hz)',
+  ] },
   { v: '2.1.64', items: [
     '코드 품질 — CLAUDE.md 섹션 맵 줄 번호 동기화, margin-left:auto 마지막 인라인 스타일 → .ml-auto 클래스 전환',
   ] },
@@ -3571,8 +3574,9 @@ function _betaBuildSendingHtml(tW, tH) {
       </div>
       <div class="beta-send-detail" id="betaSendD660" style="display:none">
         <table class="beta-send-spec-table">
-          <tr><td>최대 가로</td><td>${fmt(DIM)} 픽셀</td></tr>
-          <tr><td>최대 세로</td><td>${fmt(DIM)} 픽셀</td></tr>
+          <tr><td>최저 해상도</td><td>800 × 600</td></tr>
+          <tr><td>최대 가로</td><td>${fmt(DIM)} 픽셀 (${DIM}×${Math.floor(PX60/DIM)}@60Hz)</td></tr>
+          <tr><td>최대 세로</td><td>${fmt(DIM)} 픽셀 (800×${DIM}@30Hz)</td></tr>
           <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX60)} 픽셀</td></tr>
         </table>
         ${splitHtml([r660_60])}
@@ -3586,8 +3590,9 @@ function _betaBuildSendingHtml(tW, tH) {
       </div>
       <div class="beta-send-detail" id="betaSendD4k" style="display:none">
         <table class="beta-send-spec-table">
-          <tr><td>최대 가로</td><td>${fmt(DIM_4K)} 픽셀</td></tr>
-          <tr><td>최대 세로</td><td>${fmt(DIM_4K)} 픽셀</td></tr>
+          <tr><td>최저 해상도</td><td>800 × 600</td></tr>
+          <tr><td>최대 가로</td><td>${fmt(DIM_4K)} 픽셀 (${DIM_4K}×${Math.floor(3840*2160/DIM_4K)}@60Hz)</td></tr>
+          <tr><td>최대 세로</td><td>${fmt(DIM_4K)} 픽셀 (${Math.floor(3840*2160/DIM_4K)}×${DIM_4K}@60Hz)</td></tr>
           <tr><td>@120Hz 픽셀 상한</td><td>${fmt(PX_4K / 2)} 픽셀</td></tr>
           <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX_4K)} 픽셀</td></tr>
         </table>
