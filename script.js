@@ -16,10 +16,13 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.60';
-const APP_SW_VERSION = 'v2160';
+const APP_VERSION = '2.1.61';
+const APP_SW_VERSION = 'v2161';
 
 const CHANGELOG = [
+  { v: '2.1.61', items: [
+    '코드 품질 — 체크리스트·저장목록·vMix 검색 인라인 스타일 → CSS 클래스 전환 (chk-row, chk-section-label, chk-png-*, si-date, si-actions, empty-msg, vmix-search-row)',
+  ] },
   { v: '2.1.60', items: [
     '코드 품질 개선 — 빈 섹션 헤더(§3·§5·§6) 제거, 포트 정보 반복 인라인 스타일 → CSS 클래스(port-info-row·port-name·px-bar 등) 전환, betaPanels 단위 테스트 11개 추가(npm test)',
   ] },
@@ -1015,30 +1018,30 @@ async function saveChkPng() {
   const row = n => {
     const checked = State.chkState[n];
     const note = State.chkNotes[n] || '';
-    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;">
+    return `<div class="chk-row">
       <span style="font-size:15px;color:${checked ? '#0F6E56' : '#bbb'};flex-shrink:0;margin-top:1px;">${checked ? '✓' : '○'}</span>
-      <div style="flex:1;">
-        <div style="font-size:13px;color:${checked ? '#1a1a1a' : '#666'};">${n}</div>
-        ${note ? `<div style="font-size:11px;color:#888;margin-top:2px;">${note}</div>` : ''}
+      <div class="chk-row-body">
+        <div class="chk-row-name" style="color:${checked ? '#1a1a1a' : '#666'};">${n}</div>
+        ${note ? `<div class="chk-row-note">${note}</div>` : ''}
       </div>
     </div>`;
   };
   const sec = (label, items) => items.length === 0 ? '' :
-    `<div style="font-size:10px;font-weight:600;color:#999;letter-spacing:.05em;text-transform:uppercase;margin:12px 0 4px;">${label}</div>${items.map(row).join('')}`;
+    `<div class="chk-section-label">${label}</div>${items.map(row).join('')}`;
 
   const all = State.COM.length + State.COND.length;
   const done = Object.values(State.chkState).filter(Boolean).length;
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;background:#fff;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-sizing:border-box;';
   wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">장비 체크리스트</div>
-      <div style="font-size:11px;color:#999;">${new Date().toLocaleDateString('ko-KR')}</div>
+    <div class="chk-png-hdr">
+      <div class="chk-png-title">장비 체크리스트</div>
+      <div class="chk-png-date">${new Date().toLocaleDateString('ko-KR')}</div>
     </div>
-    <div style="height:2px;background:#0F6E56;border-radius:1px;margin-bottom:6px;"></div>
-    <div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">${done} / ${all} 완료</div>
+    <div class="chk-png-bar"></div>
+    <div class="chk-png-progress">${done} / ${all} 완료</div>
     ${sec('공통 장비', comItems)}${sec('현장 상황별 장비', condItems)}
-    <div style="height:1px;background:#eee;margin-top:12px;"></div>`;
+    <div class="chk-png-footer"></div>`;
   document.body.appendChild(wrap);
   try {
     const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
@@ -1437,16 +1440,16 @@ function renderSaveList() {
   const saves = JSON.parse(localStorage.getItem('ledCalcSaves') || '[]');
   const el = document.getElementById('saveList');
   if (!saves.length) {
-    el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:16px 0;">저장된 데이터가 없습니다</div>';
+    el.innerHTML = '<div class="empty-msg">저장된 데이터가 없습니다</div>';
     return;
   }
   el.innerHTML = saves.map((s, i) => `
     <div class="save-item">
       <div>
         <div class="si-label">${s.name}</div>
-        <div style="font-size:11px;color:#999;margin-top:2px;">${s.date}</div>
+        <div class="si-date">${s.date}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
+      <div class="si-actions">
         <button class="si-btn" onclick="loadState(${i})">불러오기</button>
         <button class="si-btn" style="background:#E24B4A;" onclick="deleteState(${i})">삭제</button>
       </div>
@@ -1988,9 +1991,9 @@ function vmixRenderLayerPane() {
     </div>`;
   }).join('');
   const emptyMsg = filtered.length === 0
-    ? `<div style="color:#999;font-size:13px;text-align:center;padding:20px 0;">검색 결과 없음</div>` : '';
+    ? `<div class="empty-msg">검색 결과 없음</div>` : '';
   pane.innerHTML = _vmixCatSwatchHtml(_vmixLayerCat, 'vmixSetLayerCat') +
-    `<div style="display:flex;gap:8px;margin-bottom:12px;">
+    `<div class="vmix-search-row">
     <input type="number" class="vmix-layer-search" style="width:72px;" placeholder="번호"
       value="${_vmixLayerNumSearch}" oninput="vmixLayerNumSearch(this.value)">
     <input type="text" class="vmix-layer-search" style="flex:1;" placeholder="이름 검색..."
