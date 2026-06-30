@@ -2,6 +2,7 @@
 import { _toast } from './utils.js';
 import { saveState, loadAppState } from './storage.js';
 import { _histBack } from './modal.js';
+import { vmixFullReset, _vmixAnyChanged } from './vmix.js';
 
 // ── §4  탭 전환 & 버전 표시 ──────────────────────────────
 
@@ -164,4 +165,5 @@ function _onVersionTap() {
 function closeEaster()    { document.getElementById('easterBg').style.display = 'none'; if (history.state && history.state.overlay === 'easter') { _histBack(); } }
 function closeEasterBg(e) { if (e.target === document.getElementById('easterBg')) closeEaster(); }
 export { swTab, _onVersionTap, _updateBarForTab, openTutorial, closeTutorial, closeEaster, closeEasterBg, _tutorialPrev, _tutorialNext };
+
 

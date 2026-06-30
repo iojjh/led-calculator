@@ -918,7 +918,7 @@ function vmixDownload() {
     if (file) { vmixLoad(file); }
   });
 })();
-export {
+export { _vmixAnyChanged, _vmixUpdateSaveBtn,
   vmixLoad, vmixApplyWide, vmixApplyWideSelected, vmixDownload,
   vmixResetAR, vmixResetPos, vmixResetVI, vmixResetSplit,
   vmixSwitchTab, vmixSetArCat, vmixSetPosCat, vmixSetLayerCat,
@@ -931,5 +931,6 @@ export {
   vmixSetSplitCat,
   openVmixSaveModal, closeVmixSaveModal, closeVmixSaveBg,
 };
+
 
 
