@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.71';
-const APP_SW_VERSION = 'v2171';
+const APP_VERSION = '2.1.72';
+const APP_SW_VERSION = 'v2172';
 
 const CHANGELOG = [
+  { v: '2.1.72', items: ['최종 해상도 바 띄어쓰기 정리, vMix 포지션 비율 토글을 최종 해상도 바 바로 아래로 이동'] },
   { v: '2.1.71', items: ['vMix 포지션 비율 테이블 열 이름 변경 — 가로비율→Zoom X, 세로비율→Zoom Y, X이동→Pan X, Y이동→Pan Y'] },
   { v: '2.1.70', items: ['vMix 포지션 비율 테이블 개편 — 토글명 변경, 가로·세로 px 열 제거, 가로비율·세로비율·X이동·Y이동 순 재배치, 볼드 제거 및 가독성 개선'] },
   { v: '2.1.69', items: ['구역별 비율 테이블 Y이동 부호 반전 — vMix 세로 포지션 좌표계 보정'] },
@@ -3647,9 +3648,9 @@ function betaRenderZoneList() {
   const res = _betaCalcResolution();
   const resHtml = res
     ? `<div class="beta-res-bar">
-        최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>&nbsp;=&nbsp;<strong>${(res.w * res.h).toLocaleString()} px</strong>
+        최종 해상도 <strong>${res.w} × ${res.h} px</strong> = <strong>${(res.w * res.h).toLocaleString()} px</strong>
         <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
-       </div>${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}${_betaBuildRatioHtml(res)}`
+       </div>${_betaBuildRatioHtml(res)}${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}`
     : '';
   el.innerHTML = State.betaZones.map((z, i) => {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
