@@ -521,6 +521,7 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .beta-ratio-tbl th{background:#f0f8f5;color:#0F6E56;font-weight:600;font-size:11px;}
 .beta-ratio-px{color:#555;}
 .beta-ratio-r{font-family:monospace;color:#0F6E56;font-weight:600;}
+.beta-ratio-move{font-family:monospace;color:#888;}
 #betaLanUI{margin-top:8px;}
 .beta-lan-tabs{display:flex;border-bottom:2px solid #e8e8e8;margin-bottom:10px;}
 .beta-lan-tab{flex:1;padding:6px 0;border:none;background:transparent;color:#aaa;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
