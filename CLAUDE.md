@@ -115,7 +115,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | §11 | — | **[제거됨]** 랜선·파워콘 시뮬레이터 함수 제거(v2.1.4). git 히스토리·script.backup.js로 복원 가능 |
 | §12 | 1573 | vMix 소스 매크로 (`vmixLoad`, `vmixApplyWide`, `vmixDownload`, `vmixRenderSplitPane`, `vmixAutoSplit`, `vmixResetSplit` 등) |
 | §13 | 2465 | 일정 불러오기 (`openSchedModal`, `closeSchedModal`, `_schedRender`, `_schedSaveSettings`, `_schedInitMsal`, `_schedLogin`, `_schedToken`, `_schedRenderEvents`, `_schedRenderList`, `_setSchedTab`, `_schedSelectEvent`, `_schedParseText`, `_schedApplyParsedBeta`, `_toast`, `_se`) — MSAL.js 지연 로드, Outlook 일정→Claude 파싱→LED 피치·면적 자동 적용. 설정(Azure 클라이언트 ID, Claude API 키)은 localStorage `bsp_client_id`/`bsp_claude_key`. 모듈 변수: `_msalInst`, `_schedAccount`, `_schedEvents`, `_schedTab` |
-| §14 | 2773 | LED 설계 탭 (구 혼합 시뮬레이터 β) (`showResPreview`, `selectResVersion`, `betaSaveGuideImage`, `_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `betaRenderZoneList`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaRenderPwrPorts`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN/PWR 모드 전환, 뱀형 자동할당 |
+| §14 | 2773 | LED 설계 탭 (구 혼합 시뮬레이터 β) (`showResPreview`, `selectResVersion`, `betaSaveGuideImage`, `_betaGW`, `_betaGH`, `_betaSc`, `_betaCellAt`, `_betaOverlaps`, `_betaZoneAt`, `betaPanels`, `_betaAllPanels`, `_betaPanelAt`, `_betaPxOf`, `_betaOwner`, `betaApplyArea`, `betaSetMode`, `betaRender`, `betaDrawEdit`, `_betaBuildRatioHtml`, `betaRenderZoneList`, `betaToggleRatio`, `betaSelectZone`, `betaDeleteZone`, `betaEditZone`, `betaShowCfgPanel`, `betaCfgApply`, `betaCfgCancel`, `betaAttachEditEv`, `betaDrawLan`, `betaRenderLanUI`, `betaRenderPorts`, `betaRenderSum`, `betaRenderLeg`, `betaRenderPwrPorts`, `betaAssign`, `betaDeassign`, `betaRstPort`, `betaRstAllPorts`, `betaReset`, `betaAutoAssign`, `betaAttachLanEv`) — 격자 드래그 구역 선택, LED·패널 혼합, Zone→패널 계산(`betaPanels`), 편집 모드 & LAN/PWR 모드 전환, 뱀형 자동할당 |
 
 **핵심 전역 상태 — `const State` (§1, line 759)**
 
@@ -137,6 +137,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | `State.betaPwrAPort` | β PWR 현재 선택 포트 번호 |
 | `State.betaSpareAdj` | β 케이블 예비 설정 `{l1, sl}` |
 | `State._betaCache` | `_betaAllPanels()` 결과 캐시 (편집 시 `null`로 초기화) |
+| `State._betaRatioOpen` | 구역별 비율 토글 패널 열림 여부 (`false` = 접힘) |
 
 **비활성 State 키 (계산기 탭 제거·내보내기 버튼 제거로 데드코드)**
 

@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.65';
-const APP_SW_VERSION = 'v2165';
+const APP_VERSION = '2.1.66';
+const APP_SW_VERSION = 'v2166';
 
 const CHANGELOG = [
+  { v: '2.1.66', items: ['LED 설계 탭 구역 목록에 구역별 비율 토글 추가 — 전체 해상도 대비 각 구역 가로·세로 픽셀 비율(소수점 5자리) 펼침/접기'] },
   { v: '2.1.65', items: [
     '전송장비 스펙 테이블: 최저 해상도 800×600 행 추가, 최대 가로·세로에 가로×세로@Hz 포맷 표시 (660Pro: 3840×600@60Hz / 4K: 7680×1080@60Hz)',
   ] },
@@ -840,7 +841,8 @@ const State = {
   _betaLanLpT:  null,
   _betaFCell:   null,
   _betaLanDHov: null,
-  _betaCache:   null,
+  _betaCache:       null,
+  _betaRatioOpen:   false,
 
   lanExpanded:  false,
   betaImport:   null,
@@ -3602,6 +3604,29 @@ function _betaBuildSendingHtml(tW, tH) {
   </div>`;
 }
 
+function _betaBuildRatioHtml(res) {
+  const label = State._betaRatioOpen ? '▲ 구역별 비율' : '▶ 구역별 비율';
+  let h = `<button class="beta-ratio-toggle-btn" onclick="betaToggleRatio()">${label}</button>`;
+  if (!State._betaRatioOpen) { return h; }
+  const rows = State.betaZones.map((z, i) => {
+    const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
+    const zW = z.cols * SPECS[z.led].px500.w;
+    const zH = z.rows * SPECS[z.led].px500.h;
+    const rW = (zW / res.w).toFixed(5);
+    const rH = (zH / res.h).toFixed(5);
+    return `<tr>
+      <td><span class="beta-zone-tag" style="color:${col}">구역 ${i + 1}</span></td>
+      <td class="beta-ratio-px">${zW}</td><td class="beta-ratio-r">${rW}</td>
+      <td class="beta-ratio-px">${zH}</td><td class="beta-ratio-r">${rH}</td>
+    </tr>`;
+  }).join('');
+  h += `<table class="beta-ratio-tbl">
+    <thead><tr><th>구역</th><th>가로 px</th><th>가로 비율</th><th>세로 px</th><th>세로 비율</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  return h;
+}
+
 function betaRenderZoneList() {
   const el = document.getElementById('betaZoneList');
   if (!el) { return; }
@@ -3615,7 +3640,7 @@ function betaRenderZoneList() {
     ? `<div class="beta-res-bar">
         최종 해상도&nbsp; <strong>${res.w} × ${res.h} px</strong>&nbsp;=&nbsp;<strong>${(res.w * res.h).toLocaleString()} px</strong>
         <button class="beta-guide-btn" onclick="betaSaveGuideImage()">가이드 이미지 저장</button>
-       </div>${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}`
+       </div>${_betaBuildSendingHtml(res.w, res.h)}${_betaBuildPanelTable()}${_betaBuildRatioHtml(res)}`
     : '';
   el.innerHTML = State.betaZones.map((z, i) => {
     const col = BETA_ZONE_LINE[i % BETA_ZONE_LINE.length];
@@ -3628,6 +3653,11 @@ function betaRenderZoneList() {
       <button class="beta-zone-del-btn" onclick="event.stopPropagation();betaDeleteZone('${z.id}')">삭제</button>
     </div>`;
   }).join('') + resHtml;
+}
+
+function betaToggleRatio() {
+  State._betaRatioOpen = !State._betaRatioOpen;
+  betaRenderZoneList();
 }
 
 function betaSelectZone(id) {
