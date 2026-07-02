@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.67';
-const APP_SW_VERSION = 'v2167';
+const APP_VERSION = '2.1.68';
+const APP_SW_VERSION = 'v2168';
 
 const CHANGELOG = [
+  { v: '2.1.68', items: ['구역별 비율 테이블 X이동·Y이동 명칭 수정 — 가로 비율 옆 X이동, 세로 비율 옆 Y이동으로 교체'] },
   { v: '2.1.67', items: ['구역별 비율 테이블에 Y이동·X이동 열 추가 — 가로 비율 옆 Y이동(vMix PanX), 세로 비율 옆 X이동(vMix PanY), 구역 위치 기반 일반화 공식 적용'] },
   { v: '2.1.66', items: ['LED 설계 탭 구역 목록에 구역별 비율 토글 추가 — 전체 해상도 대비 각 구역 가로·세로 픽셀 비율(소수점 5자리) 펼침/접기'] },
   { v: '2.1.65', items: [
@@ -3626,7 +3627,7 @@ function _betaBuildRatioHtml(res) {
     </tr>`;
   }).join('');
   h += `<table class="beta-ratio-tbl">
-    <thead><tr><th>구역</th><th>가로 px</th><th>가로 비율</th><th>Y이동</th><th>세로 px</th><th>세로 비율</th><th>X이동</th></tr></thead>
+    <thead><tr><th>구역</th><th>가로 px</th><th>가로 비율</th><th>X이동</th><th>세로 px</th><th>세로 비율</th><th>Y이동</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
   return h;
