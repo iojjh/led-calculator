@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.69';
-const APP_SW_VERSION = 'v2169';
+const APP_VERSION = '2.1.70';
+const APP_SW_VERSION = 'v2170';
 
 const CHANGELOG = [
+  { v: '2.1.70', items: ['vMix 포지션 비율 테이블 개편 — 토글명 변경, 가로·세로 px 열 제거, 가로비율·세로비율·X이동·Y이동 순 재배치, 볼드 제거 및 가독성 개선'] },
   { v: '2.1.69', items: ['구역별 비율 테이블 Y이동 부호 반전 — vMix 세로 포지션 좌표계 보정'] },
   { v: '2.1.68', items: ['구역별 비율 테이블 X이동·Y이동 명칭 수정 — 가로 비율 옆 X이동, 세로 비율 옆 Y이동으로 교체'] },
   { v: '2.1.67', items: ['구역별 비율 테이블에 Y이동·X이동 열 추가 — 가로 비율 옆 Y이동(vMix PanX), 세로 비율 옆 X이동(vMix PanY), 구역 위치 기반 일반화 공식 적용'] },
@@ -3608,7 +3609,7 @@ function _betaBuildSendingHtml(tW, tH) {
 }
 
 function _betaBuildRatioHtml(res) {
-  const label = State._betaRatioOpen ? '▲ 구역별 비율' : '▶ 구역별 비율';
+  const label = State._betaRatioOpen ? '▲ vMix 포지션 비율' : '▶ vMix 포지션 비율';
   let h = `<button class="beta-ratio-toggle-btn" onclick="betaToggleRatio()">${label}</button>`;
   if (!State._betaRatioOpen) { return h; }
   const rows = State.betaZones.map((z, i) => {
@@ -3623,12 +3624,12 @@ function _betaBuildRatioHtml(res) {
     const xMv = (1 - (2 * spY + zH) / res.h).toFixed(3);
     return `<tr>
       <td><span class="beta-zone-tag" style="color:${col}">구역 ${i + 1}</span></td>
-      <td class="beta-ratio-px">${zW}</td><td class="beta-ratio-r">${rW}</td><td class="beta-ratio-move">${yMv}</td>
-      <td class="beta-ratio-px">${zH}</td><td class="beta-ratio-r">${rH}</td><td class="beta-ratio-move">${xMv}</td>
+      <td class="beta-ratio-r">${rW}</td><td class="beta-ratio-r">${rH}</td>
+      <td class="beta-ratio-move">${yMv}</td><td class="beta-ratio-move">${xMv}</td>
     </tr>`;
   }).join('');
   h += `<table class="beta-ratio-tbl">
-    <thead><tr><th>구역</th><th>가로 px</th><th>가로 비율</th><th>X이동</th><th>세로 px</th><th>세로 비율</th><th>Y이동</th></tr></thead>
+    <thead><tr><th>구역</th><th>가로 비율</th><th>세로 비율</th><th>X이동</th><th>Y이동</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
   return h;
