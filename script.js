@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.70';
-const APP_SW_VERSION = 'v2170';
+const APP_VERSION = '2.1.71';
+const APP_SW_VERSION = 'v2171';
 
 const CHANGELOG = [
+  { v: '2.1.71', items: ['vMix 포지션 비율 테이블 열 이름 변경 — 가로비율→Zoom X, 세로비율→Zoom Y, X이동→Pan X, Y이동→Pan Y'] },
   { v: '2.1.70', items: ['vMix 포지션 비율 테이블 개편 — 토글명 변경, 가로·세로 px 열 제거, 가로비율·세로비율·X이동·Y이동 순 재배치, 볼드 제거 및 가독성 개선'] },
   { v: '2.1.69', items: ['구역별 비율 테이블 Y이동 부호 반전 — vMix 세로 포지션 좌표계 보정'] },
   { v: '2.1.68', items: ['구역별 비율 테이블 X이동·Y이동 명칭 수정 — 가로 비율 옆 X이동, 세로 비율 옆 Y이동으로 교체'] },
@@ -3629,7 +3630,7 @@ function _betaBuildRatioHtml(res) {
     </tr>`;
   }).join('');
   h += `<table class="beta-ratio-tbl">
-    <thead><tr><th>구역</th><th>가로 비율</th><th>세로 비율</th><th>X이동</th><th>Y이동</th></tr></thead>
+    <thead><tr><th>구역</th><th>Zoom X</th><th>Zoom Y</th><th>Pan X</th><th>Pan Y</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
   return h;
