@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.72';
-const APP_SW_VERSION = 'v2172';
+const APP_VERSION = '2.1.73';
+const APP_SW_VERSION = 'v2173';
 
 const CHANGELOG = [
+  { v: '2.1.73', items: ['일정 불러오기로 생성된 구역의 편집·삭제 버튼이 동작하지 않던 문제 수정 — 구역 id 생성 방식을 기존 _betaZid()로 통일'] },
   { v: '2.1.72', items: ['최종 해상도 바 띄어쓰기 정리, vMix 포지션 비율 토글을 최종 해상도 바 바로 아래로 이동'] },
   { v: '2.1.71', items: ['vMix 포지션 비율 테이블 열 이름 변경 — 가로비율→Zoom X, 세로비율→Zoom Y, X이동→Pan X, Y이동→Pan Y'] },
   { v: '2.1.70', items: ['vMix 포지션 비율 테이블 개편 — 토글명 변경, 가로·세로 px 열 제거, 가로비율·세로비율·X이동·Y이동 순 재배치, 볼드 제거 및 가독성 개선'] },
@@ -2700,7 +2701,7 @@ function _schedApplyParsedBeta(parsed) {
   const panelH   = parsed.pitch === 2 ? 500 : 1000;
   State.betaAreaW    = gridCols * 500;
   State.betaAreaH    = gridRows * 500;
-  State.betaZones    = [{ id: Date.now(), startRow: 0, startCol: 0, rows: gridRows, cols: gridCols, led, panelW: 500, panelH }];
+  State.betaZones    = [{ id: _betaZid(), startRow: 0, startCol: 0, rows: gridRows, cols: gridCols, led, panelW: 500, panelH }];
   State._betaCache   = null;
   State.betaMode     = 'edit';
   State.betaPorts    = Array.from({ length: 16 }, () => new Set());
