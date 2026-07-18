@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.73';
-const APP_SW_VERSION = 'v2173';
+const APP_VERSION = '2.1.74';
+const APP_SW_VERSION = 'v2174';
 
 const CHANGELOG = [
+  { v: '2.1.74', items: ['LED 설계 탭 설치 면적 입력 아래 대각선 인치 표시 추가 (예: 대각선 158.7" (약 159형))'] },
   { v: '2.1.73', items: ['일정 불러오기로 생성된 구역의 편집·삭제 버튼이 동작하지 않던 문제 수정 — 구역 id 생성 방식을 기존 _betaZid()로 통일'] },
   { v: '2.1.72', items: ['최종 해상도 바 띄어쓰기 정리, vMix 포지션 비율 토글을 최종 해상도 바 바로 아래로 이동'] },
   { v: '2.1.71', items: ['vMix 포지션 비율 테이블 열 이름 변경 — 가로비율→Zoom X, 세로비율→Zoom Y, X이동→Pan X, Y이동→Pan Y'] },
@@ -3077,11 +3078,18 @@ function betaSetMode(m) {
   }, { once: true });
 }
 
+function _betaAreaInchLabel(w, h) {
+  if (!w || !h) { return ''; }
+  const inch = Math.sqrt(w ** 2 + h ** 2) / 25.4;
+  return `대각선 ${inch.toFixed(1)}" (약 ${Math.round(inch)}형)`;
+}
+
 function betaRender() {
   const cv = document.getElementById('betaCanvas');
   if (!cv) { return; }
   if (State.betaAreaW) { document.getElementById('betaW').value = State.betaAreaW / 1000; }
   if (State.betaAreaH) { document.getElementById('betaH').value = State.betaAreaH / 1000; }
+  document.getElementById('betaAreaInch').textContent = _betaAreaInchLabel(State.betaAreaW, State.betaAreaH);
   document.getElementById('betaModeEdit').classList.toggle('on', State.betaMode === 'edit');
   document.getElementById('betaModeLan').classList.toggle('on',  State.betaMode === 'lan');
 

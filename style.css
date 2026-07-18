@@ -489,6 +489,7 @@ input[type=number].vmix-vi-layer-num{-moz-appearance:textfield;}
 .beta-area-inp{width:60px;padding:5px 6px;border:1px solid #ccc;border-radius:7px;font-size:14px;text-align:center;}
 .beta-apply-btn{padding:6px 12px;background:#0F6E56;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
 .beta-apply-btn:active{opacity:.85;}
+.beta-area-inch{font-size:12px;color:#888;}
 .beta-mode-row{display:flex;gap:6px;position:relative;z-index:2;}
 .beta-mode-btn{flex:1;padding:7px 0;border:2px solid #0F6E56;background:#fff;color:#0F6E56;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
 .beta-mode-btn.on{background:#0F6E56;color:#fff;}
