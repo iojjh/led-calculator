@@ -16,10 +16,11 @@
 
 // ── §1  스펙 데이터 & 상수 ────────────────────────────────
 
-const APP_VERSION = '2.1.74';
-const APP_SW_VERSION = 'v2174';
+const APP_VERSION = '2.1.75';
+const APP_SW_VERSION = 'v2175';
 
 const CHANGELOG = [
+  { v: '2.1.75', items: ['샌딩카드 상세 스펙 토글을 설치 면적 미입력 상태에서도 표시 (배지 없이 660 Pro·4K 스펙 표만 확인 가능)'] },
   { v: '2.1.74', items: ['LED 설계 탭 설치 면적 입력 아래 대각선 인치 표시 추가 (예: 대각선 158.7" (약 159형))'] },
   { v: '2.1.73', items: ['일정 불러오기로 생성된 구역의 편집·삭제 버튼이 동작하지 않던 문제 수정 — 구역 id 생성 방식을 기존 _betaZid()로 통일'] },
   { v: '2.1.72', items: ['최종 해상도 바 띄어쓰기 정리, vMix 포지션 비율 토글을 최종 해상도 바 바로 아래로 이동'] },
@@ -3098,7 +3099,7 @@ function betaRender() {
   if (!State.betaAreaW || !State.betaAreaH) {
     cv.style.display = 'none';
     if (cvBg) { cvBg.style.display = 'none'; }
-    document.getElementById('betaZoneList').innerHTML = '<div class="beta-empty-hint">설치 면적을 입력 후 [적용]을 누르세요.</div>';
+    document.getElementById('betaZoneList').innerHTML = '<div class="beta-empty-hint">설치 면적을 입력 후 [적용]을 누르세요.</div>' + _betaBuildSendingHtml();
     document.getElementById('betaLanUI').style.display = 'none';
     document.getElementById('betaZoneCfg').style.display = 'none';
     if (fb) { fb.style.display = 'none'; }
@@ -3507,6 +3508,7 @@ function _betaSendToggle(id) {
 
 function _betaBuildSendingHtml(tW, tH) {
   const fmt = n => Math.round(n).toLocaleString();
+  const hasRes = !!(tW && tH);
 
   // 660 Pro: 최대 60Hz / @60Hz 픽셀 상한 2,304,000 / @30Hz 치수(3840)만
   const PX60 = 1920 * 1200;
@@ -3564,22 +3566,27 @@ function _betaBuildSendingHtml(tW, tH) {
   };
 
   // 660 Pro 결과
-  const r660_60 = _eval660(60);
-  const r660_30 = _eval660(30);
-  let badges660 = badge(r660_60);
-  if (r660_60.cls === 'ng' || (r660_60.cls === 'ok2' && r660_30.cls === 'ok')) { badges660 += badge(r660_30); }
+  let badges660 = '', r660_60 = null;
+  if (hasRes) {
+    r660_60 = _eval660(60);
+    const r660_30 = _eval660(30);
+    badges660 = badge(r660_60);
+    if (r660_60.cls === 'ng' || (r660_60.cls === 'ok2' && r660_30.cls === 'ok')) { badges660 += badge(r660_30); }
+  }
 
   // 4K 결과
-  const r4k120 = _eval4K(120);
-  const r4k60  = _eval4K(60);
   let badges4k = '', shown4k = [];
-  if (r4k120.cls !== 'ng') {
-    badges4k = badge(r4k120);
-    shown4k = [r4k120];
-    if (r4k120.cls === 'ok2' && r4k60.cls === 'ok') { badges4k += badge(r4k60); shown4k.push(r4k60); }
-  } else {
-    badges4k = badge(r4k60);
-    shown4k = [r4k60];
+  if (hasRes) {
+    const r4k120 = _eval4K(120);
+    const r4k60  = _eval4K(60);
+    if (r4k120.cls !== 'ng') {
+      badges4k = badge(r4k120);
+      shown4k = [r4k120];
+      if (r4k120.cls === 'ok2' && r4k60.cls === 'ok') { badges4k += badge(r4k60); shown4k.push(r4k60); }
+    } else {
+      badges4k = badge(r4k60);
+      shown4k = [r4k60];
+    }
   }
 
   return `<div class="beta-send-block">
@@ -3596,7 +3603,7 @@ function _betaBuildSendingHtml(tW, tH) {
           <tr><td>최대 세로</td><td>${fmt(DIM)} 픽셀 (800×${DIM}@30Hz)</td></tr>
           <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX60)} 픽셀</td></tr>
         </table>
-        ${splitHtml([r660_60])}
+        ${hasRes ? splitHtml([r660_60]) : ''}
       </div>
     </div>
     <div class="beta-send-card-wrap">
@@ -3613,7 +3620,7 @@ function _betaBuildSendingHtml(tW, tH) {
           <tr><td>@120Hz 픽셀 상한</td><td>${fmt(PX_4K / 2)} 픽셀</td></tr>
           <tr><td>@60Hz 픽셀 상한</td><td>${fmt(PX_4K)} 픽셀</td></tr>
         </table>
-        ${splitHtml(shown4k)}
+        ${hasRes ? splitHtml(shown4k) : ''}
       </div>
     </div>
   </div>`;
